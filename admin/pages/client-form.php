@@ -150,16 +150,21 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <input type="password" id="password" name="password" class="form-control case-form-control" minlength="6" autocomplete="new-password">
+                            <input type="password" id="password" name="password" class="form-control case-form-control"
+                                   minlength="8" autocomplete="new-password"
+                                   pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                   title="At least 8 characters with uppercase, lowercase, and a number.">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
+                        <p class="text-muted small mb-0 mt-1">At least 8 characters with uppercase, lowercase, and a number.</p>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control" minlength="6" autocomplete="new-password">
+                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
+                                   minlength="8" autocomplete="new-password">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -188,16 +193,21 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <input type="password" id="password" name="password" class="form-control case-form-control" minlength="6" autocomplete="new-password">
+                            <input type="password" id="password" name="password" class="form-control case-form-control"
+                                   minlength="8" autocomplete="new-password"
+                                   pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                   title="At least 8 characters with uppercase, lowercase, and a number.">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
+                        <p class="text-muted small mb-0 mt-1">At least 8 characters with uppercase, lowercase, and a number.</p>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control" minlength="6" autocomplete="new-password">
+                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
+                                   minlength="8" autocomplete="new-password">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -224,6 +234,22 @@ require __DIR__ . '/../includes/header.php';
 $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/intlTelInput.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    function passwordStrengthError(value) {
+        if (value.length < 8) {
+            return "Password must be at least 8 characters.";
+        }
+        if (!/[A-Z]/.test(value)) {
+            return "Password must contain at least one uppercase letter.";
+        }
+        if (!/[a-z]/.test(value)) {
+            return "Password must contain at least one lowercase letter.";
+        }
+        if (!/[0-9]/.test(value)) {
+            return "Password must contain at least one number.";
+        }
+        return "";
+    }
+
     var form = document.querySelector(".case-form");
     var phoneInput = document.getElementById("phone");
     var iti = null;
@@ -237,9 +263,32 @@ document.addEventListener("DOMContentLoaded", function() {
         });
 
         if (form) {
-            form.addEventListener("submit", function() {
-                var fullNumber = iti.getNumber();
-                phoneInput.value = fullNumber || phoneInput.value.trim();
+            form.addEventListener("submit", function(e) {
+                if (phoneInput && iti) {
+                    phoneInput.value = iti.getNumber() || phoneInput.value.trim();
+                }
+
+                var loginCheckbox = document.getElementById("create_login");
+                var pwd = document.getElementById("password");
+                var pwdConfirm = document.getElementById("password_confirmation");
+
+                if (loginCheckbox && loginCheckbox.checked && pwd) {
+                    var strengthError = passwordStrengthError(pwd.value);
+                    if (strengthError) {
+                        e.preventDefault();
+                        pwd.setCustomValidity(strengthError);
+                        pwd.reportValidity();
+                        pwd.setCustomValidity("");
+                        return;
+                    }
+
+                    if (pwdConfirm && pwd.value !== pwdConfirm.value) {
+                        e.preventDefault();
+                        pwdConfirm.setCustomValidity("Password confirmation does not match.");
+                        pwdConfirm.reportValidity();
+                        pwdConfirm.setCustomValidity("");
+                    }
+                }
             });
         }
     }

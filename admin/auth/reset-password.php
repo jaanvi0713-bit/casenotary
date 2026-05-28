@@ -17,8 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password        = $_POST['password'] ?? '';
         $confirmPassword = $_POST['password_confirmation'] ?? '';
 
-        if (strlen($password) < 8) {
-            $error = 'Password must be at least 8 characters.';
+        if (($strengthError = passwordStrengthError($password)) !== null) {
+            $error = $strengthError;
         } elseif ($password !== $confirmPassword) {
             $error = 'Passwords do not match.';
         } else {
@@ -78,15 +78,19 @@ $pageTitle = 'Reset Password';
 
                     <div class="form-floating mb-3">
                         <input type="password" class="form-control" id="password" name="password"
-                               placeholder="Password" required minlength="8">
+                               placeholder="Password" required minlength="8"
+                               pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                               title="At least 8 characters with uppercase, lowercase, and a number.">
                         <label for="password"><i class="bi bi-lock me-2"></i>New Password</label>
                     </div>
 
-                    <div class="form-floating mb-4">
+                    <div class="form-floating mb-3">
                         <input type="password" class="form-control" id="password_confirmation" name="password_confirmation"
-                               placeholder="Confirm Password" required>
+                               placeholder="Confirm Password" required minlength="8">
                         <label for="password_confirmation"><i class="bi bi-lock-fill me-2"></i>Confirm Password</label>
                     </div>
+
+                    <p class="text-muted small mb-4">At least 8 characters with uppercase, lowercase, and a number.</p>
 
                     <button type="submit" class="btn btn-primary btn-auth w-100 mb-3">
                         <span>Update Password</span>

@@ -150,6 +150,11 @@ class ClientService
         }
 
         $plainPassword = trim($password);
+        $strengthError = passwordStrengthError($plainPassword);
+        if ($strengthError !== null) {
+            throw new RuntimeException($strengthError);
+        }
+
         $userId        = self::createUserAccount(
             $client['email'],
             $plainPassword,
@@ -166,7 +171,21 @@ class ClientService
 
     public static function generatePassword(int $length = 10): string
     {
-        return substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'), 0, $length);
+        $length = max(8, $length);
+        $upper  = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+        $lower  = 'abcdefghjkmnpqrstuvwxyz';
+        $digits = '23456789';
+        $all    = $upper . $lower . $digits;
+
+        $password = $upper[random_int(0, strlen($upper) - 1)]
+            . $lower[random_int(0, strlen($lower) - 1)]
+            . $digits[random_int(0, strlen($digits) - 1)];
+
+        for ($i = 3; $i < $length; $i++) {
+            $password .= $all[random_int(0, strlen($all) - 1)];
+        }
+
+        return str_shuffle($password);
     }
 
     private static function resolvePortalPassword(array $data): string
@@ -178,8 +197,9 @@ class ClientService
             throw new RuntimeException('Please enter a portal password.');
         }
 
-        if (strlen($password) < 6) {
-            throw new RuntimeException('Portal password must be at least 6 characters.');
+        $strengthError = passwordStrengthError($password);
+        if ($strengthError !== null) {
+            throw new RuntimeException($strengthError);
         }
 
         if ($password !== $confirm) {
