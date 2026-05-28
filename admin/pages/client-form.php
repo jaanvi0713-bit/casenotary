@@ -23,6 +23,7 @@ require __DIR__ . '/../includes/header.php';
 ?>
 
 <link href="<?= asset('css/case-workspace.css') ?>" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/css/intlTelInput.css" rel="stylesheet">
 
 <div class="case-form-page">
     <div class="case-form-header">
@@ -71,8 +72,8 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="phone">Phone</label>
-                        <input type="text" id="phone" name="phone" class="form-control case-form-control"
-                               value="<?= e($client['phone'] ?? old('phone')) ?>">
+                        <input type="tel" id="phone" name="phone" class="form-control case-form-control"
+                               value="<?= e($client['phone'] ?? old('phone')) ?>" autocomplete="tel">
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="company_name">Company</label>
@@ -200,8 +201,29 @@ require __DIR__ . '/../includes/header.php';
 </div>
 
 <?php
-$pageScripts = '<script>
+$pageScripts = '<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/intlTelInput.min.js"></script>
+<script>
 document.addEventListener("DOMContentLoaded", function() {
+    var form = document.querySelector(".case-form");
+    var phoneInput = document.getElementById("phone");
+    var iti = null;
+
+    if (phoneInput && window.intlTelInput) {
+        iti = window.intlTelInput(phoneInput, {
+            separateDialCode: true,
+            initialCountry: "us",
+            preferredCountries: ["us", "mu", "gb", "ca", "au", "in"],
+            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/utils.js"
+        });
+
+        if (form) {
+            form.addEventListener("submit", function() {
+                var fullNumber = iti.getNumber();
+                phoneInput.value = fullNumber || phoneInput.value.trim();
+            });
+        }
+    }
+
     var checkbox = document.getElementById("create_login");
     var fields = document.getElementById("portalPasswordFields");
     var password = document.getElementById("password");

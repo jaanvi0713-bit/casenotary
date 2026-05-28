@@ -528,6 +528,41 @@ textarea.case-form-control {
 
 .case-inline-form { margin-top: 0.5rem; }
 
+/* International phone input (client form) */
+.case-form .iti {
+    display: block;
+    width: 100%;
+}
+
+.case-form .iti .form-control {
+    width: 100%;
+}
+
+.case-form .iti__country-container {
+    padding-left: 0.75rem;
+}
+
+.case-form .iti__selected-country {
+    border-radius: 8px 0 0 8px;
+}
+
+.case-form .iti__selected-dial-code {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.case-form .iti__dropdown-content {
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.case-form .iti__search-input {
+    border-radius: 6px;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.875rem;
+}
+
 .cases-table-link {
     color: inherit;
     transition: color 0.2s ease;
