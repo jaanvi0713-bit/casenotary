@@ -4,7 +4,7 @@ require_once __DIR__ . '/../core/bootstrap.php';
 Auth::requireAdmin();
 
 $pageTitle = 'Cases';
-$pageSubtitle = 'Track and manage all client cases';
+$pageSubtitle = 'Legal case workspaces — manage clients, documents, billing & more';
 $cases = getAllCases();
 
 require __DIR__ . '/../includes/header.php';
@@ -16,6 +16,9 @@ require __DIR__ . '/../includes/header.php';
             <h2 class="saas-card-title">Case Management</h2>
             <p class="saas-card-subtitle"><?= count($cases) ?> total cases</p>
         </div>
+        <a href="<?= url('pages/case-form.php') ?>" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg"></i> New Case
+        </a>
     </div>
     <div class="table-toolbar">
         <div class="table-search">
@@ -26,7 +29,7 @@ require __DIR__ . '/../includes/header.php';
             <option value="">All statuses</option>
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
-            <option value="waiting_for_client">Waiting</option>
+            <option value="waiting_for_client">Waiting for Client</option>
             <option value="completed">Completed</option>
             <option value="closed">Closed</option>
         </select>
@@ -35,7 +38,7 @@ require __DIR__ . '/../includes/header.php';
         <?php if (empty($cases)): ?>
             <div class="empty-state py-5">
                 <i class="bi bi-briefcase"></i>
-                <p>No cases found. Create a case to get started.</p>
+                <p>No cases found. <a href="<?= url('pages/case-form.php') ?>">Create your first case</a>.</p>
             </div>
         <?php else: ?>
             <div class="table-responsive">
@@ -50,19 +53,26 @@ require __DIR__ . '/../includes/header.php';
                             <th>Priority</th>
                             <th>Deadline</th>
                             <th>Status</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($cases as $case): ?>
                             <tr data-status="<?= e($case['status']) ?>">
-                                <td><strong><?= e($case['case_number']) ?></strong></td>
                                 <td>
-                                    <div class="case-cell">
-                                        <strong><?= e($case['title']) ?></strong>
-                                        <?php if ($case['company_name']): ?>
-                                            <small><?= e($case['company_name']) ?></small>
-                                        <?php endif; ?>
-                                    </div>
+                                    <a href="<?= url('pages/case-view.php?id=' . $case['id']) ?>" class="cases-table-link">
+                                        <strong><?= e($case['case_number']) ?></strong>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="<?= url('pages/case-view.php?id=' . $case['id']) ?>" class="cases-table-link">
+                                        <div class="case-cell">
+                                            <strong><?= e($case['title']) ?></strong>
+                                            <?php if ($case['company_name']): ?>
+                                                <small><?= e($case['company_name']) ?></small>
+                                            <?php endif; ?>
+                                        </div>
+                                    </a>
                                 </td>
                                 <td><?= e(clientFullName($case)) ?></td>
                                 <td><?= e($case['service_type']) ?></td>
@@ -70,6 +80,9 @@ require __DIR__ . '/../includes/header.php';
                                 <td><?= priorityBadge($case['priority']) ?></td>
                                 <td><?= formatDate($case['deadline']) ?></td>
                                 <td><?= statusBadge($case['status']) ?></td>
+                                <td>
+                                    <a href="<?= url('pages/case-view.php?id=' . $case['id']) ?>" class="btn btn-soft btn-sm">Open</a>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

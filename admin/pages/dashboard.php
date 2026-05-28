@@ -183,8 +183,10 @@ require __DIR__ . '/../includes/header.php';
                             <?php foreach ($recentCases as $case): ?>
                                 <tr data-status="<?= e($case['status']) ?>">
                                     <td>
-                                        <span class="table-primary"><?= e($case['case_number']) ?></span>
-                                        <span class="table-secondary d-block"><?= e($case['title']) ?></span>
+                                        <a href="<?= url('pages/case-view.php?id=' . $case['id']) ?>" class="cases-table-link">
+                                            <span class="table-primary"><?= e($case['case_number']) ?></span>
+                                            <span class="table-secondary d-block"><?= e($case['title']) ?></span>
+                                        </a>
                                     </td>
                                     <td><?= e(clientFullName($case)) ?></td>
                                     <td><?= statusBadge($case['status']) ?></td>
@@ -236,6 +238,10 @@ $pageScripts = '<script>
 document.addEventListener("DOMContentLoaded", function() {
     const primary = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#3aafa9";
     const secondary = getComputedStyle(document.documentElement).getPropertyValue("--secondary").trim() || "#00182c";
+    const currencySymbol = ' . json_encode(currencySymbol()) . ';
+    const formatMoney = function(v) {
+        return currencySymbol + " " + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
 
     const monthLabels = ' . json_encode($chartData['labels']) . ';
     const revenueData = ' . json_encode($chartData['data']) . ';
@@ -308,7 +314,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         bodyFont: { family: "Montserrat", size: 12 },
                         callbacks: {
                             label: function(c) {
-                                return c.dataset.label + ": $" + c.parsed.y.toLocaleString("en-US", { minimumFractionDigits: 2 });
+                                return c.dataset.label + ": " + formatMoney(c.parsed.y);
                             }
                         }
                     }
@@ -326,7 +332,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         ticks: {
                             font: { family: "Montserrat", size: 11 },
                             color: "#94a3b8",
-                            callback: function(v) { return "$" + v.toLocaleString(); }
+                            callback: function(v) { return formatMoney(v); }
                         }
                     }
                 }
@@ -386,7 +392,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         cornerRadius: 8,
                         callbacks: {
                             label: function(c) {
-                                return c.dataset.label + ": $" + c.parsed.y.toLocaleString("en-US", { minimumFractionDigits: 2 });
+                                return c.dataset.label + ": " + formatMoney(c.parsed.y);
                             }
                         }
                     }
@@ -406,7 +412,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         ticks: {
                             font: { family: "Montserrat", size: 11 },
                             color: "#94a3b8",
-                            callback: function(v) { return "$" + v.toLocaleString(); }
+                            callback: function(v) { return formatMoney(v); }
                         }
                     }
                 }

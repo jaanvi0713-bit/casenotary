@@ -7,6 +7,12 @@ return [
     'timezone'    => 'America/New_York',
     'debug'       => true,
 
+    'currency' => [
+        'code'   => 'INR',
+        'symbol' => 'Rs',
+        'locale' => 'en-IN',
+    ],
+
     'session' => [
         'name'     => 'NOTARY_SESSION',
         'lifetime' => 7200,

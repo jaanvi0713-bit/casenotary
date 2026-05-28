@@ -23,7 +23,7 @@ require __DIR__ . '/../includes/header.php';
 <div class="page-header">
     <div>
         <h1 class="page-title">My Dashboard</h1>
-        <p class="page-subtitle">Welcome back, <?= e($user['first_name']) ?>! Here is an overview of your account.</p>
+        <p class="page-subtitle">Welcome back, <?= e(userFirstName($user)) ?>! Here is an overview of your account.</p>
     </div>
 </div>
 
@@ -115,8 +115,10 @@ require __DIR__ . '/../includes/header.php';
                                 <?php foreach ($recentCases as $case): ?>
                                     <tr>
                                         <td>
-                                            <strong><?= e($case['case_number']) ?></strong>
-                                            <div class="text-muted small"><?= e($case['title']) ?></div>
+                                            <a href="<?= clientUrl('pages/case-view.php?id=' . $case['id']) ?>" class="cases-table-link">
+                                                <strong><?= e($case['case_number']) ?></strong>
+                                                <div class="text-muted small"><?= e($case['title']) ?></div>
+                                            </a>
                                         </td>
                                         <td><?= statusBadge($case['status']) ?></td>
                                         <td class="text-muted"><?= formatDate($case['updated_at']) ?></td>

@@ -2,7 +2,7 @@
 $company     = getCompanySettings();
 $user        = Auth::user();
 $unreadCount = getUnreadNotificationCount(Auth::id());
-$navNotifications = getRecentNotifications(Auth::id(), 5);
+$navNotifications = getRecentNotifications(Auth::id(), 5, true);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -65,7 +65,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5);
                                 <div class="dropdown-item-text text-muted text-center py-4 small">No notifications</div>
                             <?php else: ?>
                                 <?php foreach ($navNotifications as $notif): ?>
-                                    <a href="#" class="dropdown-item notification-item <?= !$notif['is_read'] ? 'unread' : '' ?>">
+                                    <a href="<?= url('actions/notification-read.php?id=' . (int) $notif['id']) ?>" class="dropdown-item notification-item unread">
                                         <div class="notification-icon">
                                             <i class="bi <?= notificationIcon($notif['type']) ?>"></i>
                                         </div>

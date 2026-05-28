@@ -13,6 +13,18 @@ function asset(string $path): string
     return url('assets/' . ltrim($path, '/'));
 }
 
+function adminUrl(string $path = ''): string
+{
+    $config = require __DIR__ . '/../config/config.php';
+    return rtrim($config['app_url'], '/') . '/' . ltrim($path, '/');
+}
+
+function clientUrl(string $path = ''): string
+{
+    $config = require __DIR__ . '/../config/config.php';
+    return rtrim($config['client_url'], '/') . '/' . ltrim($path, '/');
+}
+
 function e(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
@@ -107,9 +119,54 @@ function clearOld(): void
     unset($_SESSION['old']);
 }
 
+function getCurrencySettings(): array
+{
+    static $currency = null;
+
+    if ($currency === null) {
+        $config   = require __DIR__ . '/../config/config.php';
+        $currency = $config['currency'] ?? [
+            'code'   => 'INR',
+            'symbol' => 'Rs',
+            'locale' => 'en-IN',
+        ];
+    }
+
+    return $currency;
+}
+
+function currencySymbol(): string
+{
+    return getCurrencySettings()['symbol'];
+}
+
 function formatCurrency(float $amount): string
 {
-    return '$' . number_format($amount, 2);
+    $symbol = currencySymbol();
+
+    return $symbol . ' ' . number_format($amount, 2);
+}
+
+function invoiceStatusColumn(): string
+{
+    static $column = null;
+
+    if ($column === null) {
+        $column = Database::columnExists('invoices', 'payment_status') ? 'payment_status' : 'status';
+    }
+
+    return $column;
+}
+
+function paymentStatusColumn(): string
+{
+    static $column = null;
+
+    if ($column === null) {
+        $column = Database::columnExists('payments', 'payment_status') ? 'payment_status' : 'status';
+    }
+
+    return $column;
 }
 
 function formatDate(?string $date, string $format = 'M d, Y'): string
@@ -442,12 +499,57 @@ function getBusinessActivityFeed(int $limit = 20): array
     return $feed;
 }
 
-function getRecentNotifications(int $userId, int $limit = 5): array
+function getRecentNotifications(int $userId, int $limit = 5, bool $unreadOnly = false): array
 {
-    return Database::fetchAll(
-        'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
-        [$userId, $limit]
+    $sql = 'SELECT * FROM notifications WHERE user_id = ?';
+    $params = [$userId];
+
+    if ($unreadOnly) {
+        $sql .= ' AND is_read = 0';
+    }
+
+    $sql .= ' ORDER BY created_at DESC LIMIT ?';
+    $params[] = $limit;
+
+    return Database::fetchAll($sql, $params);
+}
+
+function markNotificationAsRead(int $id, int $userId): bool
+{
+    $stmt = Database::query(
+        'UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ? AND is_read = 0',
+        [$id, $userId]
     );
+
+    return $stmt->rowCount() > 0;
+}
+
+function resolveNotificationRedirect(?string $link): string
+{
+    if ($link === null || trim($link) === '') {
+        return 'pages/dashboard.php';
+    }
+
+    $link = trim($link);
+
+    if (str_starts_with($link, 'http://') || str_starts_with($link, 'https://')) {
+        $config = require __DIR__ . '/../config/config.php';
+        $base   = rtrim($config['app_url'], '/');
+
+        if (str_starts_with($link, $base . '/')) {
+            return ltrim(substr($link, strlen($base)), '/');
+        }
+
+        return $link;
+    }
+
+    $link = ltrim($link, '/');
+
+    if (str_starts_with($link, 'admin/pages/')) {
+        return substr($link, 6);
+    }
+
+    return $link;
 }
 
 function getUnreadNotificationCount(int $userId): int
@@ -956,4 +1058,73 @@ function generateChatbotReply(string $message): string
     }
 
     return "I'm not sure about that. Try asking about **clients**, **cases**, **payments**, **appointments**, or type **help** for available commands.";
+}
+
+function getClientDashboardStats(int $clientId): array
+{
+    $activeCases = (int) (Database::fetch(
+        "SELECT COUNT(*) AS c FROM cases WHERE client_id = ? AND status IN ('pending','in_progress','waiting_for_client')",
+        [$clientId]
+    )['c'] ?? 0);
+
+    $pendingInvoices = (int) (Database::fetch(
+        'SELECT COUNT(*) AS c FROM invoices WHERE client_id = ? AND ' . invoiceStatusColumn() . " IN ('pending','overdue','partially_paid')",
+        [$clientId]
+    )['c'] ?? 0);
+
+    $documents = (int) (Database::fetch(
+        'SELECT COUNT(*) AS c FROM documents d JOIN cases cs ON cs.id = d.case_id WHERE cs.client_id = ?',
+        [$clientId]
+    )['c'] ?? 0);
+
+    $upcoming = (int) (Database::fetch(
+        "SELECT COUNT(*) AS c FROM appointments WHERE client_id = ? AND starts_at >= NOW() AND status IN ('scheduled','confirmed')",
+        [$clientId]
+    )['c'] ?? 0);
+
+    return [
+        'active_cases'          => $activeCases,
+        'pending_invoices'      => $pendingInvoices,
+        'documents'             => $documents,
+        'upcoming_appointments' => $upcoming,
+    ];
+}
+
+function getClientCases(int $clientId): array
+{
+    return Database::fetchAll(
+        'SELECT * FROM cases WHERE client_id = ? ORDER BY updated_at DESC',
+        [$clientId]
+    );
+}
+
+function getClientRecentCases(int $clientId, int $limit = 5): array
+{
+    return Database::fetchAll(
+        'SELECT * FROM cases WHERE client_id = ? ORDER BY updated_at DESC LIMIT ?',
+        [$clientId, $limit]
+    );
+}
+
+function getClientUpcomingAppointments(int $clientId, int $limit = 5): array
+{
+    return Database::fetchAll(
+        "SELECT a.*, a.starts_at AS start_time FROM appointments a
+         WHERE a.client_id = ? AND a.starts_at >= NOW() AND a.status IN ('scheduled','confirmed')
+         ORDER BY a.starts_at ASC LIMIT ?",
+        [$clientId, $limit]
+    );
+}
+
+function caseActivityIcon(string $type): string
+{
+    $map = [
+        'case_created' => 'bi-briefcase',
+        'document'     => 'bi-file-earmark-arrow-up',
+        'invoice'      => 'bi-receipt',
+        'payment'      => 'bi-cash-coin',
+        'proposal'     => 'bi-file-text',
+        'quotation'    => 'bi-file-earmark-text',
+    ];
+    return $map[$type] ?? 'bi-activity';
 }

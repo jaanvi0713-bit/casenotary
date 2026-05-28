@@ -53,4 +53,22 @@ class Database
         self::query($sql, $params);
         return (int) self::getInstance()->lastInsertId();
     }
+
+    private static array $columnCache = [];
+
+    public static function columnExists(string $table, string $column): bool
+    {
+        $key = $table . '.' . $column;
+
+        if (!array_key_exists($key, self::$columnCache)) {
+            $result = self::fetch(
+                'SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+                [$table, $column]
+            );
+            self::$columnCache[$key] = ((int) ($result['c'] ?? 0)) > 0;
+        }
+
+        return self::$columnCache[$key];
+    }
 }

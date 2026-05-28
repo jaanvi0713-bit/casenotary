@@ -88,6 +88,28 @@ class Auth
         }
     }
 
+    public static function isClient(): bool
+    {
+        return self::check() && ($_SESSION['user_role'] ?? '') === 'client';
+    }
+
+    public static function clientId(): ?int
+    {
+        if (!self::isClient()) {
+            return null;
+        }
+        $row = Database::fetch('SELECT id FROM clients WHERE user_id = ? LIMIT 1', [self::id()]);
+        return $row ? (int) $row['id'] : null;
+    }
+
+    public static function requireClient(): void
+    {
+        if (!self::isClient()) {
+            header('Location: ' . clientUrl('auth/login.php'));
+            exit;
+        }
+    }
+
     public static function guest(): void
     {
         if (self::check()) {
