@@ -80,7 +80,7 @@ $pageTitle = 'Reset Password';
                         <input type="password" class="form-control" id="password" name="password"
                                placeholder="Password" required minlength="8"
                                pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                               title="At least 8 characters with uppercase, lowercase, and a number.">
+                               title="Password must be at least 8 characters, including uppercase, lowercase, and numbers.">
                         <label for="password"><i class="bi bi-lock me-2"></i>New Password</label>
                     </div>
 
@@ -90,7 +90,7 @@ $pageTitle = 'Reset Password';
                         <label for="password_confirmation"><i class="bi bi-lock-fill me-2"></i>Confirm Password</label>
                     </div>
 
-                    <p class="text-muted small mb-4">At least 8 characters with uppercase, lowercase, and a number.</p>
+                    <p class="text-muted small mb-4">Password must be at least 8 characters, including uppercase, lowercase, and numbers.</p>
 
                     <button type="submit" class="btn btn-primary btn-auth w-100 mb-3">
                         <span>Update Password</span>

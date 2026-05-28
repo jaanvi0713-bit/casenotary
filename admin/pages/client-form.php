@@ -153,12 +153,12 @@ require __DIR__ . '/../includes/header.php';
                             <input type="password" id="password" name="password" class="form-control case-form-control"
                                    minlength="8" autocomplete="new-password"
                                    pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                                   title="At least 8 characters with uppercase, lowercase, and a number.">
+                                   title="Password must be at least 8 characters, including uppercase, lowercase, and numbers.">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
-                        <p class="text-muted small mb-0 mt-1">At least 8 characters with uppercase, lowercase, and a number.</p>
+                        <p class="text-muted small mb-0 mt-1">Password must be at least 8 characters, including uppercase, lowercase, and numbers.</p>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
@@ -196,12 +196,12 @@ require __DIR__ . '/../includes/header.php';
                             <input type="password" id="password" name="password" class="form-control case-form-control"
                                    minlength="8" autocomplete="new-password"
                                    pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                                   title="At least 8 characters with uppercase, lowercase, and a number.">
+                                   title="Password must be at least 8 characters, including uppercase, lowercase, and numbers.">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
-                        <p class="text-muted small mb-0 mt-1">At least 8 characters with uppercase, lowercase, and a number.</p>
+                        <p class="text-muted small mb-0 mt-1">Password must be at least 8 characters, including uppercase, lowercase, and numbers.</p>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
