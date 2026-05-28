@@ -59,7 +59,7 @@ require __DIR__ . '/../includes/header.php';
                     <?php endforeach; ?>
                 </select>
             </form>
-            <a href="<?= url('pages/case-form.php?id=' . $caseId) ?>" class="btn btn-soft btn-sm"><i class="bi bi-pencil"></i> Edit</a>
+            <a href="<?= url('pages/case-form.php?id=' . $caseId) ?>" class="btn btn-soft btn-sm">Edit</a>
             <div class="dropdown">
                 <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">Quick Actions</button>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -183,7 +183,7 @@ require __DIR__ . '/../includes/header.php';
                                                 <input type="hidden" name="action" value="delete_document">
                                                 <input type="hidden" name="case_id" value="<?= $caseId ?>">
                                                 <input type="hidden" name="document_id" value="<?= (int) $doc['id'] ?>">
-                                                <button type="submit" class="btn btn-soft btn-sm text-danger"><i class="bi bi-trash"></i></button>
+                                                <button type="submit" class="btn btn-soft btn-sm text-danger" aria-label="Delete"><i class="bi bi-trash"></i></button>
                                             </form>
                                         </td>
                                     </tr>

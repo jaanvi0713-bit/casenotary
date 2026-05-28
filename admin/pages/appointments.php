@@ -191,15 +191,13 @@ require __DIR__ . '/../includes/header.php';
                                         data-ends="<?= e(appointmentEnd($appt) ? date('Y-m-d\TH:i', strtotime(appointmentEnd($appt))) : '') ?>"
                                         data-location="<?= e($appt['location'] ?? '') ?>"
                                         data-status="<?= e($appt['status']) ?>"
-                                        data-description="<?= e($appt['description'] ?? '') ?>">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
+                                        data-description="<?= e($appt['description'] ?? '') ?>">Edit</button>
                                     <?php if (($appt['status'] ?? '') !== 'cancelled'): ?>
                                         <form method="post" action="<?= url('actions/appointment-action.php') ?>" class="d-inline" onsubmit="return confirm('Cancel this appointment?');">
                                             <?= CSRF::field() ?>
                                             <input type="hidden" name="action" value="cancel_appointment">
                                             <input type="hidden" name="appointment_id" value="<?= (int) $appt['id'] ?>">
-                                            <button type="submit" class="btn btn-soft btn-sm text-danger"><i class="bi bi-x-circle"></i></button>
+                                            <button type="submit" class="btn btn-soft btn-sm text-danger" aria-label="Delete"><i class="bi bi-trash"></i></button>
                                         </form>
                                     <?php endif; ?>
                                 </td>
