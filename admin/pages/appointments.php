@@ -197,7 +197,7 @@ require __DIR__ . '/../includes/header.php';
                                             <?= CSRF::field() ?>
                                             <input type="hidden" name="action" value="cancel_appointment">
                                             <input type="hidden" name="appointment_id" value="<?= (int) $appt['id'] ?>">
-                                            <button type="submit" class="btn btn-soft btn-sm text-danger" aria-label="Delete"><i class="bi bi-trash"></i></button>
+                                            <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
                                         </form>
                                     <?php endif; ?>
                                 </td>
