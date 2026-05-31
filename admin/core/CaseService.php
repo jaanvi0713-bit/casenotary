@@ -136,51 +136,55 @@ class CaseService
     {
         $caseNumber = self::generateNumber('CASE');
         $instructions = trim($data['client_instructions'] ?? '') ?: null;
+        $status = $data['status'] ?? 'pending';
 
-        try {
+        if (!self::isValidStatus($status)) {
+            throw new RuntimeException('Invalid case status.');
+        }
+
+        $params = [
+            $caseNumber,
+            trim($data['title']),
+            trim($data['description'] ?? '') ?: null,
+            trim($data['service_type']),
+            (float) ($data['service_fee'] ?? 0),
+            (int) $data['client_id'],
+            !empty($data['assigned_admin_id']) ? (int) $data['assigned_admin_id'] : $adminId,
+            $data['priority'] ?? 'medium',
+            !empty($data['deadline']) ? $data['deadline'] : null,
+            $status,
+        ];
+
+        if (Database::columnExists('cases', 'client_instructions')) {
+            array_splice($params, 3, 0, [$instructions]);
             $id = Database::insert(
                 "INSERT INTO cases (case_number, title, description, client_instructions, service_type, service_fee,
                                     client_id, assigned_admin_id, priority, deadline, status, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                [
-                    $caseNumber,
-                    trim($data['title']),
-                    trim($data['description'] ?? '') ?: null,
-                    $instructions,
-                    trim($data['service_type']),
-                    (float) ($data['service_fee'] ?? 0),
-                    (int) $data['client_id'],
-                    !empty($data['assigned_admin_id']) ? (int) $data['assigned_admin_id'] : $adminId,
-                    $data['priority'] ?? 'medium',
-                    !empty($data['deadline']) ? $data['deadline'] : null,
-                    $data['status'] ?? 'pending',
-                ]
+                $params
             );
-        } catch (Throwable $e) {
+        } else {
             $id = Database::insert(
                 "INSERT INTO cases (case_number, title, description, service_type, service_fee,
                                     client_id, assigned_admin_id, priority, deadline, status, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                [
-                    $caseNumber,
-                    trim($data['title']),
-                    trim($data['description'] ?? '') ?: null,
-                    trim($data['service_type']),
-                    (float) ($data['service_fee'] ?? 0),
-                    (int) $data['client_id'],
-                    !empty($data['assigned_admin_id']) ? (int) $data['assigned_admin_id'] : $adminId,
-                    $data['priority'] ?? 'medium',
-                    !empty($data['deadline']) ? $data['deadline'] : null,
-                    $data['status'] ?? 'pending',
-                ]
+                $params
             );
 
-            if ($instructions) {
-                self::addNote($id, $adminId, 'Client instructions: ' . $instructions, false);
+            if ($instructions && Database::tableExists('case_notes')) {
+                try {
+                    self::addNote($id, $adminId, 'Client instructions: ' . $instructions, false);
+                } catch (Throwable $e) {
+                    // Optional notes table
+                }
             }
         }
 
-        self::notifyCaseEvent($id, 'case', 'New case created', "Case {$caseNumber} was created.", 'pages/case-view.php?id=' . $id);
+        try {
+            self::notifyCaseEvent($id, 'case', 'New case created', "Case {$caseNumber} was created.", 'pages/case-view.php?id=' . $id);
+        } catch (Throwable $e) {
+            // Notifications are optional
+        }
 
         return $id;
     }
@@ -191,7 +195,7 @@ class CaseService
         $client = ClientService::getById((int) ($case['client_id'] ?? 0));
 
         if (!$case || !$client) {
-            return ['quote_sent' => false, 'login_sent' => false];
+            return ['quote_sent' => false, 'login_sent' => false, 'error' => null];
         }
 
         $instructions = trim($data['client_instructions'] ?? $case['client_instructions'] ?? '');
@@ -199,43 +203,58 @@ class CaseService
 
         $quoteSent = false;
         $loginSent = false;
+        $error     = null;
 
         if (!$sendEmails || empty($client['email'])) {
-            return ['quote_sent' => false, 'login_sent' => false];
+            return ['quote_sent' => false, 'login_sent' => false, 'error' => null];
         }
 
-        $quotationId = self::generateQuotation($caseId, [
-            'title'  => 'Quotation — ' . $case['title'],
-            'amount' => (float) $case['service_fee'],
-        ]);
-
-        $quotation = Database::fetch('SELECT * FROM quotations WHERE id = ?', [$quotationId]);
-        $docPath   = null;
-
-        if (!empty($quotation['pdf_path'])) {
-            $config  = require __DIR__ . '/../config/config.php';
-            $docPath = rtrim($config['upload']['path'], '/\\') . '/' . ltrim($quotation['pdf_path'], '/');
-        }
-
-        $quoteSent = MailService::sendQuoteEmail(
-            $client,
-            $case,
-            $quotation['quotation_number'] ?? 'QUO',
-            $docPath && is_file($docPath) ? $docPath : null
-        );
-
-        if (!empty($client['user_id'])) {
-            $loginSent = MailService::sendLoginEmail($client, $instructions);
-        } elseif (!empty($data['create_client_login'])) {
-            $password = ClientService::generatePassword();
-            $userId   = self::provisionClientLogin((int) $client['id'], $client, $password);
-            if ($userId) {
-                $client['user_id'] = $userId;
-                $loginSent = MailService::sendLoginEmail($client, $instructions, $password);
+        try {
+            if (!Database::tableExists('quotations')) {
+                throw new RuntimeException(
+                    'Quotation tables are not set up yet. Run: php admin/sql/migrate_cases.php'
+                );
             }
+
+            $quotationId = self::generateQuotation($caseId, [
+                'title'  => 'Quotation — ' . $case['title'],
+                'amount' => (float) $case['service_fee'],
+            ]);
+
+            $quotation = Database::fetch('SELECT * FROM quotations WHERE id = ?', [$quotationId]);
+            $docPath   = null;
+
+            if (!empty($quotation['pdf_path'])) {
+                $config  = require __DIR__ . '/../config/config.php';
+                $docPath = rtrim($config['upload']['path'], '/\\') . '/' . ltrim($quotation['pdf_path'], '/');
+            }
+
+            $quoteSent = MailService::sendQuoteEmail(
+                $client,
+                $case,
+                $quotation['quotation_number'] ?? 'QUO',
+                $docPath && is_file($docPath) ? $docPath : null
+            );
+        } catch (Throwable $e) {
+            $error = 'Quotation email could not be sent. You can generate one from the case page.';
         }
 
-        return ['quote_sent' => $quoteSent, 'login_sent' => $loginSent];
+        try {
+            if (!empty($client['user_id'])) {
+                $loginSent = MailService::sendLoginEmail($client, $instructions);
+            } elseif (!empty($data['create_client_login'])) {
+                $password = ClientService::generatePassword();
+                $userId   = self::provisionClientLogin((int) $client['id'], $client, $password);
+                if ($userId) {
+                    $client['user_id'] = $userId;
+                    $loginSent = MailService::sendLoginEmail($client, $instructions, $password);
+                }
+            }
+        } catch (Throwable $e) {
+            $error = ($error ? $error . ' ' : '') . 'Portal login email could not be sent.';
+        }
+
+        return ['quote_sent' => $quoteSent, 'login_sent' => $loginSent, 'error' => $error];
     }
 
     private static function provisionClientLogin(int $clientId, array $client, string $password): ?int

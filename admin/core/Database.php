@@ -55,6 +55,7 @@ class Database
     }
 
     private static array $columnCache = [];
+    private static array $tableCache = [];
 
     public static function columnExists(string $table, string $column): bool
     {
@@ -70,5 +71,19 @@ class Database
         }
 
         return self::$columnCache[$key];
+    }
+
+    public static function tableExists(string $table): bool
+    {
+        if (!array_key_exists($table, self::$tableCache)) {
+            $result = self::fetch(
+                'SELECT COUNT(*) AS c FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+                [$table]
+            );
+            self::$tableCache[$table] = ((int) ($result['c'] ?? 0)) > 0;
+        }
+
+        return self::$tableCache[$table];
     }
 }
