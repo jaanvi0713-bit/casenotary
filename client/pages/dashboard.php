@@ -147,12 +147,13 @@ require __DIR__ . '/../includes/header.php';
                             <?php foreach ($upcomingAppointments as $appointment): ?>
                                 <li class="schedule-item">
                                     <div class="schedule-date">
-                                        <span><?= date('d', strtotime($appointment['start_time'])) ?></span>
-                                        <small><?= date('M', strtotime($appointment['start_time'])) ?></small>
+                                        <?php $apptStart = appointmentStart($appointment) ?? $appointment['start_time'] ?? null; ?>
+                                        <span><?= $apptStart ? date('d', strtotime($apptStart)) : '—' ?></span>
+                                        <small><?= $apptStart ? date('M', strtotime($apptStart)) : '' ?></small>
                                     </div>
                                     <div class="schedule-info">
                                         <span class="schedule-title"><?= e($appointment['title']) ?></span>
-                                        <span class="schedule-meta"><?= formatDateTime($appointment['start_time'], 'g:i A') ?></span>
+                                        <span class="schedule-meta"><?= $apptStart ? formatDateTime($apptStart, 'g:i A') : '—' ?></span>
                                     </div>
                                     <?= statusBadge($appointment['status']) ?>
                                 </li>

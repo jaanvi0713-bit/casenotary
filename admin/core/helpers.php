@@ -71,20 +71,31 @@ function clientFullName(array $client): string
     return trim(($client['first_name'] ?? '') . ' ' . ($client['last_name'] ?? ''));
 }
 
+function appointmentDateTimeValue(?string $value): ?string
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $value = trim($value);
+
+    if ($value === '' || str_starts_with($value, '0000-00-00')) {
+        return null;
+    }
+
+    return $value;
+}
+
 function appointmentStart(array $appointment): ?string
 {
-    $startsAt  = $appointment['starts_at'] ?? null;
-    $startTime = $appointment['start_time'] ?? null;
-
-    return ($startsAt !== null && $startsAt !== '') ? $startsAt : (($startTime !== null && $startTime !== '') ? $startTime : null);
+    return appointmentDateTimeValue($appointment['starts_at'] ?? null)
+        ?? appointmentDateTimeValue($appointment['start_time'] ?? null);
 }
 
 function appointmentEnd(array $appointment): ?string
 {
-    $endsAt  = $appointment['ends_at'] ?? null;
-    $endTime = $appointment['end_time'] ?? null;
-
-    return ($endsAt !== null && $endsAt !== '') ? $endsAt : (($endTime !== null && $endTime !== '') ? $endTime : null);
+    return appointmentDateTimeValue($appointment['ends_at'] ?? null)
+        ?? appointmentDateTimeValue($appointment['end_time'] ?? null);
 }
 
 function normalizeDateTimeInput(string $value): string
@@ -323,24 +334,37 @@ function appointmentEndColumn(): string
 
 function appointmentStartSql(string $alias = ''): string
 {
-    $prefix = $alias !== '' ? "{$alias}." : '';
-
-    if (Database::columnExists('appointments', 'starts_at') && Database::columnExists('appointments', 'start_time')) {
-        return "COALESCE({$prefix}starts_at, {$prefix}start_time)";
-    }
-
-    return $prefix . appointmentStartColumn();
+    return appointmentDateTimeSql('starts_at', 'start_time', $alias);
 }
 
 function appointmentEndSql(string $alias = ''): string
 {
-    $prefix = $alias !== '' ? "{$alias}." : '';
+    return appointmentDateTimeSql('ends_at', 'end_time', $alias);
+}
 
-    if (Database::columnExists('appointments', 'ends_at') && Database::columnExists('appointments', 'end_time')) {
-        return "COALESCE({$prefix}ends_at, {$prefix}end_time)";
+function appointmentDateTimeSql(string $primaryCol, string $fallbackCol, string $alias = ''): string
+{
+    $prefix = $alias !== '' ? "{$alias}." : '';
+    $hasPrimary  = Database::columnExists('appointments', $primaryCol);
+    $hasFallback = Database::columnExists('appointments', $fallbackCol);
+
+    $clean = static function (string $column) use ($prefix): string {
+        return "NULLIF(NULLIF({$prefix}{$column}, ''), '0000-00-00 00:00:00')";
+    };
+
+    if ($hasPrimary && $hasFallback) {
+        return "COALESCE({$clean($primaryCol)}, {$clean($fallbackCol)})";
     }
 
-    return $prefix . appointmentEndColumn();
+    if ($hasPrimary) {
+        return $clean($primaryCol);
+    }
+
+    if ($hasFallback) {
+        return $clean($fallbackCol);
+    }
+
+    return $clean($primaryCol);
 }
 
 function userDisplayNameSql(string $alias = 'u', string $as = 'name'): string
@@ -1374,10 +1398,21 @@ function getClientDashboardStats(int $clientId): array
     )['c'] ?? 0);
 
     $startSql = appointmentStartSql();
-    $upcoming = (int) (Database::fetch(
-        "SELECT COUNT(*) AS c FROM appointments WHERE client_id = ? AND {$startSql} >= NOW() AND status IN ('scheduled','confirmed')",
+    $upcomingRows = Database::fetchAll(
+        "SELECT id, status, {$startSql} AS effective_start FROM appointments WHERE client_id = ?",
         [$clientId]
-    )['c'] ?? 0);
+    );
+    $upcoming = 0;
+    foreach ($upcomingRows as $row) {
+        $status = $row['status'] ?? '';
+        if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+            continue;
+        }
+        $start = appointmentDateTimeValue($row['effective_start'] ?? null);
+        if ($start && strtotime($start) >= time()) {
+            $upcoming++;
+        }
+    }
 
     return [
         'active_cases'          => $activeCases,
@@ -1409,14 +1444,29 @@ function getClientRecentCases(int $clientId, int $limit = 5): array
 
 function getClientUpcomingAppointments(int $clientId, int $limit = 5): array
 {
-    $startSql = appointmentStartSql('a');
+    $appointments = getClientAppointments($clientId);
+    $upcoming = [];
 
-    return Database::fetchAll(
-        "SELECT a.*, {$startSql} AS start_time FROM appointments a
-         WHERE a.client_id = ? AND {$startSql} >= NOW() AND a.status IN ('scheduled','confirmed')
-         ORDER BY {$startSql} ASC LIMIT ?",
-        [$clientId, $limit]
-    );
+    foreach ($appointments as $appointment) {
+        $status = $appointment['status'] ?? '';
+        if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+            continue;
+        }
+
+        $start = appointmentStart($appointment);
+        if (!$start || strtotime($start) < time()) {
+            continue;
+        }
+
+        $appointment['start_time'] = $start;
+        $upcoming[] = $appointment;
+    }
+
+    usort($upcoming, static function (array $a, array $b): int {
+        return strtotime(appointmentStart($a) ?? '') <=> strtotime(appointmentStart($b) ?? '');
+    });
+
+    return array_slice($upcoming, 0, $limit);
 }
 
 function getClientAppointments(int $clientId): array
