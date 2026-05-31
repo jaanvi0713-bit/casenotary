@@ -82,6 +82,83 @@ require __DIR__ . '/../includes/header.php';
     .contact-info-link:hover {
         text-decoration: underline !important;
     }
+
+    .contact-page .contact-quick-links-body {
+        padding: 1.75rem 2.5rem 2.25rem !important;
+    }
+
+    .contact-quick-tile {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 148px;
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        overflow: hidden;
+        text-decoration: none !important;
+        color: inherit;
+        background: var(--white);
+        box-shadow: 0 2px 8px rgba(0, 24, 44, 0.06);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .contact-quick-tile:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 24, 44, 0.1);
+        color: inherit;
+    }
+
+    .contact-quick-tile-accent {
+        height: 10px;
+        background: var(--primary);
+        flex-shrink: 0;
+    }
+
+    .contact-quick-tile-main {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1.125rem 1rem 1rem;
+        flex: 1;
+    }
+
+    .contact-quick-tile-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background: var(--primary-light);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.125rem;
+        flex-shrink: 0;
+    }
+
+    .contact-quick-tile-title {
+        font-weight: 700;
+        font-size: 0.9375rem;
+        color: var(--secondary);
+        line-height: 1.3;
+    }
+
+    .contact-quick-tile-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.875rem 1rem 1.125rem;
+        border-top: 1px solid var(--gray-100);
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--gray-600);
+    }
+
+    .contact-quick-tile-footer i {
+        color: var(--primary);
+        font-size: 0.875rem;
+        flex-shrink: 0;
+    }
 </style>
 <div class="contact-page">
     <div class="row g-4 contact-page-top">
@@ -186,45 +263,53 @@ require __DIR__ . '/../includes/header.php';
             <div class="row g-3 g-lg-4">
                 <div class="col-sm-6 col-xl-3">
                     <a href="<?= clientUrl('pages/cases.php') ?>" class="contact-quick-tile">
-                        <div class="contact-quick-tile-head">
-                            <i class="bi bi-briefcase"></i>
-                            <span>Cases</span>
+                        <div class="contact-quick-tile-accent"></div>
+                        <div class="contact-quick-tile-main">
+                            <div class="contact-quick-tile-icon"><i class="bi bi-briefcase"></i></div>
+                            <span class="contact-quick-tile-title">Cases</span>
                         </div>
-                        <div class="contact-quick-tile-body">
-                            My Cases <i class="bi bi-arrow-right"></i>
+                        <div class="contact-quick-tile-footer">
+                            <span>My Cases</span>
+                            <i class="bi bi-arrow-right"></i>
                         </div>
                     </a>
                 </div>
                 <div class="col-sm-6 col-xl-3">
                     <a href="<?= clientUrl('pages/payments.php') ?>" class="contact-quick-tile">
-                        <div class="contact-quick-tile-head">
-                            <i class="bi bi-credit-card"></i>
-                            <span>Invoice/Payment</span>
+                        <div class="contact-quick-tile-accent"></div>
+                        <div class="contact-quick-tile-main">
+                            <div class="contact-quick-tile-icon"><i class="bi bi-credit-card"></i></div>
+                            <span class="contact-quick-tile-title">Invoice/Payment</span>
                         </div>
-                        <div class="contact-quick-tile-body">
-                            Check Invoices &amp; Payments <i class="bi bi-arrow-right"></i>
+                        <div class="contact-quick-tile-footer">
+                            <span>Check Invoices &amp; Payments</span>
+                            <i class="bi bi-arrow-right"></i>
                         </div>
                     </a>
                 </div>
                 <div class="col-sm-6 col-xl-3">
                     <a href="<?= clientUrl('pages/appointments.php') ?>" class="contact-quick-tile">
-                        <div class="contact-quick-tile-head">
-                            <i class="bi bi-calendar3"></i>
-                            <span>Appointments</span>
+                        <div class="contact-quick-tile-accent"></div>
+                        <div class="contact-quick-tile-main">
+                            <div class="contact-quick-tile-icon"><i class="bi bi-calendar3"></i></div>
+                            <span class="contact-quick-tile-title">Appointments</span>
                         </div>
-                        <div class="contact-quick-tile-body">
-                            View Appointments <i class="bi bi-arrow-right"></i>
+                        <div class="contact-quick-tile-footer">
+                            <span>View Appointments</span>
+                            <i class="bi bi-arrow-right"></i>
                         </div>
                     </a>
                 </div>
                 <div class="col-sm-6 col-xl-3">
                     <a href="<?= clientUrl('pages/notifications.php') ?>" class="contact-quick-tile">
-                        <div class="contact-quick-tile-head">
-                            <i class="bi bi-bell"></i>
-                            <span>Notification</span>
+                        <div class="contact-quick-tile-accent"></div>
+                        <div class="contact-quick-tile-main">
+                            <div class="contact-quick-tile-icon"><i class="bi bi-bell"></i></div>
+                            <span class="contact-quick-tile-title">Notification</span>
                         </div>
-                        <div class="contact-quick-tile-body">
-                            All Notifications <i class="bi bi-arrow-right"></i>
+                        <div class="contact-quick-tile-footer">
+                            <span>All Notifications</span>
+                            <i class="bi bi-arrow-right"></i>
                         </div>
                     </a>
                 </div>
