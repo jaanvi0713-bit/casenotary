@@ -40,14 +40,21 @@ class MailService
 
     public static function sendQuoteEmail(array $client, array $case, string $quotationNumber, ?string $documentPath = null): bool
     {
-        $name = clientFullName($client) ?: 'Client';
+        $name     = clientFullName($client) ?: 'Client';
+        $services = CaseService::getCaseServices($case);
+        $serviceHtml = '';
+
+        foreach ($services as $service) {
+            $serviceHtml .= e($service['type']) . ' — ' . formatCurrency((float) $service['fee']) . '<br>';
+        }
+
         $body = self::wrapTemplate(
             'Quotation — ' . e($case['title']),
             '<p>Dear ' . e($name) . ',</p>'
             . '<p>Please find your quotation <strong>' . e($quotationNumber) . '</strong> for case '
             . '<strong>' . e($case['case_number']) . '</strong>.</p>'
-            . '<p><strong>Service:</strong> ' . e($case['service_type']) . '<br>'
-            . '<strong>Fee:</strong> ' . formatCurrency((float) $case['service_fee']) . '</p>'
+            . '<p><strong>Services:</strong><br>' . $serviceHtml
+            . '<strong>Total:</strong> ' . formatCurrency((float) $case['service_fee']) . '</p>'
             . '<p>Log in to your client portal to review documents and next steps.</p>'
             . '<p><a href="' . e(clientUrl('auth/login.php')) . '" style="color:#3aafa9;">Open Client Portal</a></p>'
         );

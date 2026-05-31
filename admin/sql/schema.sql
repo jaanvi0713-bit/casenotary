@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS cases (
     description     TEXT DEFAULT NULL,
     service_type    VARCHAR(150) NOT NULL,
     service_fee     DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+    services        JSON DEFAULT NULL,
     client_id       INT UNSIGNED NOT NULL,
     assigned_admin_id INT UNSIGNED DEFAULT NULL,
     priority        ENUM('low', 'medium', 'high', 'urgent') NOT NULL DEFAULT 'medium',
