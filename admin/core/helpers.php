@@ -348,23 +348,25 @@ function appointmentDateTimeSql(string $primaryCol, string $fallbackCol, string 
     $hasPrimary  = Database::columnExists('appointments', $primaryCol);
     $hasFallback = Database::columnExists('appointments', $fallbackCol);
 
-    $clean = static function (string $column) use ($prefix): string {
-        return "NULLIF(NULLIF({$prefix}{$column}, ''), '0000-00-00 00:00:00')";
+    $isValid = static function (string $column) use ($prefix): string {
+        $col = "{$prefix}{$column}";
+
+        return "({$col} IS NOT NULL AND YEAR({$col}) > 0)";
     };
 
     if ($hasPrimary && $hasFallback) {
-        return "COALESCE({$clean($primaryCol)}, {$clean($fallbackCol)})";
+        return "CASE WHEN {$isValid($primaryCol)} THEN {$prefix}{$primaryCol} WHEN {$isValid($fallbackCol)} THEN {$prefix}{$fallbackCol} ELSE NULL END";
     }
 
     if ($hasPrimary) {
-        return $clean($primaryCol);
+        return "CASE WHEN {$isValid($primaryCol)} THEN {$prefix}{$primaryCol} ELSE NULL END";
     }
 
     if ($hasFallback) {
-        return $clean($fallbackCol);
+        return "CASE WHEN {$isValid($fallbackCol)} THEN {$prefix}{$fallbackCol} ELSE NULL END";
     }
 
-    return $clean($primaryCol);
+    return 'NULL';
 }
 
 function userDisplayNameSql(string $alias = 'u', string $as = 'name'): string
@@ -1397,28 +1399,11 @@ function getClientDashboardStats(int $clientId): array
         [$clientId]
     )['c'] ?? 0);
 
-    $startSql = appointmentStartSql();
-    $upcomingRows = Database::fetchAll(
-        "SELECT id, status, {$startSql} AS effective_start FROM appointments WHERE client_id = ?",
-        [$clientId]
-    );
-    $upcoming = 0;
-    foreach ($upcomingRows as $row) {
-        $status = $row['status'] ?? '';
-        if (!in_array($status, ['scheduled', 'confirmed'], true)) {
-            continue;
-        }
-        $start = appointmentDateTimeValue($row['effective_start'] ?? null);
-        if ($start && strtotime($start) >= time()) {
-            $upcoming++;
-        }
-    }
-
     return [
         'active_cases'          => $activeCases,
         'pending_invoices'      => $pendingInvoices,
         'documents'             => $documents,
-        'upcoming_appointments' => $upcoming,
+        'upcoming_appointments' => count(getClientUpcomingAppointments($clientId, 1000)),
     ];
 }
 
