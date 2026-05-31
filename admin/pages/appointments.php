@@ -186,6 +186,8 @@ require __DIR__ . '/../includes/header.php';
                                 <td>
                                     <button type="button" class="btn btn-soft btn-sm btn-edit-appt"
                                         data-id="<?= (int) $appt['id'] ?>"
+                                        data-client="<?= e(clientFullName($appt)) ?>"
+                                        data-case="<?= e($appt['case_number'] ?: 'None') ?>"
                                         data-title="<?= e($appt['title']) ?>"
                                         data-starts="<?= e(date('Y-m-d\TH:i', strtotime(appointmentStart($appt)))) ?>"
                                         data-ends="<?= e(appointmentEnd($appt) ? date('Y-m-d\TH:i', strtotime(appointmentEnd($appt))) : '') ?>"
@@ -258,7 +260,7 @@ require __DIR__ . '/../includes/header.php';
             </div>
             <div class="modal-body">
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-6 appt-field-create">
                         <label class="form-label">Client <span class="text-danger">*</span></label>
                         <select name="client_id" id="appt_client_id" class="form-select" required>
                             <option value="">Select client</option>
@@ -267,11 +269,19 @@ require __DIR__ . '/../includes/header.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 appt-field-create">
                         <label class="form-label">Related Case</label>
                         <select name="case_id" id="appt_case_id" class="form-select">
                             <option value="">None</option>
                         </select>
+                    </div>
+                    <div class="col-md-6 appt-field-edit d-none">
+                        <label class="form-label">Client</label>
+                        <input type="text" class="form-control appt-readonly-field" id="appt_client_display" readonly tabindex="-1">
+                    </div>
+                    <div class="col-md-6 appt-field-edit d-none">
+                        <label class="form-label">Related Case</label>
+                        <input type="text" class="form-control appt-readonly-field" id="appt_case_display" readonly tabindex="-1">
                     </div>
                     <div class="col-12">
                         <label class="form-label">Title <span class="text-danger">*</span></label>
@@ -333,15 +343,27 @@ document.addEventListener("DOMContentLoaded", function() {
     var apptIdInput = document.getElementById("appt_form_id");
     var scheduleTitle = document.getElementById("scheduleModalTitle");
     var scheduleSubmitBtn = document.getElementById("scheduleSubmitBtn");
-    var clientFields = document.querySelectorAll("#scheduleModal .col-md-6:first-child, #scheduleModal .col-md-6:nth-child(2)");
+    var clientDisplay = document.getElementById("appt_client_display");
+    var caseDisplay = document.getElementById("appt_case_display");
+    var createFields = document.querySelectorAll(".appt-field-create");
+    var editFields = document.querySelectorAll(".appt-field-edit");
 
     function setCreateMode() {
         if (apptActionInput) apptActionInput.value = "create_appointment";
         if (apptIdInput) apptIdInput.value = "";
         if (scheduleTitle) scheduleTitle.textContent = "Schedule Appointment";
         if (scheduleSubmitBtn) scheduleSubmitBtn.textContent = "Schedule & Notify Client";
-        if (clientSelect) { clientSelect.disabled = false; clientSelect.required = true; }
-        if (caseSelect) caseSelect.disabled = false;
+        createFields.forEach(function(el) { el.classList.remove("d-none"); });
+        editFields.forEach(function(el) { el.classList.add("d-none"); });
+        if (clientSelect) {
+            clientSelect.disabled = false;
+            clientSelect.required = true;
+            clientSelect.value = "";
+        }
+        if (caseSelect) {
+            caseSelect.disabled = false;
+            caseSelect.innerHTML = "<option value=\"\">None</option>";
+        }
     }
 
     function setEditMode(data) {
@@ -349,8 +371,10 @@ document.addEventListener("DOMContentLoaded", function() {
         if (apptIdInput) apptIdInput.value = data.id || "";
         if (scheduleTitle) scheduleTitle.textContent = "Edit Appointment";
         if (scheduleSubmitBtn) scheduleSubmitBtn.textContent = "Save Changes";
-        if (clientSelect) { clientSelect.disabled = true; clientSelect.required = false; }
-        if (caseSelect) caseSelect.disabled = true;
+        createFields.forEach(function(el) { el.classList.add("d-none"); });
+        editFields.forEach(function(el) { el.classList.remove("d-none"); });
+        if (clientDisplay) clientDisplay.value = data.client || "—";
+        if (caseDisplay) caseDisplay.value = data.case || "None";
         document.getElementById("appt_title").value = data.title || "";
         document.getElementById("appt_starts_at").value = data.starts || "";
         document.getElementById("appt_ends_at").value = data.ends || "";
@@ -364,6 +388,8 @@ document.addEventListener("DOMContentLoaded", function() {
         btn.addEventListener("click", function() {
             setEditMode({
                 id: btn.dataset.id,
+                client: btn.dataset.client,
+                case: btn.getAttribute("data-case"),
                 title: btn.dataset.title,
                 starts: btn.dataset.starts,
                 ends: btn.dataset.ends,

@@ -2461,6 +2461,18 @@ body.sidebar-collapsed .main-content {
     color: #fff;
 }
 
+.appt-readonly-field {
+    background-color: var(--gray-50);
+    border-color: var(--gray-200);
+    color: var(--secondary);
+    cursor: default;
+}
+
+.appt-readonly-field:focus {
+    box-shadow: none;
+    border-color: var(--gray-200);
+}
+
 .appointment-list-table thead th {
     background: var(--primary);
     color: #fff;
