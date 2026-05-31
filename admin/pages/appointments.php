@@ -373,6 +373,13 @@ document.addEventListener("DOMContentLoaded", function() {
         if (scheduleSubmitBtn) scheduleSubmitBtn.textContent = "Save Changes";
         createFields.forEach(function(el) { el.classList.add("d-none"); });
         editFields.forEach(function(el) { el.classList.remove("d-none"); });
+        if (clientSelect) {
+            clientSelect.required = false;
+            clientSelect.disabled = true;
+        }
+        if (caseSelect) {
+            caseSelect.disabled = true;
+        }
         if (clientDisplay) clientDisplay.value = data.client || "—";
         if (caseDisplay) caseDisplay.value = data.case || "None";
         document.getElementById("appt_title").value = data.title || "";
@@ -402,6 +409,16 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (scheduleModalEl) {
         scheduleModalEl.addEventListener("hidden.bs.modal", setCreateMode);
+    }
+
+    var scheduleForm = document.getElementById("scheduleForm");
+    if (scheduleForm) {
+        scheduleForm.addEventListener("submit", function() {
+            if (apptActionInput && apptActionInput.value === "update_appointment" && clientSelect) {
+                clientSelect.required = false;
+                clientSelect.disabled = true;
+            }
+        });
     }
 
     document.querySelectorAll("[data-bs-target=\"#scheduleModal\"]").forEach(function(btn) {

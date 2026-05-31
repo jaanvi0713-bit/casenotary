@@ -95,27 +95,61 @@ class AppointmentService
             'ends_at'     => $endsAt,
         ];
 
-        try {
-            Database::query(
-                'UPDATE appointments SET title = ?, description = ?, location = ?, status = ?, starts_at = ?, ends_at = ?, updated_at = NOW() WHERE id = ?',
-                [$fields['title'], $fields['description'], $fields['location'], $fields['status'], $fields['starts_at'], $fields['ends_at'], $id]
-            );
-        } catch (Throwable $e) {
-            Database::query(
-                'UPDATE appointments SET title = ?, description = ?, location = ?, status = ?, start_time = ?, end_time = ?, updated_at = NOW() WHERE id = ?',
-                [$fields['title'], $fields['description'], $fields['location'], $fields['status'], $fields['starts_at'], $fields['ends_at'], $id]
-            );
+        $setParts = [
+            'title = ?',
+            'description = ?',
+            'location = ?',
+            'status = ?',
+            'updated_at = NOW()',
+        ];
+        $params = [
+            $fields['title'],
+            $fields['description'],
+            $fields['location'],
+            $fields['status'],
+        ];
+
+        if (Database::columnExists('appointments', 'starts_at')) {
+            $setParts[] = 'starts_at = ?';
+            $params[] = $fields['starts_at'];
         }
+        if (Database::columnExists('appointments', 'start_time')) {
+            $setParts[] = 'start_time = ?';
+            $params[] = $fields['starts_at'];
+        }
+        if (Database::columnExists('appointments', 'ends_at')) {
+            $setParts[] = 'ends_at = ?';
+            $params[] = $fields['ends_at'];
+        }
+        if (Database::columnExists('appointments', 'end_time')) {
+            $setParts[] = 'end_time = ?';
+            $params[] = $fields['ends_at'];
+        }
+
+        $params[] = $id;
+
+        Database::query(
+            'UPDATE appointments SET ' . implode(', ', $setParts) . ' WHERE id = ?',
+            $params
+        );
 
         $client = ClientService::getById((int) ($appointment['client_id'] ?? 0));
         if ($client) {
-            $calendar = GoogleCalendarService::syncAppointment($id, $client);
+            try {
+                $calendar = GoogleCalendarService::syncAppointment($id, $client);
+            } catch (Throwable $e) {
+                $calendar = [];
+            }
             $updated  = self::getById($id);
             if ($updated) {
                 if (!empty($calendar['url'])) {
                     $updated['meeting_link'] = $calendar['url'];
                 }
-                self::notifyAppointment($client, $updated, $calendar, 'updated');
+                try {
+                    self::notifyAppointment($client, $updated, $calendar, 'updated');
+                } catch (Throwable $e) {
+                    // Appointment saved; notification failure should not block the update
+                }
             }
         }
     }
