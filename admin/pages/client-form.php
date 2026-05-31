@@ -254,6 +254,21 @@ document.addEventListener("DOMContentLoaded", function() {
     var phoneInput = document.getElementById("phone");
     var iti = null;
 
+    function syncPhoneInputPadding() {
+        if (!phoneInput) {
+            return;
+        }
+
+        var container = phoneInput.closest(".iti");
+        var countryContainer = container ? container.querySelector(".iti__country-container") : null;
+        if (!countryContainer) {
+            return;
+        }
+
+        var gap = 14;
+        phoneInput.style.paddingLeft = (countryContainer.offsetWidth + gap) + "px";
+    }
+
     if (phoneInput && window.intlTelInput) {
         iti = window.intlTelInput(phoneInput, {
             separateDialCode: true,
@@ -261,6 +276,14 @@ document.addEventListener("DOMContentLoaded", function() {
             preferredCountries: ["us", "mu", "gb", "ca", "au", "in"],
             utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/utils.js"
         });
+
+        syncPhoneInputPadding();
+        phoneInput.addEventListener("countrychange", syncPhoneInputPadding);
+        window.addEventListener("resize", syncPhoneInputPadding);
+
+        if (iti.promise) {
+            iti.promise.then(syncPhoneInputPadding);
+        }
 
         if (form) {
             form.addEventListener("submit", function(e) {
