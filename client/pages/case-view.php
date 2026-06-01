@@ -71,13 +71,19 @@ require __DIR__ . '/../includes/header.php';
                 <?php if ($case['description']): ?>
                     <div class="case-description mt-3"><span class="case-detail-label">Description</span><p><?= nl2br(e($case['description'])) ?></p></div>
                 <?php endif; ?>
-                <?php if (!empty($case['client_instructions'])): ?>
-                    <div class="case-description mt-3">
-                        <span class="case-detail-label">Your Instructions</span>
-                        <p><?= nl2br(e($case['client_instructions'])) ?></p>
-                    </div>
-                <?php endif; ?>
             </div>
+
+            <?php if (!empty($case['client_instructions'])): ?>
+            <div class="case-instructions-box mt-3">
+                <div class="case-instructions-header">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <h3 class="case-instructions-title">Your Instructions</h3>
+                </div>
+                <div class="case-instructions-body">
+                    <?= nl2br(e($case['client_instructions'])) ?>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
 
         <div class="tab-pane fade" id="documents">

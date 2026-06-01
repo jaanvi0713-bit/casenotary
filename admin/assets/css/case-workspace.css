@@ -210,6 +210,42 @@
     line-height: 1.6;
 }
 
+.case-instructions-box {
+    background: rgba(58, 175, 169, 0.08);
+    border: 1px solid rgba(58, 175, 169, 0.35);
+    border-left: 4px solid var(--primary);
+    border-radius: 10px;
+    padding: 1.125rem 1.25rem;
+    box-shadow: 0 2px 8px rgba(58, 175, 169, 0.1);
+}
+
+.case-instructions-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+}
+
+.case-instructions-header i {
+    color: var(--primary);
+    font-size: 1.125rem;
+    flex-shrink: 0;
+}
+
+.case-instructions-title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #0f766e;
+    margin: 0;
+}
+
+.case-instructions-body {
+    font-size: 0.875rem;
+    color: #1e293b;
+    line-height: 1.65;
+    font-weight: 500;
+}
+
 .case-summary-list {
     list-style: none;
     padding: 0;
