@@ -263,18 +263,6 @@ a:hover { color: var(--primary-dark); }
 
 .password-toggle:hover { color: var(--primary); }
 
-<<<<<<< Updated upstream
-=======
-.password-field-wrap,
-.case-form-password-wrap {
-    position: relative;
-}
-
-.password-field-wrap > .form-control,
-.case-form-password-wrap > .form-control {
-    padding-right: 2.75rem !important;
-}
-
 .auth-form .form-floating.auth-password-field {
     position: relative;
 }
@@ -283,45 +271,13 @@ a:hover { color: var(--primary-dark); }
     top: auto;
     bottom: 0.85rem;
     transform: none;
+    background: transparent;
 }
 
 .auth-form .form-floating.auth-password-field > .form-control {
     padding-right: 2.75rem !important;
 }
 
-input[type="password"]::-ms-reveal,
-input[type="password"]::-ms-clear {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    max-width: 0 !important;
-    max-height: 0 !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    visibility: hidden !important;
-}
-
-input[type="password"]::-webkit-credentials-auto-fill-button,
-input[type="password"]::-webkit-strong-password-auto-fill-button {
-    visibility: hidden !important;
-    pointer-events: none !important;
-    opacity: 0 !important;
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-}
-
-.password-input.password-input-hidden {
-    -webkit-text-security: disc;
-    -moz-text-security: disc;
-}
-
-.password-input.password-input-visible {
-    -webkit-text-security: none;
-    -moz-text-security: none;
-}
-
->>>>>>> Stashed changes
 .auth-link {
     font-size: 0.875rem;
     font-weight: 500;
