@@ -147,7 +147,7 @@ require __DIR__ . '/../includes/header.php';
                             <?php foreach ($upcomingAppointments as $appointment): ?>
                                 <li class="schedule-item">
                                     <div class="schedule-date">
-                                        <?php $apptStart = appointmentStart($appointment) ?? $appointment['start_time'] ?? null; ?>
+                                        <?php $apptStart = appointmentEffectiveStart($appointment); ?>
                                         <span><?= $apptStart ? date('d', strtotime($apptStart)) : '—' ?></span>
                                         <small><?= $apptStart ? date('M', strtotime($apptStart)) : '' ?></small>
                                     </div>

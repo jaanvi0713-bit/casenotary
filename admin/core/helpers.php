@@ -88,14 +88,54 @@ function appointmentDateTimeValue(?string $value): ?string
 
 function appointmentStart(array $appointment): ?string
 {
-    return appointmentDateTimeValue($appointment['starts_at'] ?? null)
-        ?? appointmentDateTimeValue($appointment['start_time'] ?? null);
+    return appointmentEffectiveStart($appointment);
 }
 
 function appointmentEnd(array $appointment): ?string
 {
-    return appointmentDateTimeValue($appointment['ends_at'] ?? null)
-        ?? appointmentDateTimeValue($appointment['end_time'] ?? null);
+    return appointmentEffectiveEnd($appointment);
+}
+
+function appointmentEffectiveStart(array $appointment): ?string
+{
+    $resolved = appointmentDateTimeValue($appointment['start_time'] ?? null);
+    if ($resolved !== null) {
+        return $resolved;
+    }
+
+    return appointmentDateTimeValue($appointment['starts_at'] ?? null);
+}
+
+function appointmentEffectiveEnd(array $appointment): ?string
+{
+    $resolved = appointmentDateTimeValue($appointment['end_time'] ?? null);
+    if ($resolved !== null) {
+        return $resolved;
+    }
+
+    return appointmentDateTimeValue($appointment['ends_at'] ?? null);
+}
+
+function isUpcomingAppointment(array $appointment): bool
+{
+    $status = strtolower(trim($appointment['status'] ?? ''));
+    if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+        return false;
+    }
+
+    $start = appointmentEffectiveStart($appointment);
+    if (!$start) {
+        return false;
+    }
+
+    $now = time();
+    $end = appointmentEffectiveEnd($appointment);
+
+    if ($end && strtotime($end) >= $now) {
+        return true;
+    }
+
+    return strtotime($start) >= $now;
 }
 
 function normalizeDateTimeInput(string $value): string
@@ -355,7 +395,7 @@ function appointmentDateTimeSql(string $primaryCol, string $fallbackCol, string 
     };
 
     if ($hasPrimary && $hasFallback) {
-        return "CASE WHEN {$isValid($primaryCol)} THEN {$prefix}{$primaryCol} WHEN {$isValid($fallbackCol)} THEN {$prefix}{$fallbackCol} ELSE NULL END";
+        return "CASE WHEN {$isValid($fallbackCol)} THEN {$prefix}{$fallbackCol} WHEN {$isValid($primaryCol)} THEN {$prefix}{$primaryCol} ELSE NULL END";
     }
 
     if ($hasPrimary) {
@@ -455,6 +495,7 @@ function getDashboardStats(): array
     $invoiceStatus = invoiceStatusColumn();
     $paymentStatus = paymentStatusColumn();
     $appointmentStart = appointmentStartSql();
+    $appointmentEnd   = appointmentEndSql();
 
     $totalClients = Database::fetch('SELECT COUNT(*) AS count FROM clients')['count'] ?? 0;
 
@@ -471,7 +512,9 @@ function getDashboardStats(): array
     )['count'] ?? 0;
 
     $upcomingAppointments = Database::fetch(
-        "SELECT COUNT(*) AS count FROM appointments WHERE {$appointmentStart} >= NOW() AND status IN ('scheduled', 'confirmed')"
+        "SELECT COUNT(*) AS count FROM appointments
+         WHERE status IN ('scheduled', 'confirmed')
+           AND ({$appointmentStart} >= NOW() OR ({$appointmentEnd} IS NOT NULL AND {$appointmentEnd} >= NOW()))"
     )['count'] ?? 0;
 
     $totalRevenue = Database::fetch(
@@ -835,7 +878,8 @@ function getUpcomingAppointments(int $limit = 5): array
          FROM appointments a
          JOIN clients c ON c.id = a.client_id
          JOIN users cu ON cu.id = c.user_id
-         WHERE {$startSql} >= NOW() AND a.status IN ('scheduled', 'confirmed')
+         WHERE a.status IN ('scheduled', 'confirmed')
+           AND ({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))
          ORDER BY {$startSql} ASC
          LIMIT ?",
         [$limit]
@@ -1273,9 +1317,11 @@ function getChatbotContext(): array
     )['count'] ?? 0;
 
     $startSql = appointmentStartSql();
+    $endSql   = appointmentEndSql();
     $nextAppointment = Database::fetch(
         "SELECT title, {$startSql} AS start_time FROM appointments
-         WHERE {$startSql} >= NOW() AND status IN ('scheduled', 'confirmed')
+         WHERE status IN ('scheduled', 'confirmed')
+           AND ({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))
          ORDER BY {$startSql} ASC LIMIT 1"
     );
 
@@ -1594,22 +1640,17 @@ function getClientUpcomingAppointments(int $clientId, int $limit = 5): array
     $upcoming = [];
 
     foreach ($appointments as $appointment) {
-        $status = $appointment['status'] ?? '';
-        if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+        if (!isUpcomingAppointment($appointment)) {
             continue;
         }
 
-        $start = appointmentStart($appointment);
-        if (!$start || strtotime($start) < time()) {
-            continue;
-        }
-
-        $appointment['start_time'] = $start;
+        $appointment['start_time'] = appointmentEffectiveStart($appointment);
+        $appointment['end_time']   = appointmentEffectiveEnd($appointment);
         $upcoming[] = $appointment;
     }
 
     usort($upcoming, static function (array $a, array $b): int {
-        return strtotime(appointmentStart($a) ?? '') <=> strtotime(appointmentStart($b) ?? '');
+        return strtotime(appointmentEffectiveStart($a) ?? '') <=> strtotime(appointmentEffectiveStart($b) ?? '');
     });
 
     return array_slice($upcoming, 0, $limit);
