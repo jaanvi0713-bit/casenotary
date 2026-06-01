@@ -79,6 +79,47 @@ function clientFullName(array $client): string
     return trim(($client['first_name'] ?? '') . ' ' . ($client['last_name'] ?? ''));
 }
 
+function clientPostalCode(array $client): string
+{
+    return trim((string) ($client['zip_code'] ?? $client['zip'] ?? ''));
+}
+
+/**
+ * @return list<string>
+ */
+function clientAddressLines(array $client): array
+{
+    $street  = trim((string) ($client['address'] ?? ''));
+    $city    = trim((string) ($client['city'] ?? ''));
+    $state   = trim((string) ($client['state'] ?? ''));
+    $postal  = clientPostalCode($client);
+    $country = trim((string) ($client['country'] ?? ''));
+
+    $lines = [];
+
+    if ($street !== '') {
+        $lines[] = $street;
+    }
+
+    $locality = array_values(array_filter([$city, $state, $postal], static fn(string $part): bool => $part !== ''));
+    if ($locality !== []) {
+        $lines[] = implode(', ', $locality);
+    }
+
+    if ($country !== '') {
+        $lines[] = $country;
+    }
+
+    return $lines;
+}
+
+function clientAddressSummary(array $client): string
+{
+    $lines = clientAddressLines($client);
+
+    return $lines === [] ? '' : implode(', ', $lines);
+}
+
 function appointmentDateTimeValue(?string $value): ?string
 {
     if ($value === null) {

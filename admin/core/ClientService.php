@@ -11,16 +11,9 @@ class ClientService
 
     public static function create(array $data, bool $createLogin = false): array
     {
-        $firstName = trim($data['first_name'] ?? '');
-        $lastName  = trim($data['last_name'] ?? '');
-        $email     = trim($data['email'] ?? '');
-        $phone     = trim($data['phone'] ?? '') ?: null;
+        $profile = self::validateClientProfile($data);
 
-        if ($firstName === '' || $lastName === '' || $email === '') {
-            throw new RuntimeException('First name, last name, and email are required.');
-        }
-
-        if (self::emailExists($email)) {
+        if (self::emailExists($profile['email'])) {
             throw new RuntimeException('A client with this email already exists.');
         }
 
@@ -29,21 +22,27 @@ class ClientService
 
         if ($createLogin) {
             $plainPassword = self::resolvePortalPassword($data);
-            $userId        = self::createUserAccount($email, $plainPassword, $firstName, $lastName, $phone);
+            $userId        = self::createUserAccount(
+                $profile['email'],
+                $plainPassword,
+                $profile['first_name'],
+                $profile['last_name'],
+                $profile['phone']
+            );
         }
 
         $clientId = self::insertClientRow([
             'user_id'      => $userId,
-            'first_name'   => $firstName,
-            'last_name'    => $lastName,
-            'email'        => $email,
-            'phone'        => $phone,
+            'first_name'   => $profile['first_name'],
+            'last_name'    => $profile['last_name'],
+            'email'        => $profile['email'],
+            'phone'        => $profile['phone'],
             'company_name' => trim($data['company_name'] ?? '') ?: null,
-            'address'      => trim($data['address'] ?? '') ?: null,
-            'city'         => trim($data['city'] ?? '') ?: null,
-            'state'        => trim($data['state'] ?? '') ?: null,
-            'zip_code'     => trim($data['zip_code'] ?? '') ?: null,
-            'country'      => trim($data['country'] ?? '') ?: 'USA',
+            'address'      => $profile['address'],
+            'city'         => $profile['city'],
+            'state'        => $profile['state'],
+            'zip_code'     => $profile['zip_code'],
+            'country'      => $profile['country'],
             'notes'        => trim($data['notes'] ?? '') ?: null,
         ]);
 
@@ -65,12 +64,9 @@ class ClientService
             throw new RuntimeException('Client not found.');
         }
 
-        $email = trim($data['email'] ?? '');
-        if ($email === '') {
-            throw new RuntimeException('Email is required.');
-        }
+        $profile = self::validateClientProfile($data);
 
-        if (self::emailExists($email, $id)) {
+        if (self::emailExists($profile['email'], $id)) {
             throw new RuntimeException('Another client already uses this email.');
         }
 
@@ -81,16 +77,16 @@ class ClientService
                                     status = ?, updated_at = NOW()
                  WHERE id = ?',
                 [
-                    trim($data['first_name'] ?? ''),
-                    trim($data['last_name'] ?? ''),
-                    $email,
-                    trim($data['phone'] ?? '') ?: null,
+                    $profile['first_name'],
+                    $profile['last_name'],
+                    $profile['email'],
+                    $profile['phone'],
                     trim($data['company_name'] ?? '') ?: null,
-                    trim($data['address'] ?? '') ?: null,
-                    trim($data['city'] ?? '') ?: null,
-                    trim($data['state'] ?? '') ?: null,
-                    trim($data['zip_code'] ?? '') ?: null,
-                    trim($data['country'] ?? '') ?: 'USA',
+                    $profile['address'],
+                    $profile['city'],
+                    $profile['state'],
+                    $profile['zip_code'],
+                    $profile['country'],
                     trim($data['notes'] ?? '') ?: null,
                     $data['status'] ?? 'active',
                     $id,
@@ -103,16 +99,16 @@ class ClientService
                                     status = ?, updated_at = NOW()
                  WHERE id = ?',
                 [
-                    trim($data['first_name'] ?? ''),
-                    trim($data['last_name'] ?? ''),
-                    $email,
-                    trim($data['phone'] ?? '') ?: null,
+                    $profile['first_name'],
+                    $profile['last_name'],
+                    $profile['email'],
+                    $profile['phone'],
                     trim($data['company_name'] ?? '') ?: null,
-                    trim($data['address'] ?? '') ?: null,
-                    trim($data['city'] ?? '') ?: null,
-                    trim($data['state'] ?? '') ?: null,
-                    trim($data['zip_code'] ?? '') ?: null,
-                    trim($data['country'] ?? '') ?: 'USA',
+                    $profile['address'],
+                    $profile['city'],
+                    $profile['state'],
+                    $profile['zip_code'],
+                    $profile['country'],
                     trim($data['notes'] ?? '') ?: null,
                     $data['status'] ?? 'active',
                     $id,
@@ -121,10 +117,16 @@ class ClientService
         }
 
         if (!empty($client['user_id'])) {
-            self::updateUserAccount((int) $client['user_id'], $email, $data);
+            self::updateUserAccount((int) $client['user_id'], $profile['email'], $data);
         } elseif (!empty($data['create_login'])) {
             $plainPassword = self::resolvePortalPassword($data);
-            $userId        = self::createUserAccount($email, $plainPassword, trim($data['first_name'] ?? ''), trim($data['last_name'] ?? ''), trim($data['phone'] ?? '') ?: null);
+            $userId        = self::createUserAccount(
+                $profile['email'],
+                $plainPassword,
+                $profile['first_name'],
+                $profile['last_name'],
+                $profile['phone']
+            );
             Database::query('UPDATE clients SET user_id = ?, updated_at = NOW() WHERE id = ?', [$userId, $id]);
             self::linkUserToClient($userId, $id);
 
@@ -241,6 +243,46 @@ class ClientService
         }
 
         return $password;
+    }
+
+    /**
+     * @return array{first_name: string, last_name: string, email: string, phone: string, address: string, city: string, state: string, zip_code: string, country: string}
+     */
+    private static function validateClientProfile(array $data): array
+    {
+        $firstName = trim($data['first_name'] ?? '');
+        $lastName  = trim($data['last_name'] ?? '');
+        $email     = trim($data['email'] ?? '');
+        $phone     = trim($data['phone'] ?? '');
+        $address   = trim($data['address'] ?? '');
+        $city      = trim($data['city'] ?? '');
+        $state     = trim($data['state'] ?? '');
+        $zipCode   = trim($data['zip_code'] ?? '');
+        $country   = trim($data['country'] ?? '');
+
+        if ($firstName === '' || $lastName === '' || $email === '') {
+            throw new RuntimeException('First name, last name, and email are required.');
+        }
+
+        if ($phone === '') {
+            throw new RuntimeException('Phone number is required.');
+        }
+
+        if ($address === '' || $city === '' || $state === '' || $zipCode === '' || $country === '') {
+            throw new RuntimeException('Complete address is required (street, city, state/region, postal code, and country).');
+        }
+
+        return [
+            'first_name' => $firstName,
+            'last_name'  => $lastName,
+            'email'      => $email,
+            'phone'      => $phone,
+            'address'    => $address,
+            'city'       => $city,
+            'state'      => $state,
+            'zip_code'   => $zipCode,
+            'country'    => $country,
+        ];
     }
 
     private static function emailExists(string $email, ?int $excludeId = null): bool

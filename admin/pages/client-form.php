@@ -71,8 +71,8 @@ require __DIR__ . '/../includes/header.php';
                                value="<?= e($client['email'] ?? old('email')) ?>">
                     </div>
                     <div class="col-md-6">
-                        <label class="case-form-label" for="phone">Phone</label>
-                        <input type="tel" id="phone" name="phone" class="form-control case-form-control"
+                        <label class="case-form-label" for="phone">Phone <span class="text-danger">*</span></label>
+                        <input type="tel" id="phone" name="phone" class="form-control case-form-control" required
                                value="<?= e($client['phone'] ?? old('phone')) ?>" autocomplete="tel">
                     </div>
                     <div class="col-md-6">
@@ -98,33 +98,34 @@ require __DIR__ . '/../includes/header.php';
                     <i class="bi bi-geo-alt"></i>
                     <div>
                         <h2 class="case-form-section-title">Address</h2>
+                        <p class="case-form-section-desc">Required for case documents and correspondence.</p>
                     </div>
                 </div>
                 <div class="row g-3">
                     <div class="col-12">
-                        <label class="case-form-label" for="address">Street Address</label>
-                        <input type="text" id="address" name="address" class="form-control case-form-control"
+                        <label class="case-form-label" for="address">Street Address <span class="text-danger">*</span></label>
+                        <input type="text" id="address" name="address" class="form-control case-form-control" required
                                value="<?= e($client['address'] ?? old('address')) ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="case-form-label" for="city">City</label>
-                        <input type="text" id="city" name="city" class="form-control case-form-control"
+                        <label class="case-form-label" for="city">City <span class="text-danger">*</span></label>
+                        <input type="text" id="city" name="city" class="form-control case-form-control" required
                                value="<?= e($client['city'] ?? old('city')) ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="case-form-label" for="state">State</label>
-                        <input type="text" id="state" name="state" class="form-control case-form-control"
+                        <label class="case-form-label" for="state">State / Region <span class="text-danger">*</span></label>
+                        <input type="text" id="state" name="state" class="form-control case-form-control" required
                                value="<?= e($client['state'] ?? old('state')) ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="case-form-label" for="zip_code">ZIP Code</label>
-                        <input type="text" id="zip_code" name="zip_code" class="form-control case-form-control"
+                        <label class="case-form-label" for="zip_code">Postal / ZIP Code <span class="text-danger">*</span></label>
+                        <input type="text" id="zip_code" name="zip_code" class="form-control case-form-control" required
                                value="<?= e($client['zip_code'] ?? old('zip_code')) ?>">
                     </div>
                     <div class="col-md-6">
-                        <label class="case-form-label" for="country">Country</label>
-                        <input type="text" id="country" name="country" class="form-control case-form-control"
-                               value="<?= e($client['country'] ?? old('country', 'USA')) ?>">
+                        <label class="case-form-label" for="country">Country <span class="text-danger">*</span></label>
+                        <input type="text" id="country" name="country" class="form-control case-form-control" required
+                               value="<?= e($client['country'] ?? old('country')) ?>">
                     </div>
                     <div class="col-12">
                         <label class="case-form-label" for="notes">Internal Notes</label>
@@ -289,6 +290,13 @@ document.addEventListener("DOMContentLoaded", function() {
             form.addEventListener("submit", function(e) {
                 if (phoneInput && iti) {
                     phoneInput.value = iti.getNumber() || phoneInput.value.trim();
+                    if (!phoneInput.value.trim()) {
+                        e.preventDefault();
+                        phoneInput.setCustomValidity("Phone number is required.");
+                        phoneInput.reportValidity();
+                        phoneInput.setCustomValidity("");
+                        return;
+                    }
                 }
 
                 var loginCheckbox = document.getElementById("create_login");

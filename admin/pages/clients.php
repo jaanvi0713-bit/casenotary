@@ -39,7 +39,7 @@ require __DIR__ . '/../includes/header.php';
                             <th>Company</th>
                             <th>Email</th>
                             <th>Phone</th>
-                            <th>Location</th>
+                            <th class="col-location">Location</th>
                             <th>Cases</th>
                             <th>Status</th>
                             <th></th>
@@ -57,11 +57,16 @@ require __DIR__ . '/../includes/header.php';
                                 <td><?= e($client['company_name'] ?: '—') ?></td>
                                 <td><?= e($client['email']) ?></td>
                                 <td><?= e($client['phone'] ?: '—') ?></td>
-                                <td>
-                                    <?php if ($client['city']): ?>
-                                        <?= e($client['city'] . ', ' . $client['state']) ?>
+                                <td class="client-address-cell">
+                                    <?php $addressLines = clientAddressLines($client); ?>
+                                    <?php if ($addressLines === []): ?>
+                                        <span class="text-muted">—</span>
                                     <?php else: ?>
-                                        —
+                                        <div class="client-address-block" title="<?= e(clientAddressSummary($client)) ?>">
+                                            <?php foreach ($addressLines as $index => $line): ?>
+                                                <span class="client-address-line<?= $index === 0 ? ' client-address-line-primary' : '' ?>"><?= e($line) ?></span>
+                                            <?php endforeach; ?>
+                                        </div>
                                     <?php endif; ?>
                                 </td>
                                 <td><span class="badge bg-light text-dark"><?= (int) $client['case_count'] ?></span></td>

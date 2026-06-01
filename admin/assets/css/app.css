@@ -2107,6 +2107,36 @@ body.sidebar-collapsed .main-content {
     font-size: 0.75rem;
 }
 
+.client-address-cell {
+    min-width: 11rem;
+    max-width: 18rem;
+    vertical-align: top;
+}
+
+.client-address-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    line-height: 1.4;
+}
+
+.client-address-line {
+    display: block;
+    color: var(--gray-600);
+    font-size: 0.75rem;
+    word-break: break-word;
+}
+
+.client-address-line-primary {
+    color: var(--secondary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.saas-table .col-location {
+    min-width: 11rem;
+}
+
 /* Status Badges */
 .status-badge {
     display: inline-block;
