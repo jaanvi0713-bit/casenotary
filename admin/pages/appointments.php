@@ -12,14 +12,17 @@ $pageSubtitle = $stats['upcoming_appointments'] . ' upcoming';
 $addedId = (int) ($_GET['added'] ?? 0);
 $addedAppointment = null;
 $addedCalendarUrl = null;
+$addedOutlookUrl = null;
 $addedIcsUrl = null;
 
 if ($addedId > 0) {
     $addedAppointment = AppointmentService::getById($addedId);
     if ($addedAppointment) {
         $addedClient = ClientService::getById((int) ($addedAppointment['client_id'] ?? 0)) ?? $addedAppointment;
-        $addedCalendarUrl = $addedAppointment['meeting_link'] ?? GoogleCalendarService::buildAddToCalendarUrl($addedAppointment, $addedClient);
-        $addedIcsUrl = url('actions/appointment-ics.php?id=' . $addedId);
+        $addedLinks = GoogleCalendarService::getCalendarLinks($addedId, $addedAppointment, $addedClient);
+        $addedCalendarUrl = $addedLinks['google'];
+        $addedOutlookUrl = $addedLinks['outlook'];
+        $addedIcsUrl = $addedLinks['ics'];
     }
 }
 
@@ -31,7 +34,7 @@ foreach ($appointments as $appt) {
     }
 
     [$calStart, $calEnd] = normalizeAppointmentCalendarRange($start, appointmentEffectiveEnd($appt));
-    $calUrl = $appt['meeting_link'] ?? GoogleCalendarService::buildAddToCalendarUrl($appt, $appt);
+    $links = GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $appt);
 
     foreach (buildAppointmentCalendarEvents($appt, [
         'client'      => clientFullName($appt),
@@ -41,8 +44,9 @@ foreach ($appointments as $appt) {
         'description' => $appt['description'] ?? '',
         'startLabel'  => formatDateTime($calStart, 'M j, Y g:i A'),
         'endLabel'    => formatDateTime($calEnd, 'M j, Y g:i A'),
-        'calUrl'      => $calUrl,
-        'icsUrl'      => url('actions/appointment-ics.php?id=' . (int) ($appt['id'] ?? 0)),
+        'calUrl'      => $links['google'],
+        'outlookUrl'  => $links['outlook'],
+        'icsUrl'      => $links['ics'],
     ]) as $event) {
         $calendarEvents[] = $event;
     }
@@ -60,12 +64,17 @@ require __DIR__ . '/../includes/header.php';
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
         <div>
             <strong><i class="bi bi-check-circle me-2"></i>Appointment scheduled!</strong>
-            <span class="d-block small mt-1">“<?= e($addedAppointment['title']) ?>” — click below to add it to Google Calendar (one click, no setup needed).</span>
+            <span class="d-block small mt-1">“<?= e($addedAppointment['title']) ?>” — add it to your calendar below.</span>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a href="<?= e($addedCalendarUrl) ?>" target="_blank" rel="noopener" class="btn btn-primary btn-sm" id="openGoogleCalendar">
                 <i class="bi bi-google me-1"></i> Add to Google Calendar
             </a>
+            <?php if ($addedOutlookUrl): ?>
+            <a href="<?= e($addedOutlookUrl) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm">
+                <i class="bi bi-microsoft me-1"></i> Add to Outlook Calendar
+            </a>
+            <?php endif; ?>
             <a href="<?= e($addedIcsUrl) ?>" class="btn btn-soft btn-sm">
                 <i class="bi bi-download me-1"></i> Download .ics
             </a>
@@ -158,16 +167,20 @@ require __DIR__ . '/../includes/header.php';
                                 <td><?= statusBadge($appt['status']) ?></td>
                                 <td>
                                     <?php
-                                    $calUrl = $appt['meeting_link'] ?? null;
-                                    if (!$calUrl && appointmentStart($appt)) {
-                                        $calUrl = GoogleCalendarService::buildAddToCalendarUrl($appt, $appt);
-                                    }
+                                    $links = appointmentStart($appt)
+                                        ? GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $appt)
+                                        : null;
                                     ?>
-                                    <?php if ($calUrl): ?>
-                                        <a href="<?= e($calUrl) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm" title="Add to Google Calendar">
+                                    <?php if ($links && $links['google']): ?>
+                                        <a href="<?= e($links['google']) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm" title="Add to Google Calendar">
                                             <i class="bi bi-google"></i>
                                         </a>
-                                        <a href="<?= url('actions/appointment-ics.php?id=' . (int) $appt['id']) ?>" class="btn btn-soft btn-sm" title="Download .ics">
+                                        <?php if ($links['outlook']): ?>
+                                        <a href="<?= e($links['outlook']) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm" title="Add to Outlook Calendar">
+                                            <i class="bi bi-microsoft"></i>
+                                        </a>
+                                        <?php endif; ?>
+                                        <a href="<?= e($links['ics']) ?>" class="btn btn-soft btn-sm" title="Download .ics">
                                             <i class="bi bi-download"></i>
                                         </a>
                                     <?php else: ?>
@@ -229,6 +242,9 @@ require __DIR__ . '/../includes/header.php';
             <div class="modal-footer">
                 <a href="#" target="_blank" rel="noopener" class="btn btn-primary btn-sm d-none" id="eventDetailGoogle">
                     <i class="bi bi-google me-1"></i> Google Calendar
+                </a>
+                <a href="#" target="_blank" rel="noopener" class="btn btn-soft btn-sm d-none" id="eventDetailOutlook">
+                    <i class="bi bi-microsoft me-1"></i> Outlook Calendar
                 </a>
                 <a href="#" class="btn btn-soft btn-sm d-none" id="eventDetailIcs">
                     <i class="bi bi-download me-1"></i> Download .ics
@@ -477,12 +493,19 @@ document.addEventListener("DOMContentLoaded", function() {
         document.getElementById("eventDetailDescription").textContent = props.description || "—";
 
         var googleBtn = document.getElementById("eventDetailGoogle");
+        var outlookBtn = document.getElementById("eventDetailOutlook");
         var icsBtn = document.getElementById("eventDetailIcs");
         if (props.calUrl) {
             googleBtn.href = props.calUrl;
             googleBtn.classList.remove("d-none");
         } else {
             googleBtn.classList.add("d-none");
+        }
+        if (props.outlookUrl) {
+            outlookBtn.href = props.outlookUrl;
+            outlookBtn.classList.remove("d-none");
+        } else {
+            outlookBtn.classList.add("d-none");
         }
         if (props.icsUrl) {
             icsBtn.href = props.icsUrl;
