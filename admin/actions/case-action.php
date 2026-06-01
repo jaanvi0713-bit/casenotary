@@ -175,7 +175,10 @@ try {
     $message = $e->getMessage();
     if (str_contains($message, 'SQLSTATE')) {
         $config = require __DIR__ . '/../config/config.php';
-        $error  = 'Could not save the case. If this is a new install, run: php admin/sql/migrate_cases.php';
+        $error  = 'Database error while processing this request.';
+        if ($action === 'create_case' || $action === 'update_case') {
+            $error = 'Could not save the case. If this is a new install, run: php admin/sql/migrate_cases.php';
+        }
         if (!empty($config['debug'])) {
             $error .= ' Details: ' . $message;
         }

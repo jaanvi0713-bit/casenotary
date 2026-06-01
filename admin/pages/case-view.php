@@ -280,7 +280,7 @@ require __DIR__ . '/../includes/header.php';
                             <ul class="case-doc-list">
                                 <?php foreach ($workspace['proposals'] as $p): ?>
                                     <li>
-                                        <div><strong><?= e($p['proposal_number']) ?></strong><small><?= formatCurrency((float) $p['amount']) ?> · <?= formatDate($p['created_at']) ?></small></div>
+                                        <div><strong><?= e($p['proposal_number']) ?></strong><small><?= formatCurrency((float) ($p['amount'] ?? $p['total'] ?? 0)) ?> · <?= formatDate($p['created_at']) ?></small></div>
                                         <?php if (!empty($p['pdf_path'])): ?>
                                             <a href="<?= url('actions/document-download.php?path=' . urlencode($p['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
                                         <?php endif; ?>
@@ -386,7 +386,7 @@ require __DIR__ . '/../includes/header.php';
                             <ul class="case-doc-list">
                                 <?php foreach ($workspace['receipts'] as $r): ?>
                                     <li>
-                                        <div><strong><?= e($r['receipt_number']) ?></strong><small><?= formatCurrency((float) $r['amount']) ?></small></div>
+                                        <div><strong><?= e($r['receipt_number']) ?></strong><small><?= formatCurrency((float) ($r['amount'] ?? 0)) ?></small></div>
                                         <a href="<?= url('actions/receipt-download.php?id=' . (int) $r['id']) ?>" class="btn btn-soft btn-sm" target="_blank"><i class="bi bi-receipt"></i> View</a>
                                     </li>
                                 <?php endforeach; ?>

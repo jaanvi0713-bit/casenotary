@@ -61,6 +61,33 @@ if (tableExists($pdo, 'cases') && !columnExists($pdo, 'cases', 'services')) {
     echo "[OK] cases.services already exists\n";
 }
 
+if (tableExists($pdo, 'quotations') && !columnExists($pdo, 'quotations', 'line_items')) {
+    try {
+        $pdo->exec("ALTER TABLE quotations ADD COLUMN line_items JSON DEFAULT NULL AFTER title");
+        echo "[OK] Added quotations.line_items\n";
+    } catch (PDOException $e) {
+        echo "[SKIP] quotations.line_items: " . $e->getMessage() . "\n";
+    }
+}
+
+if (tableExists($pdo, 'proposals') && !columnExists($pdo, 'proposals', 'amount')) {
+    try {
+        $pdo->exec("ALTER TABLE proposals ADD COLUMN amount DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER content");
+        echo "[OK] Added proposals.amount\n";
+    } catch (PDOException $e) {
+        echo "[SKIP] proposals.amount: " . $e->getMessage() . "\n";
+    }
+}
+
+if (tableExists($pdo, 'invoices') && !columnExists($pdo, 'invoices', 'amount')) {
+    try {
+        $pdo->exec("ALTER TABLE invoices ADD COLUMN amount DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER client_id");
+        echo "[OK] Added invoices.amount\n";
+    } catch (PDOException $e) {
+        echo "[SKIP] invoices.amount: " . $e->getMessage() . "\n";
+    }
+}
+
 if (tableExists($pdo, 'documents') && !columnExists($pdo, 'documents', 'upload_source')) {
     $pdo->exec("ALTER TABLE documents ADD COLUMN upload_source ENUM('admin','client') NOT NULL DEFAULT 'admin' AFTER uploaded_by");
     echo "[OK] Added documents.upload_source\n";

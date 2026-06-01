@@ -656,6 +656,64 @@ function paymentStatusColumn(): string
     return $column;
 }
 
+/**
+ * Insert a row using only columns that exist on the table.
+ *
+ * @param array<string, mixed> $data
+ */
+function insertTableRow(string $table, array $data, bool $touchTimestamps = true): int
+{
+    $filtered = [];
+
+    foreach ($data as $column => $value) {
+        if (Database::columnExists($table, $column)) {
+            $filtered[$column] = $value;
+        }
+    }
+
+    if ($filtered === []) {
+        throw new RuntimeException("No valid columns to insert into {$table}.");
+    }
+
+    $columns      = array_keys($filtered);
+    $placeholders = array_fill(0, count($filtered), '?');
+
+    if ($touchTimestamps && Database::columnExists($table, 'created_at')) {
+        $columns[]      = 'created_at';
+        $placeholders[] = 'NOW()';
+    }
+    if ($touchTimestamps && Database::columnExists($table, 'updated_at')) {
+        $columns[]      = 'updated_at';
+        $placeholders[] = 'NOW()';
+    }
+
+    $sql = sprintf(
+        'INSERT INTO %s (%s) VALUES (%s)',
+        $table,
+        implode(', ', $columns),
+        implode(', ', $placeholders)
+    );
+
+    return Database::insert($sql, array_values($filtered));
+}
+
+function paymentTransactionColumn(): string
+{
+    static $column = null;
+
+    if ($column === null) {
+        if (Database::columnExists('payments', 'stripe_payment_id')) {
+            $column = 'stripe_payment_id';
+        } elseif (Database::columnExists('payments', 'transaction_id')) {
+            $column = 'transaction_id';
+        } else {
+            $column = 'stripe_payment_id';
+        }
+    }
+
+    return $column;
+}
+
 function appointmentStartColumn(): string
 {
     static $column = null;

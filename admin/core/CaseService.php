@@ -260,6 +260,7 @@ class CaseService
             'QUO'  => ['quotations', 'quotation_number'],
             'PRO'  => ['proposals', 'proposal_number'],
             'RCP'  => ['receipts', 'receipt_number'],
+            'PAY'  => ['payments', 'payment_number'],
         ];
 
         [$table, $column] = $tableMap[$prefix] ?? ['cases', 'case_number'];
@@ -671,12 +672,24 @@ class CaseService
     public static function getReceipts(int $caseId): array
     {
         try {
+            if (Database::columnExists('receipts', 'invoice_id')) {
+                return Database::fetchAll(
+                    "SELECT r.*, i.invoice_number
+                     FROM receipts r
+                     JOIN invoices i ON i.id = r.invoice_id
+                     WHERE i.case_id = ?
+                     ORDER BY r.created_at DESC",
+                    [$caseId]
+                );
+            }
+
             return Database::fetchAll(
-                "SELECT r.*, i.invoice_number
+                "SELECT r.*, i.invoice_number, p.amount
                  FROM receipts r
-                 JOIN invoices i ON i.id = r.invoice_id
+                 JOIN payments p ON p.id = r.payment_id
+                 JOIN invoices i ON i.id = p.invoice_id
                  WHERE i.case_id = ?
-                 ORDER BY r.created_at DESC",
+                 ORDER BY COALESCE(r.issued_at, r.created_at) DESC",
                 [$caseId]
             );
         } catch (Throwable $e) {
@@ -703,21 +716,21 @@ class CaseService
         }
 
         $lineItemsJson = json_encode($lineItems, JSON_UNESCAPED_UNICODE);
+        $taxAmt        = $fee * $tax / 100;
 
-        $id = Database::insert(
-            "INSERT INTO quotations (case_id, quotation_number, title, line_items, subtotal, tax_rate, total, status, valid_until, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'sent', ?, NOW(), NOW())",
-            [
-                $caseId,
-                $number,
-                $data['title'] ?? 'Quotation for ' . $case['title'],
-                $lineItemsJson,
-                $fee,
-                $tax,
-                $total,
-                $data['valid_until'] ?? date('Y-m-d', strtotime('+30 days')),
-            ]
-        );
+        $id = insertTableRow('quotations', [
+            'case_id'          => $caseId,
+            'quotation_number' => $number,
+            'title'            => $data['title'] ?? 'Quotation for ' . ($case['title'] ?? 'Case'),
+            'line_items'       => $lineItemsJson,
+            'notes'            => $lineItemsJson,
+            'subtotal'         => $fee,
+            'tax_rate'         => $tax,
+            'tax_amount'       => $taxAmt,
+            'total'            => $total,
+            'status'           => 'sent',
+            'valid_until'      => $data['valid_until'] ?? date('Y-m-d', strtotime('+30 days')),
+        ]);
 
         self::saveHtmlDocument($caseId, 'quotation', $id);
 
@@ -733,17 +746,15 @@ class CaseService
         $content = trim($data['content'] ?? '') ?: 'Proposal for notary services related to ' . $case['title'];
         $amount  = (float) ($data['amount'] ?? $case['service_fee'] ?? 0);
 
-        $id = Database::insert(
-            "INSERT INTO proposals (case_id, proposal_number, title, content, amount, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 'sent', NOW(), NOW())",
-            [
-                $caseId,
-                $number,
-                $data['title'] ?? 'Proposal — ' . $case['title'],
-                $content,
-                $amount,
-            ]
-        );
+        $id = insertTableRow('proposals', [
+            'case_id'         => $caseId,
+            'proposal_number' => $number,
+            'title'           => $data['title'] ?? 'Proposal — ' . ($case['title'] ?? 'Case'),
+            'content'         => $content,
+            'amount'          => $amount,
+            'total'           => $amount,
+            'status'          => 'sent',
+        ]);
 
         self::saveHtmlDocument($caseId, 'proposal', $id);
 
@@ -762,21 +773,21 @@ class CaseService
         $total  = $amount + $taxAmt;
         $due    = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
 
-        try {
-            $id = Database::insert(
-                "INSERT INTO invoices (invoice_number, case_id, client_id, amount, tax_rate, tax_amount, total,
-                                       payment_status, due_date, notes, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, NOW(), NOW())",
-                [$number, $caseId, $case['client_id'], $amount, $tax, $taxAmt, $total, $due, $data['notes'] ?? null]
-            );
-        } catch (Throwable $e) {
-            $id = Database::insert(
-                "INSERT INTO invoices (invoice_number, case_id, client_id, amount, tax_rate, tax_amount, total,
-                                       status, due_date, notes, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, NOW(), NOW())",
-                [$number, $caseId, $case['client_id'], $amount, $tax, $taxAmt, $total, $due, $data['notes'] ?? null]
-            );
-        }
+        $id = insertTableRow('invoices', [
+            'invoice_number'  => $number,
+            'case_id'         => $caseId,
+            'client_id'       => $case['client_id'],
+            'amount'          => $amount,
+            'subtotal'        => $amount,
+            'tax_rate'        => $tax,
+            'tax_amount'      => $taxAmt,
+            'total'           => $total,
+            'payment_status'  => 'pending',
+            'status'          => 'pending',
+            'issue_date'      => date('Y-m-d'),
+            'due_date'        => $due,
+            'notes'           => $data['notes'] ?? null,
+        ]);
 
         self::saveHtmlDocument($caseId, 'invoice', $id);
 
@@ -823,18 +834,15 @@ class CaseService
         }
 
         Database::query(
-            "UPDATE invoices SET {$statusCol} = ?, updated_at = NOW() WHERE id = ?",
-            [$newStatus, $invoiceId]
+            "UPDATE invoices SET {$statusCol} = ?, updated_at = NOW()" . (Database::columnExists('invoices', 'amount_paid') ? ', amount_paid = ?' : '') . ' WHERE id = ?',
+            Database::columnExists('invoices', 'amount_paid') ? [$newStatus, $paid, $invoiceId] : [$newStatus, $invoiceId]
         );
     }
 
     public static function recordStripePayment(int $invoiceId, float $amount, string $stripePaymentId): array
     {
         if ($stripePaymentId !== '') {
-            $existing = Database::fetch(
-                'SELECT id FROM payments WHERE stripe_payment_id = ? LIMIT 1',
-                [$stripePaymentId]
-            );
+            $existing = self::findPaymentByTransactionId($stripePaymentId);
             if ($existing) {
                 return ['success' => true, 'message' => 'Payment already recorded.', 'payment_id' => (int) $existing['id']];
             }
@@ -844,6 +852,7 @@ class CaseService
             'amount'            => $amount,
             'payment_method'    => 'stripe',
             'stripe_payment_id' => $stripePaymentId,
+            'transaction_id'    => $stripePaymentId,
             'notes'             => 'Paid via Stripe Checkout',
         ], 0);
     }
@@ -874,30 +883,30 @@ class CaseService
         }
 
         if ($stripeId !== '') {
-            $existing = Database::fetch(
-                'SELECT id FROM payments WHERE stripe_payment_id = ? LIMIT 1',
-                [$stripeId]
-            );
+            $existing = self::findPaymentByTransactionId($stripeId);
             if ($existing) {
                 return ['success' => true, 'message' => 'Payment already recorded.', 'payment_id' => (int) $existing['id']];
             }
         }
 
         $statusCol = paymentStatusColumn();
+        $txnCol    = paymentTransactionColumn();
 
-        try {
-            $paymentId = Database::insert(
-                "INSERT INTO payments (invoice_id, amount, payment_method, stripe_payment_id, {$statusCol}, paid_at, notes, created_at)
-                 VALUES (?, ?, ?, ?, 'completed', NOW(), ?, NOW())",
-                [$invoiceId, $amount, $method, $stripeId ?: null, $data['notes'] ?? null]
-            );
-        } catch (Throwable $e) {
-            $paymentId = Database::insert(
-                "INSERT INTO payments (invoice_id, amount, payment_method, stripe_payment_id, status, paid_at, notes, created_at)
-                 VALUES (?, ?, ?, ?, 'completed', NOW(), ?, NOW())",
-                [$invoiceId, $amount, $method, $stripeId ?: null, $data['notes'] ?? null]
-            );
-        }
+        $paymentRow = [
+            'invoice_id'          => $invoiceId,
+            'client_id'           => $invoice['client_id'] ?? null,
+            'payment_number'      => self::generateNumber('PAY'),
+            'amount'              => $amount,
+            'payment_method'      => $method,
+            'stripe_payment_id'   => $stripeId ?: null,
+            'transaction_id'      => $stripeId ?: null,
+            $statusCol            => 'completed',
+            'paid_at'             => date('Y-m-d H:i:s'),
+            'notes'               => $data['notes'] ?? null,
+            'created_by'          => $adminId > 0 ? $adminId : null,
+        ];
+
+        $paymentId = insertTableRow('payments', $paymentRow, Database::columnExists('payments', 'updated_at'));
 
         self::updateInvoicePaymentStatus($invoiceId);
 
@@ -931,14 +940,31 @@ class CaseService
         $amount = (float) ($invoice['payment_amount'] ?? $invoice['total'] ?? 0);
 
         try {
-            return Database::insert(
-                "INSERT INTO receipts (receipt_number, payment_id, invoice_id, client_id, amount, created_at)
-                 VALUES (?, ?, ?, ?, ?, NOW())",
-                [$number, $paymentId, $invoice['id'], $invoice['client_id'], $amount]
-            );
+            return insertTableRow('receipts', [
+                'receipt_number' => $number,
+                'payment_id'     => $paymentId,
+                'invoice_id'     => $invoice['id'] ?? null,
+                'client_id'      => $invoice['client_id'] ?? null,
+                'amount'         => $amount,
+                'issued_at'      => date('Y-m-d H:i:s'),
+            ], Database::columnExists('receipts', 'updated_at'));
         } catch (Throwable $e) {
             return 0;
         }
+    }
+
+    private static function findPaymentByTransactionId(string $transactionId): ?array
+    {
+        if ($transactionId === '') {
+            return null;
+        }
+
+        $column = paymentTransactionColumn();
+
+        return Database::fetch(
+            "SELECT id FROM payments WHERE {$column} = ? LIMIT 1",
+            [$transactionId]
+        );
     }
 
     public static function getActivity(int $caseId, int $limit = 50): array
@@ -990,7 +1016,7 @@ class CaseService
             $events[] = [
                 'type'   => 'proposal',
                 'title'  => 'Proposal created',
-                'detail' => ($pro['proposal_number'] ?? '') . ' · ' . formatCurrency((float) ($pro['amount'] ?? 0)),
+                'detail' => ($pro['proposal_number'] ?? '') . ' · ' . formatCurrency((float) ($pro['amount'] ?? $pro['total'] ?? 0)),
                 'time'   => $pro['created_at'],
                 'actor'  => null,
             ];
