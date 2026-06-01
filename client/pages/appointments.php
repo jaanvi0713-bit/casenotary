@@ -16,8 +16,6 @@ $client = ClientService::getById($clientId) ?? ['id' => $clientId];
 $upcomingCount = (int) (getClientDashboardStats($clientId)['upcoming_appointments'] ?? 0);
 $pageSubtitle = $upcomingCount . ' upcoming';
 
-$statusColors = appointmentStatusColors();
-
 $calendarEvents = [];
 foreach ($appointments as $appt) {
     $start = appointmentEffectiveStart($appt);
@@ -27,27 +25,19 @@ foreach ($appointments as $appt) {
 
     $end = appointmentEffectiveEnd($appt) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
     $links = GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $client, true);
-    $eventColors = appointmentCalendarEventColors($appt);
 
-    $calendarEvents[] = [
-        'id'              => (string) ($appt['id'] ?? ''),
-        'title'           => $appt['title'] ?? 'Appointment',
-        'start'           => calendarEventDateTime($start),
-        'end'             => calendarEventDateTime($end),
-        'backgroundColor' => $eventColors['backgroundColor'],
-        'borderColor'     => $eventColors['borderColor'],
-        'classNames'      => $eventColors['classNames'],
-        'extendedProps'   => [
-            'status'      => $appt['status'] ?? 'scheduled',
-            'location'    => $appt['location'] ?? '',
-            'description' => $appt['description'] ?? '',
-            'startLabel'  => formatDateTime($start, 'M j, Y g:i A'),
-            'endLabel'    => formatDateTime($end, 'M j, Y g:i A'),
-            'googleUrl'   => $links['google'],
-            'outlookUrl'  => $links['outlook'],
-            'icsUrl'      => $links['ics'],
-        ],
-    ];
+    foreach (buildAppointmentCalendarEvents($appt, [
+        'status'      => $appt['status'] ?? 'scheduled',
+        'location'    => $appt['location'] ?? '',
+        'description' => $appt['description'] ?? '',
+        'startLabel'  => formatDateTime($start, 'M j, Y g:i A'),
+        'endLabel'    => formatDateTime($end, 'M j, Y g:i A'),
+        'googleUrl'   => $links['google'],
+        'outlookUrl'  => $links['outlook'],
+        'icsUrl'      => $links['ics'],
+    ]) as $event) {
+        $calendarEvents[] = $event;
+    }
 }
 
 $pageStyles = '<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css" rel="stylesheet">';

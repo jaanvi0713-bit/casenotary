@@ -188,6 +188,103 @@ function appointmentCalendarEventColors(array $appointment): array
     ];
 }
 
+/**
+ * Build FullCalendar event segment(s) for an appointment.
+ * Active appointments crossing today at midnight are split so past days
+ * use the past color and today/future use the status color.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function buildAppointmentCalendarEvents(array $appointment, array $extendedProps = []): array
+{
+    $start = appointmentEffectiveStart($appointment);
+    if (!$start) {
+        return [];
+    }
+
+    $end = appointmentEffectiveEnd($appointment) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
+    $startTs = strtotime($start);
+    $endTs = strtotime($end);
+    if ($startTs === false || $endTs === false || $endTs <= $startTs) {
+        return [];
+    }
+
+    $id = (string) ($appointment['id'] ?? '');
+    $title = $appointment['title'] ?? 'Appointment';
+    $status = strtolower(trim($appointment['status'] ?? 'scheduled'));
+    $colors = appointmentStatusColors();
+    $extendedProps['appointmentId'] = $extendedProps['appointmentId'] ?? (int) ($appointment['id'] ?? 0);
+
+    $makeEvent = static function (
+        string $suffix,
+        int $segStartTs,
+        int $segEndTs,
+        string $color,
+        array $classNames
+    ) use ($id, $title, $extendedProps): ?array {
+        if ($segEndTs <= $segStartTs) {
+            return null;
+        }
+
+        return [
+            'id'              => $id . $suffix,
+            'title'           => $title,
+            'start'           => calendarEventDateTime(date('Y-m-d H:i:s', $segStartTs)),
+            'end'             => calendarEventDateTime(date('Y-m-d H:i:s', $segEndTs)),
+            'backgroundColor' => $color,
+            'borderColor'     => $color,
+            'classNames'      => $classNames,
+            'extendedProps'   => $extendedProps,
+        ];
+    };
+
+    if (in_array($status, ['cancelled', 'completed'], true)) {
+        $eventColors = appointmentCalendarEventColors($appointment);
+
+        return [[
+            'id'              => $id,
+            'title'           => $title,
+            'start'           => calendarEventDateTime($start),
+            'end'             => calendarEventDateTime($end),
+            'backgroundColor' => $eventColors['backgroundColor'],
+            'borderColor'     => $eventColors['borderColor'],
+            'classNames'      => $eventColors['classNames'],
+            'extendedProps'   => $extendedProps,
+        ]];
+    }
+
+    $todayStartTs = strtotime('today');
+    $activeColor = $colors[$status] ?? $colors['scheduled'];
+    $pastColor = $colors['past'];
+
+    if ($startTs < $todayStartTs && $endTs > $todayStartTs) {
+        $events = [];
+        $pastEvent = $makeEvent('-past', $startTs, $todayStartTs, $pastColor, ['fc-event-past']);
+        if ($pastEvent !== null) {
+            $events[] = $pastEvent;
+        }
+        $activeEvent = $makeEvent('-active', $todayStartTs, $endTs, $activeColor, []);
+        if ($activeEvent !== null) {
+            $events[] = $activeEvent;
+        }
+
+        return $events;
+    }
+
+    $eventColors = appointmentCalendarEventColors($appointment);
+
+    return [[
+        'id'              => $id,
+        'title'           => $title,
+        'start'           => calendarEventDateTime($start),
+        'end'             => calendarEventDateTime($end),
+        'backgroundColor' => $eventColors['backgroundColor'],
+        'borderColor'     => $eventColors['borderColor'],
+        'classNames'      => $eventColors['classNames'],
+        'extendedProps'   => $extendedProps,
+    ]];
+}
+
 function isClientScheduledAppointment(array $appointment): bool
 {
     $status = strtolower(trim($appointment['status'] ?? ''));
