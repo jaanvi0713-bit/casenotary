@@ -32,19 +32,19 @@ $statusColors = [
 
 $calendarEvents = [];
 foreach ($appointments as $appt) {
-    $start = appointmentStart($appt);
+    $start = appointmentEffectiveStart($appt);
     if (!$start) {
         continue;
     }
 
-    $end = appointmentEnd($appt) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
+    $end = appointmentEffectiveEnd($appt) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
     $calUrl = $appt['meeting_link'] ?? GoogleCalendarService::buildAddToCalendarUrl($appt, $appt);
 
     $calendarEvents[] = [
         'id'              => (string) ($appt['id'] ?? ''),
         'title'           => $appt['title'] ?? 'Appointment',
-        'start'           => date('c', strtotime($start)),
-        'end'             => date('c', strtotime($end)),
+        'start'           => calendarEventDateTime($start),
+        'end'             => calendarEventDateTime($end),
         'backgroundColor' => $statusColors[$appt['status'] ?? 'scheduled'] ?? '#3aafa9',
         'borderColor'     => $statusColors[$appt['status'] ?? 'scheduled'] ?? '#3aafa9',
         'extendedProps'   => [
@@ -488,6 +488,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var calendarEl = document.getElementById("appointmentCalendar");
     if (calendarEl && window.FullCalendar) {
         var calendar = new FullCalendar.Calendar(calendarEl, {
+            timeZone: "local",
             initialView: "dayGridMonth",
             height: "auto",
             headerToolbar: {

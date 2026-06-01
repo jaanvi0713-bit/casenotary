@@ -168,6 +168,20 @@ function formatAppointmentScheduleMeta(array $appointment): string
     return formatDateTime($start, 'M j, g:i A') . ' – ' . formatDateTime($end, 'g:i A');
 }
 
+function calendarEventDateTime(?string $datetime): ?string
+{
+    if (!$datetime) {
+        return null;
+    }
+
+    $timestamp = strtotime($datetime);
+    if ($timestamp === false) {
+        return null;
+    }
+
+    return date('Y-m-d\TH:i:s', $timestamp);
+}
+
 function normalizeDateTimeInput(string $value): string
 {
     $value = trim(str_replace('T', ' ', $value));
