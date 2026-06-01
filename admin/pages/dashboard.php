@@ -25,21 +25,12 @@ require __DIR__ . '/../includes/header.php';
     <!-- Stat cards -->
     <div class="row g-3 mb-4 dashboard-kpi-row">
         <div class="col-sm-6 col-xl-3">
-<<<<<<< HEAD
-            <a href="<?= url('pages/clients.php') ?>" class="kpi-card">
-                <div class="stat-card-icon"><i class="bi bi-people"></i></div>
-                <div class="stat-card-body">
-                    <div class="stat-card-title">Total Clients</div>
-                    <div class="stat-card-value-row">
-                        <span class="stat-card-value"><?= number_format($stats['total_clients']) ?></span>
-=======
             <a href="<?= url('pages/clients.php') ?>" class="dash-stat-card">
                 <div class="dash-stat-icon"><i class="bi bi-people"></i></div>
                 <div class="dash-stat-content">
                     <span class="dash-stat-label">Total Clients</span>
                     <div class="dash-stat-value-row">
                         <span class="dash-stat-value"><?= number_format($stats['total_clients']) ?></span>
->>>>>>> 6cceb44c73d32ab08a4c4a93921ea1b8740633ce
                         <?= kpiTrendBadge($trends['clients'], true) ?>
                     </div>
                     <span class="dash-stat-foot">New clients - Last 7 days</span>
@@ -47,21 +38,12 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-<<<<<<< HEAD
-            <a href="<?= url('pages/payments.php') ?>" class="kpi-card">
-                <div class="stat-card-icon"><i class="bi bi-cash-stack"></i></div>
-                <div class="stat-card-body">
-                    <div class="stat-card-title">Total Payments</div>
-                    <div class="stat-card-value-row">
-                        <span class="stat-card-value"><?= formatCurrency($stats['total_revenue']) ?></span>
-=======
             <a href="<?= url('pages/payments.php') ?>" class="dash-stat-card">
                 <div class="dash-stat-icon"><i class="bi bi-briefcase"></i></div>
                 <div class="dash-stat-content">
                     <span class="dash-stat-label">Total Payments</span>
                     <div class="dash-stat-value-row">
                         <span class="dash-stat-value"><?= formatCurrency($stats['total_revenue']) ?></span>
->>>>>>> 6cceb44c73d32ab08a4c4a93921ea1b8740633ce
                         <?= kpiTrendBadge($trends['revenue'], true) ?>
                     </div>
                     <span class="dash-stat-foot">Completed - Last 7 days</span>
@@ -69,21 +51,12 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-<<<<<<< HEAD
-            <a href="<?= url('pages/payments.php') ?>" class="kpi-card">
-                <div class="stat-card-icon"><i class="bi bi-receipt"></i></div>
-                <div class="stat-card-body">
-                    <div class="stat-card-title">Pending Invoices</div>
-                    <div class="stat-card-value-row">
-                        <span class="stat-card-value"><?= number_format($stats['pending_invoices']) ?></span>
-=======
             <a href="<?= url('pages/payments.php') ?>" class="dash-stat-card">
                 <div class="dash-stat-icon"><i class="bi bi-calendar"></i></div>
                 <div class="dash-stat-content">
                     <span class="dash-stat-label">Pending Invoices</span>
                     <div class="dash-stat-value-row">
                         <span class="dash-stat-value"><?= number_format($stats['pending_invoices']) ?></span>
->>>>>>> 6cceb44c73d32ab08a4c4a93921ea1b8740633ce
                         <?= kpiTrendBadge($trends['invoices'], true) ?>
                     </div>
                     <span class="dash-stat-foot">Awaiting payment - Last 7 days</span>
@@ -91,21 +64,12 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-<<<<<<< HEAD
-            <a href="<?= url('pages/cases.php') ?>" class="kpi-card">
-                <div class="stat-card-icon"><i class="bi bi-briefcase"></i></div>
-                <div class="stat-card-body">
-                    <div class="stat-card-title">Active Cases</div>
-                    <div class="stat-card-value-row">
-                        <span class="stat-card-value"><?= number_format($stats['active_cases']) ?></span>
-=======
             <a href="<?= url('pages/cases.php') ?>" class="dash-stat-card">
                 <div class="dash-stat-icon"><i class="bi bi-chat-dots"></i></div>
                 <div class="dash-stat-content">
                     <span class="dash-stat-label">Active Cases</span>
                     <div class="dash-stat-value-row">
                         <span class="dash-stat-value"><?= number_format($stats['active_cases']) ?></span>
->>>>>>> 6cceb44c73d32ab08a4c4a93921ea1b8740633ce
                         <?= kpiTrendBadge($trends['cases'], true) ?>
                     </div>
                     <span class="dash-stat-foot">In progress - Last 7 days</span>

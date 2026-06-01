@@ -59,3 +59,7 @@ Subject: Updated appointment: Initial Consultation
 Notary Management ProAppointment UpdatedDear Sarah Mitchell,Your appointment details have been updated.Initial ConsultationWhen: May 29, 2026 10:00 AMLocation: To be confirmedAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalNotary Management Pro
 >>>>>>> fc41218d3cb8e052973060d1a4d3adc20b28b884
 >>>>>>> 145a3faae21761cade9535eb97ada94ab8bc76bf
+------------------------------------------------------------
+2026-06-01 05:39:07 | To: sarah.mitchell@email.com
+Subject: Cancelled appointment: Initial Consultation
+Notary Management ProAppointment CancelledDear Sarah Mitchell,Your appointment has been cancelled.Initial ConsultationWhen: May 29, 2026 10:00 AMLocation: To be confirmedView in Client PortalNotary Management Pro
