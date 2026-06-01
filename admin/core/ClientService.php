@@ -211,8 +211,8 @@ class ClientService
 
     private static function resolvePortalPassword(array $data): string
     {
-        $password = trim($data['password'] ?? $data['portal_password'] ?? '');
-        $confirm  = trim($data['password_confirmation'] ?? $data['portal_password_confirmation'] ?? '');
+        $password = trim($data['password'] ?? '');
+        $confirm  = trim($data['password_confirmation'] ?? '');
 
         if ($password === '') {
             throw new RuntimeException('Please enter a portal password.');
