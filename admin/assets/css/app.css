@@ -263,6 +263,22 @@ a:hover { color: var(--primary-dark); }
 
 .password-toggle:hover { color: var(--primary); }
 
+.auth-form .position-relative input[type="password"]::-ms-reveal,
+.auth-form .position-relative input[type="password"]::-ms-clear {
+    display: none;
+}
+
+.auth-form .position-relative input[type="password"]::-webkit-textfield-decoration-container {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.auth-form .position-relative input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    display: none !important;
+}
+
 .auth-link {
     font-size: 0.875rem;
     font-weight: 500;

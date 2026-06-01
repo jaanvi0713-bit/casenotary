@@ -671,6 +671,23 @@ textarea.case-form-control {
     padding-right: 2.75rem;
 }
 
+/* Keep a single custom reveal toggle — hide browser duplicate icons */
+.case-form-password-wrap input[type="password"]::-ms-reveal,
+.case-form-password-wrap input[type="password"]::-ms-clear {
+    display: none;
+}
+
+.case-form-password-wrap input[type="password"]::-webkit-textfield-decoration-container {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.case-form-password-wrap input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    display: none !important;
+}
+
 .case-services-list {
     display: flex;
     flex-direction: column;
