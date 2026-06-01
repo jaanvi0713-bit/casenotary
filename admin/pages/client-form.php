@@ -152,11 +152,21 @@ require __DIR__ . '/../includes/header.php';
                 <div id="portalPasswordFields" class="row g-3">
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
+<<<<<<< HEAD
                         <div class="case-form-password-wrap password-field-wrap">
                             <input type="text" id="password" name="password" class="form-control case-form-control password-input password-input-hidden"
                                    minlength="8" autocomplete="new-password"
                                    pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                                    title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+=======
+                        <div class="case-form-password-wrap">
+                            <div class="case-form-password-field">
+                                <input type="password" id="password" name="password" class="form-control case-form-control"
+                                       minlength="8" autocomplete="new-password" spellcheck="false" autocapitalize="off"
+                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                            </div>
+>>>>>>> d6b4e69c6ce66a0749d15c7678340cc0c420b0ad
                             <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -165,9 +175,17 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
+<<<<<<< HEAD
                         <div class="case-form-password-wrap password-field-wrap">
                             <input type="text" id="password_confirmation" name="password_confirmation" class="form-control case-form-control password-input password-input-hidden"
                                    minlength="8" autocomplete="off">
+=======
+                        <div class="case-form-password-wrap">
+                            <div class="case-form-password-field">
+                                <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
+                                       minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off">
+                            </div>
+>>>>>>> d6b4e69c6ce66a0749d15c7678340cc0c420b0ad
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -195,11 +213,21 @@ require __DIR__ . '/../includes/header.php';
                 <div id="portalPasswordFields" class="row g-3" style="display:none;">
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
+<<<<<<< HEAD
                         <div class="case-form-password-wrap password-field-wrap">
                             <input type="text" id="password" name="password" class="form-control case-form-control password-input password-input-hidden"
                                    minlength="8" autocomplete="new-password"
                                    pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                                    title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+=======
+                        <div class="case-form-password-wrap">
+                            <div class="case-form-password-field">
+                                <input type="password" id="password" name="password" class="form-control case-form-control"
+                                       minlength="8" autocomplete="new-password" spellcheck="false" autocapitalize="off"
+                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                            </div>
+>>>>>>> d6b4e69c6ce66a0749d15c7678340cc0c420b0ad
                             <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -208,9 +236,17 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
+<<<<<<< HEAD
                         <div class="case-form-password-wrap password-field-wrap">
                             <input type="text" id="password_confirmation" name="password_confirmation" class="form-control case-form-control password-input password-input-hidden"
                                    minlength="8" autocomplete="off">
+=======
+                        <div class="case-form-password-wrap">
+                            <div class="case-form-password-field">
+                                <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
+                                       minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off">
+                            </div>
+>>>>>>> d6b4e69c6ce66a0749d15c7678340cc0c420b0ad
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -358,9 +394,28 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             });
         }
+<<<<<<< HEAD
     } else if (form && phoneInput) {
         form.addEventListener("submit", function() {
             phoneInput.value = phoneInput.value.trim();
+=======
+    }
+
+    document.querySelectorAll(".js-password-toggle").forEach(function(button) {
+        button.addEventListener("click", function() {
+            var input = document.getElementById(this.getAttribute("data-target"));
+            if (!input) return;
+
+            var reveal = input.type === "password";
+            input.type = reveal ? "text" : "password";
+
+            var icon = this.querySelector("i");
+            if (icon) {
+                icon.classList.toggle("bi-eye", !reveal);
+                icon.classList.toggle("bi-eye-slash", reveal);
+            }
+            this.setAttribute("aria-label", reveal ? "Hide password" : "Show password");
+>>>>>>> d6b4e69c6ce66a0749d15c7678340cc0c420b0ad
         });
     }
 

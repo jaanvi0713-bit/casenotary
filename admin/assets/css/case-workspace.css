@@ -694,6 +694,7 @@ textarea.case-form-control {
     position: relative;
 }
 
+<<<<<<< HEAD
 .case-form-password-wrap .form-control,
 .password-field-wrap .form-control {
     padding-right: 2.75rem !important;
@@ -706,6 +707,37 @@ textarea.case-form-control {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
+=======
+.case-form-password-field {
+    overflow: hidden;
+    border-radius: var(--radius-sm, 6px);
+}
+
+.case-form-password-field .form-control {
+    width: calc(100% + 3rem);
+    padding-right: 3rem;
+    margin-right: -3rem;
+}
+
+.case-form-password-wrap > .password-toggle {
+    position: absolute;
+    right: 0.625rem;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+}
+
+.case-form-password-wrap input[type="password"]::-ms-reveal,
+.case-form-password-wrap input[type="password"]::-ms-clear {
+    display: none;
+}
+
+.case-form-password-wrap input[type="password"]::-webkit-textfield-decoration-container,
+.case-form-password-wrap input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    display: none !important;
+>>>>>>> d6b4e69c6ce66a0749d15c7678340cc0c420b0ad
 }
 
 .case-services-list {

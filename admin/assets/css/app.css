@@ -264,6 +264,7 @@ a:hover { color: var(--primary-dark); }
 
 .password-toggle:hover { color: var(--primary); }
 
+<<<<<<< HEAD
 .password-field-wrap,
 .case-form-password-wrap {
     position: relative;
@@ -320,6 +321,22 @@ input[type="password"]::-webkit-strong-password-auto-fill-button {
 .password-input.password-input-visible {
     -webkit-text-security: none;
     -moz-text-security: none;
+=======
+.auth-form .position-relative input[type="password"]::-ms-reveal,
+.auth-form .position-relative input[type="password"]::-ms-clear {
+    display: none;
+}
+
+.auth-form .position-relative input[type="password"]::-webkit-textfield-decoration-container {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.auth-form .position-relative input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    display: none !important;
+>>>>>>> d6b4e69c6ce66a0749d15c7678340cc0c420b0ad
 }
 
 .auth-link {
