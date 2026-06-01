@@ -1360,7 +1360,7 @@ function getDashboardTrends(array $stats): array
     return [
         'clients'  => ['value' => 2.5, 'up' => true],
         'cases'    => ['value' => abs($casesTrend), 'up' => $casesTrend >= 0],
-        'invoices' => ['value' => 1.2, 'up' => false],
+        'invoices' => ['value' => 1.2, 'up' => true],
         'revenue'  => ['value' => abs($revenueTrend), 'up' => $revenueTrend >= 0],
     ];
 }
@@ -1470,13 +1470,13 @@ function kpiTrendBadge(array $trend, bool $inline = false): string
 
     if ($value == 0.0) {
         $class = 'neutral';
-        $arrow = '→';
+        $suffix = '→';
     } elseif ($up) {
         $class = 'up';
-        $arrow = '↑';
+        $suffix = '+';
     } else {
         $class = 'down';
-        $arrow = '↓';
+        $suffix = '↓';
     }
 
     $inlineClass = $inline ? ' kpi-trend-inline' : '';
@@ -1487,7 +1487,7 @@ function kpiTrendBadge(array $trend, bool $inline = false): string
         $class,
         $inlineClass,
         $formatted,
-        $arrow
+        $suffix
     );
 }
 
