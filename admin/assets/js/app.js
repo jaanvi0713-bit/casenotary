@@ -230,6 +230,11 @@ window.AppointmentCalendar = {
         if (props.isSplit) {
             info.el.setAttribute('data-appt-split', 'true');
         }
+        if (props.segmentRole === 'active') {
+            info.el.querySelectorAll('.fc-event-time').forEach(function (node) {
+                node.remove();
+            });
+        }
     },
 
     calendarOptions: function (overrides) {

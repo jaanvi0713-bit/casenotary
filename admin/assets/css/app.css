@@ -2590,6 +2590,10 @@ body.sidebar-collapsed .main-content {
     font-weight: 600;
 }
 
+.appointment-calendar-wrap .fc-event.fc-appt-segment-active .fc-event-time {
+    display: none !important;
+}
+
 .appointment-calendar-wrap .fc-event .fc-appt-continuation-bar {
     min-height: 0.85rem;
 }
