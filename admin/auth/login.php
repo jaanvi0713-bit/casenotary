@@ -138,13 +138,10 @@ $isClientPortal = $portal === 'client';
                         <label for="email"><i class="bi bi-envelope me-2"></i>Email Address</label>
                     </div>
 
-                    <div class="form-floating mb-3 auth-password-field">
+                    <div class="form-floating mb-3">
                         <input type="password" class="form-control" id="password" name="password"
                                placeholder="Password" required autocomplete="current-password">
                         <label for="password"><i class="bi bi-lock me-2"></i>Password</label>
-                        <button type="button" class="password-toggle" id="togglePassword" tabindex="-1" aria-label="Show password">
-                            <i class="bi bi-eye"></i>
-                        </button>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-4" id="adminExtras" style="<?= $isClientPortal ? 'display:none;' : '' ?>">

@@ -263,21 +263,6 @@ a:hover { color: var(--primary-dark); }
 
 .password-toggle:hover { color: var(--primary); }
 
-.auth-form .form-floating.auth-password-field {
-    position: relative;
-}
-
-.auth-form .form-floating.auth-password-field > .password-toggle {
-    top: auto;
-    bottom: 0.85rem;
-    transform: none;
-    background: transparent;
-}
-
-.auth-form .form-floating.auth-password-field > .form-control {
-    padding-right: 2.75rem !important;
-}
-
 .auth-link {
     font-size: 0.875rem;
     font-weight: 500;
