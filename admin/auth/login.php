@@ -65,6 +65,43 @@ $isClientPortal = $portal === 'client';
             --secondary: <?= e($company['secondary_color']) ?>;
             --dark-accent: <?= e($company['dark_accent'] ?? '#000000') ?>;
         }
+
+        /* Login page only — one password eye (no browser-native reveal) */
+        .auth-form .login-password-wrap .form-control {
+            padding-right: 2.85rem !important;
+        }
+
+        .auth-form .login-password-input.is-masked {
+            -webkit-text-security: disc;
+            text-security: disc;
+        }
+
+        .auth-form .login-password-input.is-visible {
+            -webkit-text-security: none;
+            text-security: none;
+        }
+
+        .auth-form .login-password-toggle {
+            position: absolute;
+            right: 0;
+            bottom: 0.65rem;
+            z-index: 3;
+            width: 2.75rem;
+            height: 2.75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: none;
+            background: #fff;
+            color: var(--gray-600, #64748b);
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .auth-form .login-password-toggle:hover {
+            color: var(--primary);
+        }
     </style>
 </head>
 <body class="auth-page">
@@ -138,11 +175,12 @@ $isClientPortal = $portal === 'client';
                         <label for="email"><i class="bi bi-envelope me-2"></i>Email Address</label>
                     </div>
 
-                    <div class="form-floating mb-3 auth-password-field">
-                        <input type="password" class="form-control" id="password" name="password"
-                               placeholder="Password" required autocomplete="current-password">
+                    <div class="form-floating mb-3 auth-password-field login-password-wrap">
+                        <input type="text" class="form-control login-password-input is-masked" id="password" name="password"
+                               placeholder="Password" required autocomplete="off" spellcheck="false"
+                               autocorrect="off" autocapitalize="off" data-lpignore="true" data-1p-ignore="true">
                         <label for="password"><i class="bi bi-lock me-2"></i>Password</label>
-                        <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
+                        <button type="button" class="login-password-toggle" id="loginPasswordToggle" tabindex="-1" aria-label="Show password">
                             <i class="bi bi-eye" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -172,6 +210,23 @@ $isClientPortal = $portal === 'client';
     <script src="<?= asset('js/app.js') ?>"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        var pwdInput = document.getElementById('password');
+        var pwdToggle = document.getElementById('loginPasswordToggle');
+        if (pwdInput && pwdToggle) {
+            pwdToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                var show = pwdInput.classList.contains('is-masked');
+                pwdInput.classList.toggle('is-masked', !show);
+                pwdInput.classList.toggle('is-visible', show);
+                var icon = pwdToggle.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('bi-eye', !show);
+                    icon.classList.toggle('bi-eye-slash', show);
+                }
+                pwdToggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            });
+        }
+
         var portalInput = document.getElementById('portalInput');
         var submitBtn = document.querySelector('#submitBtn span');
         var portalSubtitle = document.getElementById('portalSubtitle');
