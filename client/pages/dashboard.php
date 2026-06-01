@@ -22,7 +22,7 @@ require __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="container-fluid px-0 dashboard-page">
-    <div class="row g-2 mb-3 dashboard-kpi-row">
+    <div class="row g-3 mb-4 dashboard-kpi-row">
         <div class="col-sm-6 col-xl-3">
             <a href="<?= clientUrl('pages/cases.php') ?>" class="stat-card">
                 <div class="stat-card-icon"><i class="bi bi-briefcase"></i></div>

@@ -72,7 +72,17 @@ class Auth
             return null;
         }
 
-        return Database::fetch('SELECT * FROM users WHERE id = ?', [$_SESSION['user_id']]);
+        if (Database::columnExists('users', 'name')) {
+            return Database::fetch(
+                'SELECT id, email, role, name, avatar, status FROM users WHERE id = ?',
+                [$_SESSION['user_id']]
+            );
+        }
+
+        return Database::fetch(
+            'SELECT id, email, role, first_name, last_name, avatar, status FROM users WHERE id = ?',
+            [$_SESSION['user_id']]
+        );
     }
 
     public static function id(): ?int

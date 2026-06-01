@@ -671,26 +671,6 @@ textarea.case-form-control {
     padding-right: 2.75rem;
 }
 
-.case-form-password-wrap .js-password-field.is-password-hidden {
-    -webkit-text-security: disc;
-    text-security: disc;
-}
-
-.case-form-password-wrap input[type="password"]::-ms-reveal,
-.case-form-password-wrap input[type="password"]::-ms-clear {
-    display: none;
-}
-
-.case-form-password-wrap > .password-toggle {
-    position: absolute;
-    right: 0.625rem;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 2;
-    background: #fff;
-    padding-left: 0.25rem;
-}
-
 .case-services-list {
     display: flex;
     flex-direction: column;

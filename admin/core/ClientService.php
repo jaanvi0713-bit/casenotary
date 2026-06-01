@@ -11,9 +11,16 @@ class ClientService
 
     public static function create(array $data, bool $createLogin = false): array
     {
-        $fields = self::validateClientData($data);
+        $firstName = trim($data['first_name'] ?? '');
+        $lastName  = trim($data['last_name'] ?? '');
+        $email     = trim($data['email'] ?? '');
+        $phone     = trim($data['phone'] ?? '') ?: null;
 
-        if (self::emailExists($fields['email'])) {
+        if ($firstName === '' || $lastName === '' || $email === '') {
+            throw new RuntimeException('First name, last name, and email are required.');
+        }
+
+        if (self::emailExists($email)) {
             throw new RuntimeException('A client with this email already exists.');
         }
 
@@ -22,28 +29,22 @@ class ClientService
 
         if ($createLogin) {
             $plainPassword = self::resolvePortalPassword($data);
-            $userId        = self::createUserAccount(
-                $fields['email'],
-                $plainPassword,
-                $fields['first_name'],
-                $fields['last_name'],
-                $fields['phone']
-            );
+            $userId        = self::createUserAccount($email, $plainPassword, $firstName, $lastName, $phone);
         }
 
         $clientId = self::insertClientRow([
             'user_id'      => $userId,
-            'first_name'   => $fields['first_name'],
-            'last_name'    => $fields['last_name'],
-            'email'        => $fields['email'],
-            'phone'        => $fields['phone'],
-            'company_name' => $fields['company_name'],
-            'address'      => $fields['address'],
-            'city'         => $fields['city'],
-            'state'        => $fields['state'],
-            'zip_code'     => $fields['zip_code'],
-            'country'      => $fields['country'],
-            'notes'        => $fields['notes'],
+            'first_name'   => $firstName,
+            'last_name'    => $lastName,
+            'email'        => $email,
+            'phone'        => $phone,
+            'company_name' => trim($data['company_name'] ?? '') ?: null,
+            'address'      => trim($data['address'] ?? '') ?: null,
+            'city'         => trim($data['city'] ?? '') ?: null,
+            'state'        => trim($data['state'] ?? '') ?: null,
+            'zip_code'     => trim($data['zip_code'] ?? '') ?: null,
+            'country'      => trim($data['country'] ?? '') ?: 'USA',
+            'notes'        => trim($data['notes'] ?? '') ?: null,
         ]);
 
         if ($userId) {
@@ -64,9 +65,12 @@ class ClientService
             throw new RuntimeException('Client not found.');
         }
 
-        $fields = self::validateClientData($data);
+        $email = trim($data['email'] ?? '');
+        if ($email === '') {
+            throw new RuntimeException('Email is required.');
+        }
 
-        if (self::emailExists($fields['email'], $id)) {
+        if (self::emailExists($email, $id)) {
             throw new RuntimeException('Another client already uses this email.');
         }
 
@@ -77,17 +81,17 @@ class ClientService
                                     status = ?, updated_at = NOW()
                  WHERE id = ?',
                 [
-                    $fields['first_name'],
-                    $fields['last_name'],
-                    $fields['email'],
-                    $fields['phone'],
-                    $fields['company_name'],
-                    $fields['address'],
-                    $fields['city'],
-                    $fields['state'],
-                    $fields['zip_code'],
-                    $fields['country'],
-                    $fields['notes'],
+                    trim($data['first_name'] ?? ''),
+                    trim($data['last_name'] ?? ''),
+                    $email,
+                    trim($data['phone'] ?? '') ?: null,
+                    trim($data['company_name'] ?? '') ?: null,
+                    trim($data['address'] ?? '') ?: null,
+                    trim($data['city'] ?? '') ?: null,
+                    trim($data['state'] ?? '') ?: null,
+                    trim($data['zip_code'] ?? '') ?: null,
+                    trim($data['country'] ?? '') ?: 'USA',
+                    trim($data['notes'] ?? '') ?: null,
                     $data['status'] ?? 'active',
                     $id,
                 ]
@@ -99,17 +103,17 @@ class ClientService
                                     status = ?, updated_at = NOW()
                  WHERE id = ?',
                 [
-                    $fields['first_name'],
-                    $fields['last_name'],
-                    $fields['email'],
-                    $fields['phone'],
-                    $fields['company_name'],
-                    $fields['address'],
-                    $fields['city'],
-                    $fields['state'],
-                    $fields['zip_code'],
-                    $fields['country'],
-                    $fields['notes'],
+                    trim($data['first_name'] ?? ''),
+                    trim($data['last_name'] ?? ''),
+                    $email,
+                    trim($data['phone'] ?? '') ?: null,
+                    trim($data['company_name'] ?? '') ?: null,
+                    trim($data['address'] ?? '') ?: null,
+                    trim($data['city'] ?? '') ?: null,
+                    trim($data['state'] ?? '') ?: null,
+                    trim($data['zip_code'] ?? '') ?: null,
+                    trim($data['country'] ?? '') ?: 'USA',
+                    trim($data['notes'] ?? '') ?: null,
                     $data['status'] ?? 'active',
                     $id,
                 ]
@@ -117,16 +121,10 @@ class ClientService
         }
 
         if (!empty($client['user_id'])) {
-            self::updateUserAccount((int) $client['user_id'], $fields['email'], $fields);
+            self::updateUserAccount((int) $client['user_id'], $email, $data);
         } elseif (!empty($data['create_login'])) {
             $plainPassword = self::resolvePortalPassword($data);
-            $userId        = self::createUserAccount(
-                $fields['email'],
-                $plainPassword,
-                $fields['first_name'],
-                $fields['last_name'],
-                $fields['phone']
-            );
+            $userId        = self::createUserAccount($email, $plainPassword, trim($data['first_name'] ?? ''), trim($data['last_name'] ?? ''), trim($data['phone'] ?? '') ?: null);
             Database::query('UPDATE clients SET user_id = ?, updated_at = NOW() WHERE id = ?', [$userId, $id]);
             self::linkUserToClient($userId, $id);
 
@@ -169,25 +167,6 @@ class ClientService
         self::linkUserToClient($userId, $clientId);
 
         return ['user_id' => $userId, 'password' => $plainPassword];
-    }
-
-    public static function deleteClient(int $id): void
-    {
-        $client = self::getById($id);
-        if (!$client) {
-            throw new RuntimeException('Client not found.');
-        }
-
-        $cases = Database::fetchAll('SELECT id FROM cases WHERE client_id = ?', [$id]);
-        foreach ($cases as $case) {
-            CaseService::deleteCase((int) $case['id']);
-        }
-
-        Database::query('DELETE FROM clients WHERE id = ?', [$id]);
-
-        if (!empty($client['user_id'])) {
-            Database::query('DELETE FROM users WHERE id = ? AND role = ?', [(int) $client['user_id'], 'client']);
-        }
     }
 
     public static function generatePassword(int $length = 10): string
@@ -290,47 +269,6 @@ class ClientService
             'UPDATE users SET email = ?, name = ?, updated_at = NOW() WHERE id = ?',
             [$email, $name, $userId]
         );
-    }
-
-    private static function validateClientData(array $data): array
-    {
-        $fields = [
-            'first_name'   => trim($data['first_name'] ?? ''),
-            'last_name'    => trim($data['last_name'] ?? ''),
-            'email'        => trim($data['email'] ?? ''),
-            'phone'        => trim($data['phone'] ?? ''),
-            'company_name' => trim($data['company_name'] ?? '') ?: null,
-            'address'      => trim($data['address'] ?? ''),
-            'city'         => trim($data['city'] ?? ''),
-            'state'        => trim($data['state'] ?? ''),
-            'zip_code'     => trim($data['zip_code'] ?? ''),
-            'country'      => trim($data['country'] ?? '') ?: 'USA',
-            'notes'        => trim($data['notes'] ?? '') ?: null,
-        ];
-
-        $required = [
-            'first_name'   => 'First name',
-            'last_name'    => 'Last name',
-            'email'        => 'Email',
-            'phone'        => 'Phone',
-            'address'      => 'Street address',
-            'city'         => 'City',
-            'state'        => 'State',
-            'zip_code'     => 'ZIP code',
-            'country'      => 'Country',
-        ];
-
-        foreach ($required as $key => $label) {
-            if ($fields[$key] === '') {
-                throw new RuntimeException($label . ' is required.');
-            }
-        }
-
-        if (!filter_var($fields['email'], FILTER_VALIDATE_EMAIL)) {
-            throw new RuntimeException('A valid email address is required.');
-        }
-
-        return $fields;
     }
 
     private static function insertClientRow(array $data): int

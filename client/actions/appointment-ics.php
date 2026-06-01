@@ -12,9 +12,12 @@ if ($id <= 0 || !$clientId) {
     exit('Appointment not found.');
 }
 
-$appointment = AppointmentService::getById($id);
+$appointment = Database::fetch(
+    'SELECT id FROM appointments WHERE id = ? AND client_id = ?',
+    [$id, $clientId]
+);
 
-if (!$appointment || (int) ($appointment['client_id'] ?? 0) !== $clientId) {
+if (!$appointment) {
     http_response_code(404);
     exit('Appointment not found.');
 }

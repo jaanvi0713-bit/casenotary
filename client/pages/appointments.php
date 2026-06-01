@@ -184,22 +184,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
         timeZone: 'local',
-        initialView: localStorage.getItem('appointmentCalendarView') || 'timeGridWeek',
+        initialView: 'dayGridMonth',
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
         },
-        buttonText: { month: 'Month', week: 'Week', day: 'Day', list: 'List' },
         height: 'auto',
-        nowIndicator: true,
-        slotMinTime: '07:00:00',
-        slotMaxTime: '20:00:00',
-        allDaySlot: false,
         events: events,
-        datesSet: function(info) {
-            localStorage.setItem('appointmentCalendarView', info.view.type);
-        },
         eventTimeFormat: {
             hour: 'numeric',
             minute: '2-digit',
