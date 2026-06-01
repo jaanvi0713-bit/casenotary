@@ -134,6 +134,40 @@ class ClientService
         return null;
     }
 
+    public static function deleteClient(int $id): void
+    {
+        $client = self::getById($id);
+        if (!$client) {
+            throw new RuntimeException('Client not found.');
+        }
+
+        $cases = Database::fetchAll('SELECT id FROM cases WHERE client_id = ?', [$id]);
+        foreach ($cases as $case) {
+            try {
+                foreach (CaseService::getDocuments((int) $case['id']) as $doc) {
+                    $path = $doc['file_path'] ?? $doc['stored_path'] ?? null;
+                    if ($path && is_file(CaseService::documentPath($path))) {
+                        @unlink(CaseService::documentPath($path));
+                    }
+                }
+            } catch (Throwable $e) {
+                // Continue removing the client even if a file cleanup fails.
+            }
+        }
+
+        $userId = (int) ($client['user_id'] ?? 0);
+
+        Database::query('DELETE FROM clients WHERE id = ?', [$id]);
+
+        if ($userId > 0) {
+            try {
+                Database::query("DELETE FROM users WHERE id = ? AND role = 'client'", [$userId]);
+            } catch (Throwable $e) {
+                // User may already be removed by FK rules.
+            }
+        }
+    }
+
     public static function createPortalLogin(int $clientId, ?string $password = null): array
     {
         $client = self::getById($clientId);
