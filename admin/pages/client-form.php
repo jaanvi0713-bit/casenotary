@@ -150,7 +150,7 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <input type="text" id="password" name="password" class="form-control case-form-control js-password-field is-password-hidden"
+                            <input type="password" id="password" name="password" class="form-control case-form-control js-password-field"
                                    minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off"
                                    data-lpignore="true" data-1p-ignore="true"
                                    pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
@@ -164,7 +164,7 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <input type="text" id="password_confirmation" name="password_confirmation" class="form-control case-form-control js-password-field is-password-hidden"
+                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control js-password-field"
                                    minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off"
                                    data-lpignore="true" data-1p-ignore="true">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
@@ -195,7 +195,7 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <input type="text" id="password" name="password" class="form-control case-form-control js-password-field is-password-hidden"
+                            <input type="password" id="password" name="password" class="form-control case-form-control js-password-field"
                                    minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off"
                                    data-lpignore="true" data-1p-ignore="true"
                                    pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
@@ -209,7 +209,7 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <input type="text" id="password_confirmation" name="password_confirmation" class="form-control case-form-control js-password-field is-password-hidden"
+                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control js-password-field"
                                    minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off"
                                    data-lpignore="true" data-1p-ignore="true">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
@@ -320,34 +320,20 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    function updatePasswordToggle(button, isHidden) {
-        var icon = button.querySelector("i");
-        if (icon) {
-            icon.classList.toggle("bi-eye", isHidden);
-            icon.classList.toggle("bi-eye-slash", !isHidden);
-        }
-        button.setAttribute("aria-label", isHidden ? "Show password" : "Hide password");
-    }
-
-    document.querySelectorAll(".js-password-field").forEach(function(input) {
-        input.setAttribute("readonly", "readonly");
-        input.addEventListener("focus", function() {
-            input.removeAttribute("readonly");
-        }, { once: true });
-    });
-
     document.querySelectorAll(".js-password-toggle").forEach(function(button) {
-        var input = document.getElementById(button.getAttribute("data-target"));
-        if (input) {
-            updatePasswordToggle(button, input.classList.contains("is-password-hidden"));
-        }
-
         button.addEventListener("click", function() {
-            var field = document.getElementById(this.getAttribute("data-target"));
-            if (!field) return;
+            var input = document.getElementById(this.getAttribute("data-target"));
+            if (!input) return;
 
-            var isHidden = field.classList.toggle("is-password-hidden");
-            updatePasswordToggle(this, isHidden);
+            var willShow = input.type === "password";
+            input.type = willShow ? "text" : "password";
+
+            var icon = this.querySelector("i");
+            if (icon) {
+                icon.classList.remove("bi-eye", "bi-eye-slash");
+                icon.classList.add(willShow ? "bi-eye-slash" : "bi-eye");
+            }
+            this.setAttribute("aria-label", willShow ? "Hide password" : "Show password");
         });
     });
 

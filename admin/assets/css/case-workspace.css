@@ -676,6 +676,11 @@ textarea.case-form-control {
     text-security: disc;
 }
 
+.case-form-password-wrap input[type="password"]::-ms-reveal,
+.case-form-password-wrap input[type="password"]::-ms-clear {
+    display: none;
+}
+
 .case-form-password-wrap > .password-toggle {
     position: absolute;
     right: 0.625rem;
