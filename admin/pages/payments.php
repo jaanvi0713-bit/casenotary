@@ -10,6 +10,8 @@ $overdueInvoices = getOverdueInvoices();
 $stats = getDashboardStats();
 $pageSubtitle = formatCurrency($stats['total_revenue']) . ' total revenue';
 
+$paymentMonths = paymentHistoryMonthOptions();
+
 $successMsg = flash('success');
 $errorMsg   = flash('error');
 
@@ -117,6 +119,12 @@ require __DIR__ . '/../includes/header.php';
             <option value="check">Check</option>
             <option value="other">Other</option>
         </select>
+        <select class="form-select form-select-sm table-filter table-filter-month" id="monthFilter">
+            <option value="">All months</option>
+            <?php foreach ($paymentMonths as $monthKey => $monthLabel): ?>
+                <option value="<?= e($monthKey) ?>"><?= e($monthLabel) ?></option>
+            <?php endforeach; ?>
+        </select>
     </div>
     <div class="card-body p-0">
         <?php if (empty($payments)): ?>
@@ -140,8 +148,12 @@ require __DIR__ . '/../includes/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($payments as $payment): ?>
-                            <?php $payStatus = paymentStatusValue($payment); ?>
-                            <tr data-status="<?= e($payStatus) ?>" data-method="<?= e($payment['payment_method'] ?? '') ?>">
+                            <?php
+                            $payStatus = paymentStatusValue($payment);
+                            $paidAt = $payment['paid_at'] ?? $payment['created_at'] ?? null;
+                            $paidMonth = $paidAt ? date('m', strtotime((string) $paidAt)) : '';
+                            ?>
+                            <tr data-status="<?= e($payStatus) ?>" data-method="<?= e($payment['payment_method'] ?? '') ?>" data-month="<?= e($paidMonth) ?>">
                                 <td>
                                     <span class="table-primary"><?= e($payment['invoice_number']) ?></span>
                                     <span class="table-secondary d-block"><?= formatCurrency((float) $payment['invoice_total']) ?></span>
@@ -225,24 +237,28 @@ document.addEventListener("DOMContentLoaded", function() {
     var tableSearch = document.getElementById("tableSearch");
     var statusFilter = document.getElementById("statusFilter");
     var methodFilter = document.getElementById("methodFilter");
+    var monthFilter = document.getElementById("monthFilter");
     var rows = document.querySelectorAll("#dataTable tbody tr");
 
     function filterPayments() {
         var q = (tableSearch?.value || "").toLowerCase();
         var status = statusFilter?.value || "";
         var method = methodFilter?.value || "";
+        var month = monthFilter?.value || "";
         rows.forEach(function(row) {
             var text = row.textContent.toLowerCase();
             var matchSearch = !q || text.includes(q);
             var matchStatus = !status || row.dataset.status === status;
             var matchMethod = !method || row.dataset.method === method;
-            row.style.display = matchSearch && matchStatus && matchMethod ? "" : "none";
+            var matchMonth = !month || row.dataset.month === month;
+            row.style.display = matchSearch && matchStatus && matchMethod && matchMonth ? "" : "none";
         });
     }
 
     tableSearch?.addEventListener("input", filterPayments);
     statusFilter?.addEventListener("change", filterPayments);
     methodFilter?.addEventListener("change", filterPayments);
+    monthFilter?.addEventListener("change", filterPayments);
 });
 </script>';
 require __DIR__ . '/../includes/footer.php';

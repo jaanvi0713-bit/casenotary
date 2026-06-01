@@ -621,6 +621,23 @@ function paymentStatusValue(array $payment): string
     return $payment['payment_status'] ?? $payment['status'] ?? 'pending';
 }
 
+/**
+ * Month options for payment history filters (January–December).
+ *
+ * @return array<string, string> MM => "Month name"
+ */
+function paymentHistoryMonthOptions(): array
+{
+    $months = [];
+
+    for ($m = 1; $m <= 12; $m++) {
+        $monthKey = str_pad((string) $m, 2, '0', STR_PAD_LEFT);
+        $months[$monthKey] = date('F', mktime(0, 0, 0, $m, 1));
+    }
+
+    return $months;
+}
+
 function invoiceStatusValue(array $invoice): string
 {
     $col = invoiceStatusColumn();
