@@ -333,6 +333,89 @@ function formatAppointmentScheduleMeta(array $appointment): string
     return formatDateTime($start, 'M j, g:i A') . ' – ' . formatDateTime($end, 'g:i A');
 }
 
+function resolveAppointmentCaseId(int $clientId, ?int $requestedCaseId = null): ?int
+{
+    if ($clientId <= 0) {
+        return null;
+    }
+
+    if ($requestedCaseId !== null && $requestedCaseId > 0) {
+        $case = Database::fetch(
+            'SELECT id FROM cases WHERE id = ? AND client_id = ?',
+            [$requestedCaseId, $clientId]
+        );
+
+        return $case ? (int) $case['id'] : null;
+    }
+
+    $openCase = Database::fetch(
+        "SELECT id FROM cases
+         WHERE client_id = ?
+           AND status NOT IN ('completed', 'closed')
+         ORDER BY updated_at DESC
+         LIMIT 1",
+        [$clientId]
+    );
+
+    if ($openCase) {
+        return (int) $openCase['id'];
+    }
+
+    $recentCase = Database::fetch(
+        'SELECT id FROM cases WHERE client_id = ? ORDER BY updated_at DESC LIMIT 1',
+        [$clientId]
+    );
+
+    return $recentCase ? (int) $recentCase['id'] : null;
+}
+
+function appointmentCaseLabel(array $appointment): string
+{
+    $caseNumber = trim((string) ($appointment['case_number'] ?? ''));
+    $caseTitle  = trim((string) ($appointment['case_title'] ?? ''));
+
+    if ($caseNumber !== '') {
+        return $caseTitle !== '' ? $caseNumber . ' — ' . $caseTitle : $caseNumber;
+    }
+
+    return 'None';
+}
+
+function enrichAppointmentCase(array &$appointment, bool $persistLink = false): void
+{
+    if (!empty($appointment['case_id'])) {
+        return;
+    }
+
+    $clientId = (int) ($appointment['client_id'] ?? 0);
+    $caseId = resolveAppointmentCaseId($clientId, null);
+    if (!$caseId) {
+        return;
+    }
+
+    $case = Database::fetch(
+        'SELECT id, case_number, title FROM cases WHERE id = ? AND client_id = ?',
+        [$caseId, $clientId]
+    );
+
+    if (!$case) {
+        return;
+    }
+
+    if ($persistLink && !empty($appointment['id'])) {
+        Database::query(
+            'UPDATE appointments SET case_id = ? WHERE id = ? AND (case_id IS NULL OR case_id = 0)',
+            [$caseId, (int) $appointment['id']]
+        );
+        $appointment['case_id'] = $caseId;
+    } else {
+        $appointment['resolved_case_id'] = (int) $case['id'];
+    }
+
+    $appointment['case_number'] = $case['case_number'];
+    $appointment['case_title']  = $case['title'];
+}
+
 function calendarEventDateTime(?string $datetime): ?string
 {
     if (!$datetime) {
@@ -1503,14 +1586,22 @@ function getAllAppointments(): array
     $startSql = appointmentStartSql('a');
     $endSql   = appointmentEndSql('a');
 
-    return Database::fetchAll(
+    $appointments = Database::fetchAll(
         "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
-                cl.first_name, cl.last_name, cl.company_name, cs.case_number
+                cl.first_name, cl.last_name, cl.company_name,
+                cs.case_number, cs.title AS case_title
          FROM appointments a
          JOIN clients cl ON cl.id = a.client_id
          LEFT JOIN cases cs ON cs.id = a.case_id
          ORDER BY {$startSql} DESC"
     );
+
+    foreach ($appointments as &$appointment) {
+        enrichAppointmentCase($appointment, true);
+    }
+    unset($appointment);
+
+    return $appointments;
 }
 
 function getChatbotContext(): array
@@ -1881,13 +1972,22 @@ function getClientAppointments(int $clientId): array
     $startSql = appointmentStartSql('a');
     $endSql   = appointmentEndSql('a');
 
-    return Database::fetchAll(
-        "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time
+    $appointments = Database::fetchAll(
+        "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
+                cs.case_number, cs.title AS case_title
          FROM appointments a
+         LEFT JOIN cases cs ON cs.id = a.case_id
          WHERE a.client_id = ?
          ORDER BY {$startSql} DESC",
         [$clientId]
     );
+
+    foreach ($appointments as &$appointment) {
+        enrichAppointmentCase($appointment, true);
+    }
+    unset($appointment);
+
+    return $appointments;
 }
 
 function getClientInvoices(int $clientId): array

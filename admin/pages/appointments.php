@@ -35,7 +35,7 @@ foreach ($appointments as $appt) {
 
     foreach (buildAppointmentCalendarEvents($appt, [
         'client'      => clientFullName($appt),
-        'case'        => $appt['case_number'] ?? '',
+        'case'        => appointmentCaseLabel($appt),
         'status'      => $appt['status'] ?? 'scheduled',
         'location'    => $appt['location'] ?? '',
         'description' => $appt['description'] ?? '',
@@ -142,6 +142,7 @@ require __DIR__ . '/../includes/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($appointments as $appt): ?>
+                            <?php $caseLabel = appointmentCaseLabel($appt); ?>
                             <tr data-status="<?= e($appt['status']) ?>">
                                 <td>
                                     <span class="table-primary"><?= formatDate(appointmentStart($appt)) ?></span>
@@ -151,7 +152,7 @@ require __DIR__ . '/../includes/header.php';
                                 </td>
                                 <td><?= e($appt['title']) ?></td>
                                 <td><?= e(clientFullName($appt)) ?></td>
-                                <td class="text-muted"><?= e($appt['case_number'] ?: '—') ?></td>
+                                <td class="text-muted"><?= e($caseLabel !== 'None' ? $caseLabel : '—') ?></td>
                                 <td><?= statusBadge($appt['status']) ?></td>
                                 <td>
                                     <?php
@@ -174,8 +175,10 @@ require __DIR__ . '/../includes/header.php';
                                 <td>
                                     <button type="button" class="btn btn-soft btn-sm btn-edit-appt"
                                         data-id="<?= (int) $appt['id'] ?>"
+                                        data-client-id="<?= (int) ($appt['client_id'] ?? 0) ?>"
+                                        data-case-id="<?= (int) ($appt['case_id'] ?? $appt['resolved_case_id'] ?? 0) ?>"
                                         data-client="<?= e(clientFullName($appt)) ?>"
-                                        data-case="<?= e($appt['case_number'] ?: 'None') ?>"
+                                        data-case="<?= e($caseLabel) ?>"
                                         data-title="<?= e($appt['title']) ?>"
                                         data-starts="<?= e(date('Y-m-d\TH:i', strtotime(appointmentStart($appt)))) ?>"
                                         data-ends="<?= e(appointmentEnd($appt) ? date('Y-m-d\TH:i', strtotime(appointmentEnd($appt))) : '') ?>"
@@ -313,8 +316,22 @@ require __DIR__ . '/../includes/header.php';
 <?php
 $casesByClient = [];
 foreach (getAllCases() as $c) {
-    $casesByClient[(int) $c['client_id']][] = ['id' => (int) $c['id'], 'label' => $c['case_number'] . ' — ' . $c['title']];
+    $casesByClient[(int) $c['client_id']][] = [
+        'id'     => (int) $c['id'],
+        'label'  => $c['case_number'] . ' — ' . $c['title'],
+        'status' => $c['status'] ?? '',
+    ];
 }
+foreach ($casesByClient as &$clientCases) {
+    usort($clientCases, static function (array $a, array $b): int {
+        $closed = ['completed', 'closed'];
+        $aOpen = !in_array($a['status'], $closed, true);
+        $bOpen = !in_array($b['status'], $closed, true);
+
+        return $bOpen <=> $aOpen;
+    });
+}
+unset($clientCases);
 $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
@@ -417,12 +434,16 @@ document.addEventListener("DOMContentLoaded", function() {
         clientSelect.addEventListener("change", function() {
             var cid = this.value;
             caseSelect.innerHTML = "<option value=\"\">None</option>";
-            (casesByClient[cid] || []).forEach(function(c) {
+            var cases = casesByClient[cid] || [];
+            cases.forEach(function(c) {
                 var opt = document.createElement("option");
                 opt.value = c.id;
                 opt.textContent = c.label;
                 caseSelect.appendChild(opt);
             });
+            if (cases.length > 0) {
+                caseSelect.value = String(cases[0].id);
+            }
         });
     }
 

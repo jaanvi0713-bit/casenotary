@@ -29,7 +29,10 @@ class AppointmentService
             $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
         }
 
-        $caseId      = !empty($data['case_id']) ? (int) $data['case_id'] : null;
+        $caseId      = resolveAppointmentCaseId(
+            $clientId,
+            !empty($data['case_id']) ? (int) $data['case_id'] : null
+        );
         $description = trim($data['description'] ?? '') ?: null;
         $location    = trim($data['location'] ?? '') ?: null;
         $status      = $data['status'] ?? 'scheduled';
@@ -124,6 +127,19 @@ class AppointmentService
         if (Database::columnExists('appointments', 'end_time')) {
             $setParts[] = 'end_time = ?';
             $params[] = $fields['ends_at'];
+        }
+
+        $clientId = (int) ($appointment['client_id'] ?? 0);
+        $existingCaseId = (int) ($appointment['case_id'] ?? 0);
+        if ($existingCaseId <= 0 && $clientId > 0) {
+            $linkedCaseId = resolveAppointmentCaseId(
+                $clientId,
+                !empty($data['case_id']) ? (int) $data['case_id'] : null
+            );
+            if ($linkedCaseId) {
+                $setParts[] = 'case_id = ?';
+                $params[] = $linkedCaseId;
+            }
         }
 
         $params[] = $id;
