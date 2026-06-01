@@ -67,4 +67,38 @@ foreach ($tokenColumns as $column => $definition) {
     }
 }
 
+$calendarColumns = [
+    'google_client_id'           => 'VARCHAR(255) DEFAULT NULL',
+    'google_client_secret'       => 'VARCHAR(255) DEFAULT NULL',
+    'appointment_reminder_hours' => 'INT UNSIGNED NOT NULL DEFAULT 24',
+];
+
+foreach ($calendarColumns as $column => $definition) {
+    if (!columnExists($pdo, 'company_settings', $column)) {
+        try {
+            $pdo->exec("ALTER TABLE company_settings ADD COLUMN {$column} {$definition}");
+            echo "[OK] Added company_settings.{$column}\n";
+        } catch (Throwable $e) {
+            echo "[SKIP] company_settings.{$column}: {$e->getMessage()}\n";
+        }
+    }
+}
+
+$userColumns = [
+    'phone' => 'VARCHAR(30) DEFAULT NULL',
+];
+
+foreach ($userColumns as $column => $definition) {
+    if (!columnExists($pdo, 'users', $column)) {
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN {$column} {$definition}");
+            echo "[OK] Added users.{$column}\n";
+        } catch (Throwable $e) {
+            echo "[SKIP] users.{$column}: {$e->getMessage()}\n";
+        }
+    } else {
+        echo "[OK] users.{$column} already exists\n";
+    }
+}
+
 echo "\nWorkflow migration complete.\n";

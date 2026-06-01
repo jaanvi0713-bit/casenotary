@@ -18,16 +18,8 @@ class AppointmentService
             throw new RuntimeException('Client not found.');
         }
 
-        $startsAt = normalizeDateTimeInput(trim($data['starts_at'] ?? ''));
-        $endsAt   = normalizeDateTimeInput(trim($data['ends_at'] ?? ''));
-
-        if ($startsAt === '') {
-            throw new RuntimeException('Start date and time are required.');
-        }
-
-        if ($endsAt === '') {
-            $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
-        }
+        [$startsAt, $endsAt] = self::resolveTimes($data);
+        self::assertNoConflicts($startsAt, $endsAt, null, $adminId);
 
         $caseId      = !empty($data['case_id']) ? (int) $data['case_id'] : null;
         $description = trim($data['description'] ?? '') ?: null;
@@ -75,16 +67,10 @@ class AppointmentService
             throw new RuntimeException('Title is required.');
         }
 
-        $startsAt = normalizeDateTimeInput(trim($data['starts_at'] ?? appointmentStart($appointment) ?? ''));
-        $endsAt   = normalizeDateTimeInput(trim($data['ends_at'] ?? appointmentEnd($appointment) ?? ''));
+        [$startsAt, $endsAt] = self::resolveTimes($data, $appointment);
+        self::assertNoConflicts($startsAt, $endsAt, $id, (int) ($appointment['admin_id'] ?? 0) ?: null);
 
-        if ($startsAt === '') {
-            throw new RuntimeException('Start date and time are required.');
-        }
-
-        if ($endsAt === '') {
-            $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
-        }
+        $previousStart = appointmentStart($appointment);
 
         $fields = [
             'title'       => $title,
@@ -107,6 +93,10 @@ class AppointmentService
             );
         }
 
+        if ($previousStart !== $startsAt) {
+            ReminderService::resetReminder($id);
+        }
+
         $client = ClientService::getById((int) ($appointment['client_id'] ?? 0));
         if ($client) {
             GoogleCalendarService::syncAppointment($id, $client);
@@ -120,11 +110,42 @@ class AppointmentService
             throw new RuntimeException('Appointment not found.');
         }
 
+        GoogleCalendarService::removeFromCalendar($id);
+
         try {
             Database::query("UPDATE appointments SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [$id]);
         } catch (Throwable $e) {
             throw new RuntimeException('Unable to cancel appointment.');
         }
+    }
+
+    public static function findConflicts(string $startsAt, string $endsAt, ?int $excludeId = null, ?int $adminId = null): array
+    {
+        $startCol = appointmentStartColumn();
+        $endCol   = appointmentEndColumn();
+
+        $sql = "SELECT a.*, a.{$startCol} AS starts_at, a.{$endCol} AS ends_at,
+                       cl.first_name, cl.last_name
+                FROM appointments a
+                JOIN clients cl ON cl.id = a.client_id
+                WHERE a.status IN ('scheduled', 'confirmed')
+                  AND a.{$startCol} < ?
+                  AND COALESCE(a.{$endCol}, DATE_ADD(a.{$startCol}, INTERVAL 1 HOUR)) > ?";
+        $params = [$endsAt, $startsAt];
+
+        if ($excludeId) {
+            $sql .= ' AND a.id != ?';
+            $params[] = $excludeId;
+        }
+
+        if ($adminId) {
+            $sql .= ' AND (a.admin_id IS NULL OR a.admin_id = ?)';
+            $params[] = $adminId;
+        }
+
+        $sql .= " ORDER BY a.{$startCol} ASC";
+
+        return Database::fetchAll($sql, $params);
     }
 
     public static function getCalendarResultMessage(array $calendar): string
@@ -152,6 +173,42 @@ class AppointmentService
             "SELECT id, case_number, title FROM cases WHERE client_id = ? ORDER BY updated_at DESC",
             [$clientId]
         );
+    }
+
+    private static function resolveTimes(array $data, ?array $existing = null): array
+    {
+        $startsAt = normalizeDateTimeInput(trim($data['starts_at'] ?? appointmentStart($existing ?? []) ?? ''));
+        $endsAt   = normalizeDateTimeInput(trim($data['ends_at'] ?? appointmentEnd($existing ?? []) ?? ''));
+
+        if ($startsAt === '') {
+            throw new RuntimeException('Start date and time are required.');
+        }
+
+        if ($endsAt === '') {
+            $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
+        }
+
+        if (strtotime($endsAt) <= strtotime($startsAt)) {
+            throw new RuntimeException('End time must be after the start time.');
+        }
+
+        return [$startsAt, $endsAt];
+    }
+
+    private static function assertNoConflicts(string $startsAt, string $endsAt, ?int $excludeId, ?int $adminId): void
+    {
+        $conflicts = self::findConflicts($startsAt, $endsAt, $excludeId, $adminId);
+
+        if (!$conflicts) {
+            return;
+        }
+
+        $labels = [];
+        foreach ($conflicts as $conflict) {
+            $labels[] = ($conflict['title'] ?? 'Appointment') . ' (' . formatDateTime(appointmentStart($conflict)) . ')';
+        }
+
+        throw new RuntimeException('This time overlaps with: ' . implode('; ', $labels));
     }
 
     private static function notifyAppointment(array $client, array $appointment, array $calendar = []): void

@@ -46,6 +46,7 @@ foreach ($appointments as $appt) {
             'startLabel'  => formatDateTime($start, 'M j, Y g:i A'),
             'endLabel'    => formatDateTime($end, 'M j, Y g:i A'),
             'calUrl'      => $calUrl,
+            'icsUrl'      => clientUrl('actions/appointment-ics.php?id=' . (int) ($appt['id'] ?? 0)),
         ],
     ];
 }
@@ -123,6 +124,9 @@ require __DIR__ . '/../includes/header.php';
                                                 <a href="<?= e($calUrl) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm">
                                                     <i class="bi bi-google"></i> Add to Calendar
                                                 </a>
+                                                <a href="<?= e(clientUrl('actions/appointment-ics.php?id=' . (int) $appt['id'])) ?>" class="btn btn-soft btn-sm">
+                                                    <i class="bi bi-download"></i> .ics
+                                                </a>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -153,6 +157,9 @@ require __DIR__ . '/../includes/header.php';
                 <a href="#" id="apptModalCalLink" class="btn btn-primary btn-sm d-none" target="_blank" rel="noopener">
                     <i class="bi bi-google me-1"></i> Add to Google Calendar
                 </a>
+                <a href="#" id="apptModalIcsLink" class="btn btn-soft btn-sm d-none">
+                    <i class="bi bi-download me-1"></i> Download .ics
+                </a>
                 <button type="button" class="btn btn-soft btn-sm" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -175,14 +182,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const bsModal = modal ? new bootstrap.Modal(modal) : null;
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
+        initialView: localStorage.getItem('appointmentCalendarView') || 'timeGridWeek',
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
         },
+        buttonText: { month: 'Month', week: 'Week', day: 'Day', list: 'List' },
         height: 'auto',
+        nowIndicator: true,
+        slotMinTime: '07:00:00',
+        slotMaxTime: '20:00:00',
+        allDaySlot: false,
         events: events,
+        datesSet: function(info) {
+            localStorage.setItem('appointmentCalendarView', info.view.type);
+        },
         eventTimeFormat: {
             hour: 'numeric',
             minute: '2-digit',
@@ -199,11 +214,18 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('apptModalLocationWrap').style.display = props.location ? '' : 'none';
             document.getElementById('apptModalDescWrap').style.display = props.description ? '' : 'none';
             const calLink = document.getElementById('apptModalCalLink');
+            const icsLink = document.getElementById('apptModalIcsLink');
             if (props.calUrl && ['scheduled', 'confirmed'].includes(props.status)) {
                 calLink.href = props.calUrl;
                 calLink.classList.remove('d-none');
             } else {
                 calLink.classList.add('d-none');
+            }
+            if (props.icsUrl && ['scheduled', 'confirmed'].includes(props.status)) {
+                icsLink.href = props.icsUrl;
+                icsLink.classList.remove('d-none');
+            } else {
+                icsLink.classList.add('d-none');
             }
             bsModal.show();
         }

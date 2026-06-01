@@ -12,7 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !CSRF::verifyRequest()) {
 $tab = $_POST['tab'] ?? 'branding';
 
 try {
-    SettingsService::update($_POST, $_FILES['logo'] ?? null);
+    if ($tab === 'calendar') {
+        SettingsService::updateCalendar($_POST);
+    } else {
+        SettingsService::update($_POST, $_FILES['logo'] ?? null);
+    }
     flash('success', 'Settings saved successfully.');
     redirect('pages/settings.php?tab=' . urlencode($tab));
 } catch (Throwable $e) {

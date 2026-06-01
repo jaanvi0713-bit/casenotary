@@ -67,7 +67,15 @@ require __DIR__ . '/../includes/header.php';
                                 <td><span class="badge bg-light text-dark"><?= (int) $client['case_count'] ?></span></td>
                                 <td><?= statusBadge($client['user_status']) ?></td>
                                 <td>
-                                    <a href="<?= url('pages/client-form.php?id=' . (int) $client['id']) ?>" class="btn btn-soft btn-sm">Edit</a>
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a href="<?= url('pages/client-form.php?id=' . (int) $client['id']) ?>" class="btn btn-soft btn-sm">Edit</a>
+                                        <form method="post" action="<?= url('actions/client-action.php') ?>" class="m-0" onsubmit="return confirm('Delete this client permanently? All cases, documents, and appointments will be removed.');">
+                                            <?= CSRF::field() ?>
+                                            <input type="hidden" name="action" value="delete_client">
+                                            <input type="hidden" name="client_id" value="<?= (int) $client['id'] ?>">
+                                            <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

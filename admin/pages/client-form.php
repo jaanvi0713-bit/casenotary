@@ -71,9 +71,12 @@ require __DIR__ . '/../includes/header.php';
                                value="<?= e($client['email'] ?? old('email')) ?>">
                     </div>
                     <div class="col-md-6">
-                        <label class="case-form-label" for="phone">Phone</label>
-                        <input type="tel" id="phone" name="phone" class="form-control case-form-control"
-                               value="<?= e($client['phone'] ?? old('phone')) ?>" autocomplete="tel">
+                        <label class="case-form-label" for="phone">Phone <span class="text-danger">*</span></label>
+                        <div class="case-form-phone-wrap">
+                            <input type="tel" id="phone" name="phone" class="form-control case-form-control" required
+                                   value="<?= e($client['phone'] ?? old('phone')) ?>" autocomplete="tel"
+                                   data-initial-phone="<?= e($client['phone'] ?? old('phone')) ?>">
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="company_name">Company</label>
@@ -102,28 +105,28 @@ require __DIR__ . '/../includes/header.php';
                 </div>
                 <div class="row g-3">
                     <div class="col-12">
-                        <label class="case-form-label" for="address">Street Address</label>
-                        <input type="text" id="address" name="address" class="form-control case-form-control"
+                        <label class="case-form-label" for="address">Street Address <span class="text-danger">*</span></label>
+                        <input type="text" id="address" name="address" class="form-control case-form-control" required
                                value="<?= e($client['address'] ?? old('address')) ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="case-form-label" for="city">City</label>
-                        <input type="text" id="city" name="city" class="form-control case-form-control"
+                        <label class="case-form-label" for="city">City <span class="text-danger">*</span></label>
+                        <input type="text" id="city" name="city" class="form-control case-form-control" required
                                value="<?= e($client['city'] ?? old('city')) ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="case-form-label" for="state">State</label>
-                        <input type="text" id="state" name="state" class="form-control case-form-control"
+                        <label class="case-form-label" for="state">State <span class="text-danger">*</span></label>
+                        <input type="text" id="state" name="state" class="form-control case-form-control" required
                                value="<?= e($client['state'] ?? old('state')) ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="case-form-label" for="zip_code">ZIP Code</label>
-                        <input type="text" id="zip_code" name="zip_code" class="form-control case-form-control"
+                        <label class="case-form-label" for="zip_code">ZIP Code <span class="text-danger">*</span></label>
+                        <input type="text" id="zip_code" name="zip_code" class="form-control case-form-control" required
                                value="<?= e($client['zip_code'] ?? old('zip_code')) ?>">
                     </div>
                     <div class="col-md-6">
-                        <label class="case-form-label" for="country">Country</label>
-                        <input type="text" id="country" name="country" class="form-control case-form-control"
+                        <label class="case-form-label" for="country">Country <span class="text-danger">*</span></label>
+                        <input type="text" id="country" name="country" class="form-control case-form-control" required
                                value="<?= e($client['country'] ?? old('country', 'USA')) ?>">
                     </div>
                     <div class="col-12">
@@ -149,8 +152,8 @@ require __DIR__ . '/../includes/header.php';
                 <div id="portalPasswordFields" class="row g-3">
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
-                        <div class="case-form-password-wrap">
-                            <input type="password" id="password" name="password" class="form-control case-form-control"
+                        <div class="case-form-password-wrap password-field-wrap">
+                            <input type="text" id="password" name="password" class="form-control case-form-control password-input password-input-hidden"
                                    minlength="8" autocomplete="new-password"
                                    pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                                    title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
@@ -162,9 +165,9 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
-                        <div class="case-form-password-wrap">
-                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
-                                   minlength="8" autocomplete="new-password">
+                        <div class="case-form-password-wrap password-field-wrap">
+                            <input type="text" id="password_confirmation" name="password_confirmation" class="form-control case-form-control password-input password-input-hidden"
+                                   minlength="8" autocomplete="off">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -192,8 +195,8 @@ require __DIR__ . '/../includes/header.php';
                 <div id="portalPasswordFields" class="row g-3" style="display:none;">
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
-                        <div class="case-form-password-wrap">
-                            <input type="password" id="password" name="password" class="form-control case-form-control"
+                        <div class="case-form-password-wrap password-field-wrap">
+                            <input type="text" id="password" name="password" class="form-control case-form-control password-input password-input-hidden"
                                    minlength="8" autocomplete="new-password"
                                    pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                                    title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
@@ -205,9 +208,9 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
-                        <div class="case-form-password-wrap">
-                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
-                                   minlength="8" autocomplete="new-password">
+                        <div class="case-form-password-wrap password-field-wrap">
+                            <input type="text" id="password_confirmation" name="password_confirmation" class="form-control case-form-control password-input password-input-hidden"
+                                   minlength="8" autocomplete="off">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -255,17 +258,51 @@ document.addEventListener("DOMContentLoaded", function() {
     var iti = null;
 
     if (phoneInput && window.intlTelInput) {
+        var initialPhone = (phoneInput.getAttribute("data-initial-phone") || phoneInput.value || "").trim();
+        phoneInput.value = "";
+
         iti = window.intlTelInput(phoneInput, {
             separateDialCode: true,
+            nationalMode: true,
+            autoPlaceholder: "aggressive",
             initialCountry: "us",
             preferredCountries: ["us", "mu", "gb", "ca", "au", "in"],
             utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/utils.js"
         });
 
+        function applyInitialPhone() {
+            if (initialPhone && iti) {
+                iti.setNumber(initialPhone);
+            }
+        }
+
+        if (window.intlTelInputUtils) {
+            applyInitialPhone();
+        } else {
+            phoneInput.addEventListener("loadutils", applyInitialPhone, { once: true });
+            setTimeout(applyInitialPhone, 400);
+        }
+
         if (form) {
             form.addEventListener("submit", function(e) {
                 if (phoneInput && iti) {
                     phoneInput.value = iti.getNumber() || phoneInput.value.trim();
+
+                    if (!phoneInput.value.trim()) {
+                        e.preventDefault();
+                        phoneInput.setCustomValidity("Phone number is required.");
+                        phoneInput.reportValidity();
+                        phoneInput.setCustomValidity("");
+                        return;
+                    }
+
+                    if (window.intlTelInputUtils && !iti.isValidNumber()) {
+                        e.preventDefault();
+                        phoneInput.setCustomValidity("Please enter a valid phone number.");
+                        phoneInput.reportValidity();
+                        phoneInput.setCustomValidity("");
+                        return;
+                    }
                 }
 
                 var loginCheckbox = document.getElementById("create_login");
@@ -291,22 +328,11 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             });
         }
-    }
-
-    document.querySelectorAll(".js-password-toggle").forEach(function(button) {
-        button.addEventListener("click", function() {
-            var input = document.getElementById(this.getAttribute("data-target"));
-            if (!input) return;
-
-            var show = input.type === "password";
-            input.type = show ? "text" : "password";
-
-            var icon = this.querySelector("i");
-            icon.classList.toggle("bi-eye", !show);
-            icon.classList.toggle("bi-eye-slash", show);
-            this.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    } else if (form && phoneInput) {
+        form.addEventListener("submit", function() {
+            phoneInput.value = phoneInput.value.trim();
         });
-    });
+    }
 
     var checkbox = document.getElementById("create_login");
     var fields = document.getElementById("portalPasswordFields");

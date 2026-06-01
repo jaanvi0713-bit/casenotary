@@ -1192,13 +1192,16 @@ function getAllPayments(): array
 
 function getAllAppointments(): array
 {
+    $startCol = appointmentStartColumn();
+    $endCol   = appointmentEndColumn();
+
     return Database::fetchAll(
-        "SELECT a.*, a.starts_at AS start_time, a.ends_at AS end_time,
+        "SELECT a.*, a.{$startCol} AS start_time, a.{$endCol} AS end_time,
                 cl.first_name, cl.last_name, cl.company_name, cs.case_number
          FROM appointments a
          JOIN clients cl ON cl.id = a.client_id
          LEFT JOIN cases cs ON cs.id = a.case_id
-         ORDER BY a.starts_at DESC"
+         ORDER BY a.{$startCol} DESC"
     );
 }
 
@@ -1215,9 +1218,9 @@ function getChatbotContext(): array
     )['count'] ?? 0;
 
     $nextAppointment = Database::fetch(
-        "SELECT title, starts_at AS start_time FROM appointments
-         WHERE starts_at >= NOW() AND status IN ('scheduled', 'confirmed')
-         ORDER BY starts_at ASC LIMIT 1"
+        'SELECT title, ' . appointmentStartColumn() . ' AS start_time FROM appointments
+         WHERE ' . appointmentStartColumn() . " >= NOW() AND status IN ('scheduled', 'confirmed')
+         ORDER BY " . appointmentStartColumn() . ' ASC LIMIT 1'
     );
 
     return [

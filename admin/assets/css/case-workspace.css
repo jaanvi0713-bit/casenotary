@@ -624,27 +624,54 @@ textarea.case-form-control {
 .case-inline-form { margin-top: 0.5rem; }
 
 /* International phone input (client form) */
+.case-form-phone-wrap {
+    position: relative;
+    width: 100%;
+}
+
 .case-form .iti {
     display: block;
     width: 100%;
 }
 
-.case-form .iti .form-control {
-    width: 100%;
+.case-form .iti .iti__tel-input,
+.case-form .iti input[type="tel"] {
+    width: 100% !important;
+    padding-left: 6.75rem !important;
+    padding-right: 0.75rem !important;
+    letter-spacing: normal;
+    font-variant-numeric: tabular-nums;
 }
 
-.case-form .iti__country-container {
-    padding-left: 0.75rem;
+.case-form .iti--separate-dial-code .iti__country-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
 }
 
 .case-form .iti__selected-country {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 0.5rem 0 0.75rem;
     border-radius: 8px 0 0 8px;
+    background: #f8fafc;
+    border-right: 1px solid #cbd5e1;
 }
 
 .case-form .iti__selected-dial-code {
     font-size: 0.875rem;
     font-weight: 600;
     color: #0f172a;
+    margin-left: 0.35rem;
+    margin-right: 0.15rem;
+    white-space: nowrap;
+}
+
+.case-form .iti__arrow {
+    margin-left: 0.15rem;
 }
 
 .case-form .iti__dropdown-content {
@@ -658,12 +685,23 @@ textarea.case-form-control {
     font-size: 0.875rem;
 }
 
-.case-form-password-wrap {
+.case-form-password-wrap,
+.password-field-wrap {
     position: relative;
 }
 
-.case-form-password-wrap .form-control {
-    padding-right: 2.75rem;
+.case-form-password-wrap .form-control,
+.password-field-wrap .form-control {
+    padding-right: 2.75rem !important;
+}
+
+.case-form-password-wrap input[type="password"]::-ms-reveal,
+.case-form-password-wrap input[type="password"]::-ms-clear,
+.password-field-wrap input[type="password"]::-ms-reveal,
+.password-field-wrap input[type="password"]::-ms-clear {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 
 .cases-table-link {

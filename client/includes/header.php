@@ -95,6 +95,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                             <small><?= e($user['email']) ?></small>
                         </li>
                         <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="<?= clientUrl('pages/profile.php') ?>"><i class="bi bi-person me-2"></i>My Profile</a></li>
                         <li><a class="dropdown-item" href="<?= clientUrl('pages/contact.php') ?>"><i class="bi bi-envelope me-2"></i>Contact</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item text-danger" href="<?= adminUrl('auth/logout.php') ?>"><i class="bi bi-box-arrow-right me-2"></i>Sign Out</a></li>

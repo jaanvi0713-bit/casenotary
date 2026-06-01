@@ -57,8 +57,29 @@ foreach ($appointments as $appt) {
             'endLabel'    => formatDateTime($end, 'M j, Y g:i A'),
             'calUrl'      => $calUrl,
             'icsUrl'      => url('actions/appointment-ics.php?id=' . (int) ($appt['id'] ?? 0)),
+            'hasConflict' => false,
         ],
     ];
+}
+
+for ($i = 0; $i < count($calendarEvents); $i++) {
+    $statusA = $calendarEvents[$i]['extendedProps']['status'] ?? '';
+    if (!in_array($statusA, ['scheduled', 'confirmed'], true)) {
+        continue;
+    }
+    for ($j = $i + 1; $j < count($calendarEvents); $j++) {
+        $statusB = $calendarEvents[$j]['extendedProps']['status'] ?? '';
+        if (!in_array($statusB, ['scheduled', 'confirmed'], true)) {
+            continue;
+        }
+        if (strtotime($calendarEvents[$i]['start']) < strtotime($calendarEvents[$j]['end'])
+            && strtotime($calendarEvents[$j]['start']) < strtotime($calendarEvents[$i]['end'])) {
+            $calendarEvents[$i]['classNames'] = array_merge($calendarEvents[$i]['classNames'] ?? [], ['fc-event-conflict']);
+            $calendarEvents[$j]['classNames'] = array_merge($calendarEvents[$j]['classNames'] ?? [], ['fc-event-conflict']);
+            $calendarEvents[$i]['extendedProps']['hasConflict'] = true;
+            $calendarEvents[$j]['extendedProps']['hasConflict'] = true;
+        }
+    }
 }
 
 $pageStyles = '<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css" rel="stylesheet">';
@@ -108,6 +129,7 @@ require __DIR__ . '/../includes/header.php';
             <span><i style="background:#10b981"></i> Confirmed</span>
             <span><i style="background:#64748b"></i> Completed</span>
             <span><i style="background:#ef4444"></i> Cancelled</span>
+            <span><i style="background:#f59e0b;border:2px solid #f59e0b"></i> Overlap</span>
         </div>
     </div>
 </div>
@@ -257,6 +279,7 @@ require __DIR__ . '/../includes/header.php';
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <div id="apptConflictAlert" class="alert alert-warning border-0 small d-none mb-3"></div>
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">Client <span class="text-danger">*</span></label>
@@ -322,6 +345,7 @@ $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/ma
 document.addEventListener("DOMContentLoaded", function() {
     var casesByClient = ' . json_encode($casesByClient) . ';
     var calendarEvents = ' . json_encode($calendarEvents) . ';
+    var conflictCheckUrl = ' . json_encode(url('actions/appointment-check.php')) . ';
     var clientSelect = document.getElementById("appt_client_id");
     var caseSelect = document.getElementById("appt_case_id");
     var scheduleModalEl = document.getElementById("scheduleModal");
@@ -333,7 +357,10 @@ document.addEventListener("DOMContentLoaded", function() {
     var apptIdInput = document.getElementById("appt_form_id");
     var scheduleTitle = document.getElementById("scheduleModalTitle");
     var scheduleSubmitBtn = document.getElementById("scheduleSubmitBtn");
-    var clientFields = document.querySelectorAll("#scheduleModal .col-md-6:first-child, #scheduleModal .col-md-6:nth-child(2)");
+    var conflictAlert = document.getElementById("apptConflictAlert");
+    var endsAtInput = document.getElementById("appt_ends_at");
+    var conflictTimer = null;
+    var hasBlockingConflict = false;
 
     function setCreateMode() {
         if (apptActionInput) apptActionInput.value = "create_appointment";
@@ -342,6 +369,71 @@ document.addEventListener("DOMContentLoaded", function() {
         if (scheduleSubmitBtn) scheduleSubmitBtn.textContent = "Schedule & Notify Client";
         if (clientSelect) { clientSelect.disabled = false; clientSelect.required = true; }
         if (caseSelect) caseSelect.disabled = false;
+        hideConflictAlert();
+    }
+
+    function hideConflictAlert() {
+        hasBlockingConflict = false;
+        if (conflictAlert) {
+            conflictAlert.classList.add("d-none");
+            conflictAlert.textContent = "";
+        }
+        if (scheduleSubmitBtn) scheduleSubmitBtn.disabled = false;
+    }
+
+    function showConflictAlert(items) {
+        if (!conflictAlert) return;
+        if (!items || !items.length) {
+            hideConflictAlert();
+            return;
+        }
+        hasBlockingConflict = true;
+        var lines = items.map(function(item) {
+            return "• " + item.title + " (" + item.start + " – " + item.end + ")" + (item.client ? " — " + item.client : "");
+        });
+        conflictAlert.innerHTML = "<strong>Scheduling conflict:</strong> this time overlaps with:<br>" + lines.join("<br>");
+        conflictAlert.classList.remove("d-none");
+        if (scheduleSubmitBtn) scheduleSubmitBtn.disabled = true;
+    }
+
+    function checkConflicts() {
+        if (!startsAtInput || !startsAtInput.value) {
+            hideConflictAlert();
+            return;
+        }
+        var params = new URLSearchParams();
+        params.set("starts_at", startsAtInput.value);
+        if (endsAtInput && endsAtInput.value) params.set("ends_at", endsAtInput.value);
+        if (apptIdInput && apptIdInput.value) params.set("appointment_id", apptIdInput.value);
+
+        fetch(conflictCheckUrl + "?" + params.toString(), { headers: { "Accept": "application/json" } })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.error && !data.conflicts) {
+                    hideConflictAlert();
+                    return;
+                }
+                showConflictAlert(data.conflicts || []);
+            })
+            .catch(function() { hideConflictAlert(); });
+    }
+
+    function scheduleConflictCheck() {
+        clearTimeout(conflictTimer);
+        conflictTimer = setTimeout(checkConflicts, 300);
+    }
+
+    if (startsAtInput) startsAtInput.addEventListener("change", scheduleConflictCheck);
+    if (endsAtInput) endsAtInput.addEventListener("change", scheduleConflictCheck);
+
+    var scheduleForm = document.getElementById("scheduleForm");
+    if (scheduleForm) {
+        scheduleForm.addEventListener("submit", function(e) {
+            if (hasBlockingConflict) {
+                e.preventDefault();
+                return false;
+            }
+        });
     }
 
     function setEditMode(data) {
@@ -357,7 +449,9 @@ document.addEventListener("DOMContentLoaded", function() {
         document.getElementById("appt_location").value = data.location || "";
         document.getElementById("appt_status").value = data.status || "scheduled";
         document.getElementById("appt_description").value = data.description || "";
+        hideConflictAlert();
         if (scheduleModal) scheduleModal.show();
+        scheduleConflictCheck();
     }
 
     document.querySelectorAll(".btn-edit-appt").forEach(function(btn) {
@@ -409,7 +503,9 @@ document.addEventListener("DOMContentLoaded", function() {
             start.setHours(9, 0, 0, 0);
         }
         startsAtInput.value = toLocalInputValue(start);
+        hideConflictAlert();
         scheduleModal.show();
+        scheduleConflictCheck();
     }
 
     function showEventDetails(event) {
@@ -423,6 +519,9 @@ document.addEventListener("DOMContentLoaded", function() {
         document.getElementById("eventDetailLocation").textContent = props.location || "—";
         document.getElementById("eventDetailStatus").textContent = (props.status || "scheduled").replace("_", " ");
         document.getElementById("eventDetailDescription").textContent = props.description || "—";
+        if (props.hasConflict) {
+            document.getElementById("eventDetailDescription").textContent = (props.description || "—") + " ⚠ Overlaps with another appointment";
+        }
 
         var googleBtn = document.getElementById("eventDetailGoogle");
         var icsBtn = document.getElementById("eventDetailIcs");
@@ -444,13 +543,29 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var calendarEl = document.getElementById("appointmentCalendar");
     if (calendarEl && window.FullCalendar) {
+        var savedView = localStorage.getItem("appointmentCalendarView") || "timeGridWeek";
         var calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: "dayGridMonth",
+            initialView: savedView,
             height: "auto",
+            nowIndicator: true,
+            slotMinTime: "07:00:00",
+            slotMaxTime: "20:00:00",
+            allDaySlot: false,
+            businessHours: {
+                daysOfWeek: [1, 2, 3, 4, 5, 6],
+                startTime: "08:00",
+                endTime: "18:00"
+            },
             headerToolbar: {
                 left: "prev,next today",
                 center: "title",
                 right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek"
+            },
+            buttonText: {
+                month: "Month",
+                week: "Week",
+                day: "Day",
+                list: "List"
             },
             events: calendarEvents,
             eventClick: function(info) {
@@ -460,7 +575,15 @@ document.addEventListener("DOMContentLoaded", function() {
             dateClick: function(info) {
                 openScheduleModal(info.date);
             },
+            datesSet: function(info) {
+                localStorage.setItem("appointmentCalendarView", info.view.type);
+            },
             eventTimeFormat: {
+                hour: "numeric",
+                minute: "2-digit",
+                meridiem: "short"
+            },
+            slotLabelFormat: {
                 hour: "numeric",
                 minute: "2-digit",
                 meridiem: "short"

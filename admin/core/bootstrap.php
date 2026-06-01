@@ -29,4 +29,7 @@ require_once __DIR__ . '/ClientService.php';
 require_once __DIR__ . '/MailService.php';
 require_once __DIR__ . '/AppointmentService.php';
 require_once __DIR__ . '/GoogleCalendarService.php';
+require_once __DIR__ . '/GoogleOAuthService.php';
+require_once __DIR__ . '/ReminderService.php';
+require_once __DIR__ . '/ProfileService.php';
 require_once __DIR__ . '/SettingsService.php';

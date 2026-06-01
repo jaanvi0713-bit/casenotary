@@ -47,6 +47,16 @@ try {
             redirect('pages/client-form.php?id=' . $id);
             break;
 
+        case 'delete_client':
+            $id = (int) ($_POST['client_id'] ?? 0);
+            if ($id <= 0) {
+                throw new RuntimeException('Invalid client.');
+            }
+            ClientService::deleteClient($id);
+            flash('success', 'Client deleted successfully.');
+            redirect('pages/clients.php');
+            break;
+
         default:
             flash('error', 'Unknown action.');
             redirect('pages/clients.php');
@@ -54,6 +64,9 @@ try {
 } catch (Throwable $e) {
     setOld($_POST);
     flash('error', $e->getMessage());
+    if (($action ?? '') === 'delete_client') {
+        redirect('pages/clients.php');
+    }
     $id = (int) ($_POST['client_id'] ?? 0);
     redirect($id > 0 ? 'pages/client-form.php?id=' . $id : 'pages/client-form.php');
 }
