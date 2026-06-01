@@ -67,7 +67,6 @@ require __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                     <div><span class="case-detail-label">Deadline</span><strong><?= formatDate($case['deadline']) ?></strong></div>
-                    <div><span class="case-detail-label">Priority</span><strong><?= ucfirst($case['priority']) ?></strong></div>
                 </div>
                 <?php if ($case['description']): ?>
                     <div class="case-description mt-3"><span class="case-detail-label">Description</span><p><?= nl2br(e($case['description'])) ?></p></div>
