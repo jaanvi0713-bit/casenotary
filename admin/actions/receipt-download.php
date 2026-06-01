@@ -13,11 +13,11 @@ if ($id <= 0) {
 $receipt = Database::fetch(
     'SELECT r.*, i.invoice_number, i.total AS invoice_total,
             cl.first_name, cl.last_name, cl.email AS client_email, cl.company_name,
-            p.payment_method, p.paid_at, p.notes AS payment_notes
+            p.payment_method, p.paid_at, p.notes AS payment_notes, p.amount AS payment_amount
      FROM receipts r
-     JOIN invoices i ON i.id = r.invoice_id
-     JOIN clients cl ON cl.id = r.client_id
      JOIN payments p ON p.id = r.payment_id
+     JOIN invoices i ON i.id = p.invoice_id
+     JOIN clients cl ON cl.id = i.client_id
      WHERE r.id = ?',
     [$id]
 );
@@ -76,7 +76,7 @@ header('Content-Disposition: inline; filename="' . ($receipt['receipt_number'] ?
         <?php if (!empty($receipt['payment_notes'])): ?>
             <tr><th>Notes</th><td><?= e($receipt['payment_notes']) ?></td></tr>
         <?php endif; ?>
-        <tr><th>Amount received</th><td class="total"><?= formatCurrency((float) $receipt['amount']) ?></td></tr>
+        <tr><th>Amount received</th><td class="total"><?= formatCurrency((float) ($receipt['amount'] ?? $receipt['payment_amount'] ?? 0)) ?></td></tr>
     </table>
 </body>
 </html>

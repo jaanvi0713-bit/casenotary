@@ -39,7 +39,7 @@ class DocumentTemplate
     {
         $company = getCompanySettings();
         $content = nl2br(e($proposal['content'] ?? ''));
-        $amount  = formatCurrency((float) ($proposal['amount'] ?? 0));
+        $amount  = formatCurrency((float) ($proposal['amount'] ?? $proposal['total'] ?? 0));
 
         $body = '<div class="content-block">' . $content . '</div>'
             . '<p class="total-line"><strong>Proposed amount:</strong> ' . $amount . '</p>';
@@ -57,7 +57,7 @@ class DocumentTemplate
     public static function invoice(array $case, array $invoice): string
     {
         $company = getCompanySettings();
-        $amount  = (float) ($invoice['amount'] ?? 0);
+        $amount  = (float) ($invoice['amount'] ?? $invoice['subtotal'] ?? $invoice['total'] ?? 0);
         $taxRate = (float) ($invoice['tax_rate'] ?? 0);
         $taxAmt  = (float) ($invoice['tax_amount'] ?? 0);
         $total   = (float) ($invoice['total'] ?? 0);

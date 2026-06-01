@@ -139,7 +139,7 @@ require __DIR__ . '/../includes/header.php';
                         <ul class="case-doc-list">
                             <?php foreach ($workspace['proposals'] as $p): ?>
                                 <li>
-                                    <div><strong><?= e($p['proposal_number']) ?></strong><small><?= formatCurrency((float) $p['amount']) ?></small></div>
+                                    <div><strong><?= e($p['proposal_number']) ?></strong><small><?= formatCurrency((float) ($p['amount'] ?? $p['total'] ?? 0)) ?></small></div>
                                     <?php if ($p['pdf_path']): ?><a href="<?= adminUrl('actions/document-download.php?path=' . urlencode($p['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank">View</a><?php endif; ?>
                                 </li>
                             <?php endforeach; ?>

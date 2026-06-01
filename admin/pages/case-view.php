@@ -386,7 +386,7 @@ require __DIR__ . '/../includes/header.php';
                             <ul class="case-doc-list">
                                 <?php foreach ($workspace['receipts'] as $r): ?>
                                     <li>
-                                        <div><strong><?= e($r['receipt_number']) ?></strong><small><?= formatCurrency((float) ($r['amount'] ?? 0)) ?></small></div>
+                                        <div><strong><?= e($r['receipt_number']) ?></strong><small><?= formatCurrency((float) ($r['amount'] ?? $r['payment_amount'] ?? 0)) ?></small></div>
                                         <a href="<?= url('actions/receipt-download.php?id=' . (int) $r['id']) ?>" class="btn btn-soft btn-sm" target="_blank"><i class="bi bi-receipt"></i> View</a>
                                     </li>
                                 <?php endforeach; ?>
