@@ -475,7 +475,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var calendarEl = document.getElementById("appointmentCalendar");
     if (calendarEl && window.FullCalendar) {
-        var calendar = new FullCalendar.Calendar(calendarEl, {
+        var calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
             timeZone: "local",
             initialView: "dayGridMonth",
             height: "auto",
@@ -497,7 +497,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 minute: "2-digit",
                 meridiem: "short"
             }
-        });
+        }, window.AppointmentCalendar ? window.AppointmentCalendar.calendarOptions() : {}));
         calendar.render();
     }
 });

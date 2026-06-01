@@ -171,3 +171,78 @@
         priorityFilter?.addEventListener('change', filterTable);
     }
 })();
+
+window.AppointmentCalendar = {
+    escapeHtml: function (value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    },
+
+    eventContent: function (info) {
+        var props = info.event.extendedProps || {};
+        var title = info.event.title || 'Appointment';
+        var esc = window.AppointmentCalendar.escapeHtml;
+
+        if (props.segmentRole === 'past') {
+            var timeHtml = props.timeLabel
+                ? '<div class="fc-event-time">' + esc(props.timeLabel) + '</div>'
+                : '';
+            return {
+                html: '<div class="fc-event-main-frame fc-appt-split-past">' +
+                    timeHtml +
+                    '<div class="fc-event-title-container"><div class="fc-event-title fc-sticky">' + esc(title) + '</div></div>' +
+                    '</div>'
+            };
+        }
+
+        if (props.segmentRole === 'active') {
+            if (!info.isStart) {
+                return { html: '<div class="fc-event-main-frame fc-appt-continuation-bar"></div>' };
+            }
+            return {
+                html: '<div class="fc-event-main-frame fc-appt-split-active">' +
+                    '<div class="fc-event-title-container"><div class="fc-event-title fc-sticky">' + esc(title) + '</div></div>' +
+                    '</div>'
+            };
+        }
+
+        return true;
+    },
+
+    eventOrder: function (a, b) {
+        if (a.groupId && a.groupId === b.groupId) {
+            var aPart = (a.extendedProps && a.extendedProps.segmentPart) || 0;
+            var bPart = (b.extendedProps && b.extendedProps.segmentPart) || 0;
+            return aPart - bPart;
+        }
+
+        return 0;
+    },
+
+    eventDidMount: function (info) {
+        var props = info.event.extendedProps || {};
+        if (info.event.groupId) {
+            info.el.setAttribute('data-appt-group', info.event.groupId);
+        }
+        if (props.isSplit) {
+            info.el.setAttribute('data-appt-split', 'true');
+        }
+    },
+
+    calendarOptions: function (overrides) {
+        var base = {
+            eventContent: window.AppointmentCalendar.eventContent,
+            eventOrder: window.AppointmentCalendar.eventOrder,
+            eventDidMount: window.AppointmentCalendar.eventDidMount
+        };
+
+        if (!overrides) {
+            return base;
+        }
+
+        return Object.assign({}, base, overrides);
+    }
+};

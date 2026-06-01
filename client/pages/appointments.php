@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const modal = document.getElementById('appointmentDetailModal');
     const bsModal = modal ? new bootstrap.Modal(modal) : null;
 
-    const calendar = new FullCalendar.Calendar(calendarEl, {
+    const calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
         timeZone: 'local',
         initialView: 'dayGridMonth',
         headerToolbar: {
@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             bsModal.show();
         }
-    });
+    }, window.AppointmentCalendar ? window.AppointmentCalendar.calendarOptions() : {}));
 
     calendar.render();
 });

@@ -2570,6 +2570,34 @@ body.sidebar-collapsed .main-content {
     opacity: 0.92;
 }
 
+.appointment-calendar-wrap .fc-event.fc-appt-linked {
+    position: relative;
+}
+
+.appointment-calendar-wrap .fc-event.fc-appt-segment-past {
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+.appointment-calendar-wrap .fc-event.fc-appt-segment-active {
+    border-top-left-radius: 3px;
+    border-bottom-left-radius: 3px;
+    box-shadow: inset 3px 0 0 rgba(245, 158, 11, 0.75);
+}
+
+.appointment-calendar-wrap .fc-event .fc-appt-split-past .fc-event-time,
+.appointment-calendar-wrap .fc-event .fc-appt-split-active .fc-event-title {
+    font-weight: 600;
+}
+
+.appointment-calendar-wrap .fc-event .fc-appt-continuation-bar {
+    min-height: 0.85rem;
+}
+
+.appointment-calendar-wrap .fc-daygrid-event[data-appt-split="true"] {
+    margin-bottom: 1px;
+}
+
 .sidebar-logo {
     width: 100%;
     height: 100%;

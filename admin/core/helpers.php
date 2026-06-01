@@ -190,8 +190,9 @@ function appointmentCalendarEventColors(array $appointment): array
 
 /**
  * Build FullCalendar event segment(s) for an appointment.
- * Active appointments crossing today at midnight are split so past days
- * use the past color and today/future use the status color.
+ * Active appointments crossing today at midnight are split so elapsed
+ * calendar days render as a linked all-day bar (past color) and today
+ * onward as a timed bar (status color) — one appointment, two colours.
  *
  * @return array<int, array<string, mixed>>
  */
@@ -213,36 +214,15 @@ function buildAppointmentCalendarEvents(array $appointment, array $extendedProps
     $title = $appointment['title'] ?? 'Appointment';
     $status = strtolower(trim($appointment['status'] ?? 'scheduled'));
     $colors = appointmentStatusColors();
+    $groupId = 'appt-' . $id;
     $extendedProps['appointmentId'] = $extendedProps['appointmentId'] ?? (int) ($appointment['id'] ?? 0);
-
-    $makeEvent = static function (
-        string $suffix,
-        int $segStartTs,
-        int $segEndTs,
-        string $color,
-        array $classNames
-    ) use ($id, $title, $extendedProps): ?array {
-        if ($segEndTs <= $segStartTs) {
-            return null;
-        }
-
-        return [
-            'id'              => $id . $suffix,
-            'title'           => $title,
-            'start'           => calendarEventDateTime(date('Y-m-d H:i:s', $segStartTs)),
-            'end'             => calendarEventDateTime(date('Y-m-d H:i:s', $segEndTs)),
-            'backgroundColor' => $color,
-            'borderColor'     => $color,
-            'classNames'      => $classNames,
-            'extendedProps'   => $extendedProps,
-        ];
-    };
 
     if (in_array($status, ['cancelled', 'completed'], true)) {
         $eventColors = appointmentCalendarEventColors($appointment);
 
         return [[
             'id'              => $id,
+            'groupId'         => $groupId,
             'title'           => $title,
             'start'           => calendarEventDateTime($start),
             'end'             => calendarEventDateTime($end),
@@ -258,15 +238,50 @@ function buildAppointmentCalendarEvents(array $appointment, array $extendedProps
     $pastColor = $colors['past'];
 
     if ($startTs < $todayStartTs && $endTs > $todayStartTs) {
+        $splitProps = array_merge($extendedProps, [
+            'isSplit'       => true,
+            'segmentTotal'  => 2,
+            'segmentPart'   => 0,
+        ]);
+
         $events = [];
-        $pastEvent = $makeEvent('-past', $startTs, $todayStartTs, $pastColor, ['fc-event-past']);
-        if ($pastEvent !== null) {
-            $events[] = $pastEvent;
+
+        $pastStartDate = date('Y-m-d', $startTs);
+        $pastEndDate = date('Y-m-d', $todayStartTs);
+
+        if ($pastStartDate < $pastEndDate) {
+            $events[] = [
+                'id'              => $id . '-past',
+                'groupId'         => $groupId,
+                'title'           => $title,
+                'start'           => $pastStartDate,
+                'end'             => $pastEndDate,
+                'allDay'          => true,
+                'backgroundColor' => $pastColor,
+                'borderColor'     => $pastColor,
+                'classNames'      => ['fc-event-past', 'fc-appt-linked', 'fc-appt-segment-past'],
+                'extendedProps'   => array_merge($splitProps, [
+                    'segmentRole' => 'past',
+                    'segmentPart' => 1,
+                    'timeLabel'   => formatDateTime($start, 'g:i A'),
+                ]),
+            ];
         }
-        $activeEvent = $makeEvent('-active', $todayStartTs, $endTs, $activeColor, []);
-        if ($activeEvent !== null) {
-            $events[] = $activeEvent;
-        }
+
+        $events[] = [
+            'id'              => $id . '-active',
+            'groupId'         => $groupId,
+            'title'           => $title,
+            'start'           => calendarEventDateTime(date('Y-m-d H:i:s', $todayStartTs)),
+            'end'             => calendarEventDateTime(date('Y-m-d H:i:s', $endTs)),
+            'backgroundColor' => $activeColor,
+            'borderColor'     => $activeColor,
+            'classNames'      => ['fc-appt-linked', 'fc-appt-segment-active'],
+            'extendedProps'   => array_merge($splitProps, [
+                'segmentRole' => 'active',
+                'segmentPart' => 2,
+            ]),
+        ];
 
         return $events;
     }
@@ -275,6 +290,7 @@ function buildAppointmentCalendarEvents(array $appointment, array $extendedProps
 
     return [[
         'id'              => $id,
+        'groupId'         => $groupId,
         'title'           => $title,
         'start'           => calendarEventDateTime($start),
         'end'             => calendarEventDateTime($end),
