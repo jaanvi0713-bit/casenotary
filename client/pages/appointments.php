@@ -23,7 +23,11 @@ foreach ($appointments as $appt) {
         continue;
     }
 
-    [$calStart, $calEnd] = normalizeAppointmentCalendarRange($start, appointmentEffectiveEnd($appt));
+    [$calStart, $calEnd] = resolveAppointmentCalendarRange($appt);
+    if (!$calStart) {
+        continue;
+    }
+
     $links = GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $client, true);
 
     foreach (buildAppointmentCalendarEvents($appt, [
@@ -170,75 +174,72 @@ require __DIR__ . '/../includes/header.php';
 </div>
 
 <?php
-$pageScripts = '<script type="application/json" id="calendarEventsData">'
-    . json_encode($calendarEvents, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP)
-    . '</script>';
-$pageScripts .= <<<'HTML'
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
+$pageScripts = '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const calendarEl = document.getElementById('appointmentCalendar');
-    if (!calendarEl || typeof FullCalendar === 'undefined') return;
+document.addEventListener("DOMContentLoaded", function() {
+    var calendarEl = document.getElementById("appointmentCalendar");
+    if (!calendarEl || typeof FullCalendar === "undefined") {
+        return;
+    }
 
-    const events = JSON.parse(document.getElementById('calendarEventsData').textContent);
-    const modal = document.getElementById('appointmentDetailModal');
-    const bsModal = modal ? new bootstrap.Modal(modal) : null;
+    var calendarEvents = ' . json_encode($calendarEvents, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) . ';
+    var modal = document.getElementById("appointmentDetailModal");
+    var bsModal = modal ? new bootstrap.Modal(modal) : null;
 
-    const calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
-        timeZone: 'local',
-        initialView: 'dayGridMonth',
-        initialDate: 
-HTML;
-$pageScripts .= json_encode($calendarInitialDate);
-$pageScripts .= <<<'HTML'
-,
+    var calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
+        timeZone: "local",
+        initialView: "dayGridMonth",
+        initialDate: ' . json_encode($calendarInitialDate) . ',
         headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek"
         },
-        height: 'auto',
-        events: events,
+        height: "auto",
+        events: calendarEvents,
         eventTimeFormat: {
-            hour: 'numeric',
-            minute: '2-digit',
-            meridiem: 'short'
+            hour: "numeric",
+            minute: "2-digit",
+            meridiem: "short"
         },
-        eventClick: function (info) {
-            if (!bsModal) return;
-            const props = info.event.extendedProps || {};
-            document.getElementById('apptModalTitle').textContent = info.event.title;
-            document.getElementById('apptModalWhen').textContent = props.startLabel + (props.endLabel ? ' – ' + props.endLabel : '');
-            document.getElementById('apptModalStatus').textContent = (props.status || '').replace(/_/g, ' ');
-            document.getElementById('apptModalLocation').textContent = props.location || '—';
-            document.getElementById('apptModalDesc').textContent = props.description || '—';
-            document.getElementById('apptModalLocationWrap').style.display = props.location ? '' : 'none';
-            document.getElementById('apptModalDescWrap').style.display = props.description ? '' : 'none';
+        eventClick: function(info) {
+            if (!bsModal) {
+                return;
+            }
 
-            const showCalendar = ['scheduled', 'confirmed'].includes(props.status);
-            const googleBtn = document.getElementById('apptModalGoogle');
-            const outlookBtn = document.getElementById('apptModalOutlook');
-            const icsBtn = document.getElementById('apptModalIcs');
+            var props = info.event.extendedProps || {};
+            document.getElementById("apptModalTitle").textContent = info.event.title;
+            document.getElementById("apptModalWhen").textContent = props.startLabel + (props.endLabel ? " - " + props.endLabel : "");
+            document.getElementById("apptModalStatus").textContent = (props.status || "").replace(/_/g, " ");
+            document.getElementById("apptModalLocation").textContent = props.location || "—";
+            document.getElementById("apptModalDesc").textContent = props.description || "—";
+            document.getElementById("apptModalLocationWrap").style.display = props.location ? "" : "none";
+            document.getElementById("apptModalDescWrap").style.display = props.description ? "" : "none";
+
+            var showCalendar = ["scheduled", "confirmed"].indexOf(props.status) !== -1;
+            var googleBtn = document.getElementById("apptModalGoogle");
+            var outlookBtn = document.getElementById("apptModalOutlook");
+            var icsBtn = document.getElementById("apptModalIcs");
 
             if (showCalendar && props.googleUrl) {
                 googleBtn.href = props.googleUrl;
-                googleBtn.classList.remove('d-none');
+                googleBtn.classList.remove("d-none");
             } else {
-                googleBtn.classList.add('d-none');
+                googleBtn.classList.add("d-none");
             }
 
             if (showCalendar && props.outlookUrl) {
                 outlookBtn.href = props.outlookUrl;
-                outlookBtn.classList.remove('d-none');
+                outlookBtn.classList.remove("d-none");
             } else {
-                outlookBtn.classList.add('d-none');
+                outlookBtn.classList.add("d-none");
             }
 
             if (showCalendar && props.icsUrl) {
                 icsBtn.href = props.icsUrl;
-                icsBtn.classList.remove('d-none');
+                icsBtn.classList.remove("d-none");
             } else {
-                icsBtn.classList.add('d-none');
+                icsBtn.classList.add("d-none");
             }
 
             bsModal.show();
@@ -247,7 +248,6 @@ $pageScripts .= <<<'HTML'
 
     calendar.render();
 });
-</script>
-HTML;
+</script>';
 
 require __DIR__ . '/../includes/footer.php';

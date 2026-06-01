@@ -10,6 +10,11 @@ if ($projectRoot && $docRoot && str_starts_with(strtolower($projectRoot), strtol
     $relativeRoot = str_replace('\\', '/', substr($projectRoot, strlen($docRoot)));
 }
 
+if ($relativeRoot === '' && !empty($_SERVER['SCRIPT_NAME'])
+    && preg_match('#^(/[^/]+)/(?:admin|client)/#', str_replace('\\', '/', $_SERVER['SCRIPT_NAME']), $scriptMatches)) {
+    $relativeRoot = $scriptMatches[1];
+}
+
 $baseUrl = $scheme . '://' . $host . $relativeRoot;
 
 return [

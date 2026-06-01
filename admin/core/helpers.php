@@ -21,6 +21,19 @@ function asset(string $path): string
     return $url;
 }
 
+function adminAsset(string $path): string
+{
+    $relative = 'assets/' . ltrim($path, '/');
+    $filePath = __DIR__ . '/../' . $relative;
+    $url      = adminUrl($relative);
+
+    if (is_file($filePath)) {
+        $url .= '?v=' . filemtime($filePath);
+    }
+
+    return $url;
+}
+
 function adminUrl(string $path = ''): string
 {
     $config = require __DIR__ . '/../config/config.php';
@@ -287,30 +300,136 @@ function normalizeAppointmentEndTime(string $startsAt, string $endsAt, int $maxH
 }
 
 /**
+ * Resolve appointment start/end for calendar rendering.
+ * Keeps the real multi-day span instead of collapsing long appointments to one hour.
+ *
+ * @return array{0: ?string, 1: ?string}
+ */
+function resolveAppointmentCalendarRange(array $appointment, int $maxDays = 14): array
+{
+    $start = appointmentEffectiveStart($appointment);
+    if (!$start) {
+        return [null, null];
+    }
+
+    $startTs = strtotime($start);
+    if ($startTs === false) {
+        return [null, null];
+    }
+
+    $end = appointmentEffectiveEnd($appointment) ?: date('Y-m-d H:i:s', strtotime('+1 hour', $startTs));
+    $endTs = strtotime($end);
+    if ($endTs === false || $endTs <= $startTs) {
+        $end = date('Y-m-d H:i:s', strtotime('+1 hour', $startTs));
+        $endTs = strtotime($end);
+    }
+
+    $maxEndTs = strtotime("+{$maxDays} days", $startTs);
+    if ($endTs > $maxEndTs) {
+        $end = date('Y-m-d H:i:s', $maxEndTs);
+    }
+
+    return [$start, $end];
+}
+
+/**
  * Build FullCalendar event(s) for an appointment.
  *
  * @return array<int, array<string, mixed>>
  */
 function buildAppointmentCalendarEvents(array $appointment, array $extendedProps = []): array
 {
-    $start = appointmentEffectiveStart($appointment);
-    if (!$start) {
-        return [];
-    }
-
-    [$start, $end] = normalizeAppointmentCalendarRange($start, appointmentEffectiveEnd($appointment));
+    [$start, $end] = resolveAppointmentCalendarRange($appointment);
     if (!$start || !$end) {
         return [];
     }
 
-    $id = (string) ($appointment['id'] ?? '');
-    $eventColors = appointmentCalendarEventColors($appointment);
+    $startTs = strtotime($start);
+    $endTs   = strtotime($end);
+    if ($startTs === false || $endTs === false) {
+        return [];
+    }
+
+    $id          = (string) ($appointment['id'] ?? '');
+    $groupId     = 'appt-' . $id;
+    $title       = $appointment['title'] ?? 'Appointment';
+    $status      = strtolower(trim($appointment['status'] ?? 'scheduled'));
+    $isTerminal  = in_array($status, ['cancelled', 'completed'], true);
+    $startDay    = date('Y-m-d', $startTs);
+    $endDay      = date('Y-m-d', $endTs);
+    $today       = date('Y-m-d');
+    $todayStart  = strtotime($today . ' 00:00:00') ?: $startTs;
+
     $extendedProps['appointmentId'] = $extendedProps['appointmentId'] ?? (int) ($appointment['id'] ?? 0);
+    $colors      = appointmentStatusColors();
+    $pastColor   = $colors['past'];
+    $eventColors = appointmentCalendarEventColors($appointment);
+    $activeColor = $eventColors['backgroundColor'];
+
+    if (!$isTerminal && $startDay !== $endDay && $startTs < $todayStart && $endTs > $todayStart) {
+        $events     = [];
+        $splitProps = array_merge($extendedProps, ['isSplit' => true]);
+        $pastEndDay = date('Y-m-d', strtotime($today . ' -1 day'));
+
+        if ($startDay <= $pastEndDay) {
+            $events[] = [
+                'id'               => $id . '-past',
+                'groupId'          => $groupId,
+                'title'            => $title,
+                'start'            => $startDay,
+                'end'              => date('Y-m-d', strtotime($pastEndDay . ' +1 day')),
+                'allDay'           => true,
+                'displayEventTime' => false,
+                'backgroundColor'  => $pastColor,
+                'borderColor'      => $pastColor,
+                'classNames'       => ['fc-appt-linked', 'fc-appt-segment-past'],
+                'extendedProps'    => array_merge($splitProps, [
+                    'segmentRole' => 'past',
+                    'segmentPart' => 1,
+                    'timeLabel'   => formatDateTime($start, 'g:i A'),
+                ]),
+            ];
+        }
+
+        $events[] = [
+            'id'               => $id . '-active',
+            'groupId'          => $groupId,
+            'title'            => $title,
+            'start'            => $today,
+            'end'              => date('Y-m-d', strtotime($endDay . ' +1 day')),
+            'allDay'           => true,
+            'displayEventTime' => false,
+            'backgroundColor'  => $activeColor,
+            'borderColor'      => $activeColor,
+            'classNames'       => ['fc-appt-linked', 'fc-appt-segment-active'],
+            'extendedProps'    => array_merge($splitProps, [
+                'segmentRole' => 'active',
+                'segmentPart' => 2,
+            ]),
+        ];
+
+        return $events;
+    }
+
+    if (!$isTerminal && isPastAppointment($appointment) && $startDay !== $endDay) {
+        return [[
+            'id'              => $id,
+            'groupId'         => $groupId,
+            'title'           => $title,
+            'start'           => $startDay,
+            'end'             => date('Y-m-d', strtotime($endDay . ' +1 day')),
+            'allDay'          => true,
+            'backgroundColor' => $pastColor,
+            'borderColor'     => $pastColor,
+            'classNames'      => ['fc-event-past'],
+            'extendedProps'   => $extendedProps,
+        ]];
+    }
 
     return [[
         'id'              => $id,
-        'groupId'         => 'appt-' . $id,
-        'title'           => $appointment['title'] ?? 'Appointment',
+        'groupId'         => $groupId,
+        'title'           => $title,
         'start'           => calendarEventDateTime($start),
         'end'             => calendarEventDateTime($end),
         'backgroundColor' => $eventColors['backgroundColor'],

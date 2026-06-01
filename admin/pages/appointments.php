@@ -33,7 +33,11 @@ foreach ($appointments as $appt) {
         continue;
     }
 
-    [$calStart, $calEnd] = normalizeAppointmentCalendarRange($start, appointmentEffectiveEnd($appt));
+    [$calStart, $calEnd] = resolveAppointmentCalendarRange($appt);
+    if (!$calStart) {
+        continue;
+    }
+
     $links = GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $appt);
 
     foreach (buildAppointmentCalendarEvents($appt, [
