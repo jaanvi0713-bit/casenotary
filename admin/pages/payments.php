@@ -102,7 +102,7 @@ require __DIR__ . '/../includes/header.php';
     <div class="table-toolbar">
         <div class="table-search">
             <i class="bi bi-search"></i>
-            <input type="search" class="form-control form-control-sm" id="tableSearch" placeholder="Search payments...">
+            <input type="search" class="form-control form-control-sm" id="tableSearch" placeholder="Search by service...">
         </div>
         <select class="form-select form-select-sm table-filter" id="statusFilter">
             <option value="">All statuses</option>
@@ -152,8 +152,14 @@ require __DIR__ . '/../includes/header.php';
                             $payStatus = paymentStatusValue($payment);
                             $paidAt = $payment['paid_at'] ?? $payment['created_at'] ?? null;
                             $paidMonth = $paidAt ? date('m', strtotime((string) $paidAt)) : '';
+                            $searchBlob = caseRowSearchBlob($payment, [
+                                $payment['invoice_number'] ?? '',
+                                clientFullName($payment),
+                                $payment['receipt_number'] ?? '',
+                                $payment['payment_method'] ?? '',
+                            ]);
                             ?>
-                            <tr data-status="<?= e($payStatus) ?>" data-method="<?= e($payment['payment_method'] ?? '') ?>" data-month="<?= e($paidMonth) ?>">
+                            <tr data-status="<?= e($payStatus) ?>" data-method="<?= e($payment['payment_method'] ?? '') ?>" data-month="<?= e($paidMonth) ?>" data-search="<?= e($searchBlob) ?>">
                                 <td>
                                     <span class="table-primary"><?= e($payment['invoice_number']) ?></span>
                                     <span class="table-secondary d-block"><?= formatCurrency((float) $payment['invoice_total']) ?></span>
@@ -246,8 +252,8 @@ document.addEventListener("DOMContentLoaded", function() {
         var method = methodFilter?.value || "";
         var month = monthFilter?.value || "";
         rows.forEach(function(row) {
-            var text = row.textContent.toLowerCase();
-            var matchSearch = !q || text.includes(q);
+            var searchBlob = (row.dataset.search || row.textContent).toLowerCase();
+            var matchSearch = !q || searchBlob.includes(q);
             var matchStatus = !status || row.dataset.status === status;
             var matchMethod = !method || row.dataset.method === method;
             var matchMonth = !month || row.dataset.month === month;

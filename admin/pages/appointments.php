@@ -125,7 +125,7 @@ require __DIR__ . '/../includes/header.php';
     <div class="table-toolbar">
         <div class="table-search">
             <i class="bi bi-search"></i>
-            <input type="search" class="form-control form-control-sm" id="tableSearch" placeholder="Search appointments...">
+            <input type="search" class="form-control form-control-sm" id="tableSearch" placeholder="Search by service...">
         </div>
         <select class="form-select form-select-sm table-filter" id="statusFilter">
             <option value="">All statuses</option>
@@ -157,8 +157,17 @@ require __DIR__ . '/../includes/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($appointments as $appt): ?>
-                            <?php $caseLabel = appointmentCaseLabel($appt); ?>
-                            <tr data-status="<?= e($appt['status']) ?>">
+                            <?php
+                            $caseLabel = appointmentCaseLabel($appt);
+                            $searchBlob = caseRowSearchBlob($appt, [
+                                $appt['title'] ?? '',
+                                clientFullName($appt),
+                                appointmentCaseLabel($appt),
+                                $appt['location'] ?? '',
+                                $appt['description'] ?? '',
+                            ]);
+                            ?>
+                            <tr data-status="<?= e($appt['status']) ?>" data-search="<?= e($searchBlob) ?>">
                                 <td>
                                     <span class="table-primary"><?= formatDate(appointmentStart($appt)) ?></span>
                                     <span class="table-secondary d-block">

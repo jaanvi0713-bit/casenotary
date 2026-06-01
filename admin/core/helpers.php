@@ -552,6 +552,49 @@ function appointmentCaseLabel(array $appointment): string
     return 'None';
 }
 
+function tableRowSearchBlob(array $parts): string
+{
+    $normalized = [];
+
+    foreach ($parts as $part) {
+        $part = trim((string) $part);
+        if ($part !== '') {
+            $normalized[] = mb_strtolower($part);
+        }
+    }
+
+    return implode(' ', $normalized);
+}
+
+/**
+ * @return list<string>
+ */
+function caseRowSearchTerms(array $row): array
+{
+    $terms = [];
+
+    foreach (CaseService::getCaseServices($row) as $service) {
+        $type = trim((string) ($service['type'] ?? ''));
+        if ($type !== '') {
+            $terms[] = $type;
+        }
+    }
+
+    foreach (['service_type', 'case_title', 'title', 'case_number'] as $field) {
+        $value = trim((string) ($row[$field] ?? ''));
+        if ($value !== '') {
+            $terms[] = $value;
+        }
+    }
+
+    return array_values(array_unique($terms));
+}
+
+function caseRowSearchBlob(array $row, array $extra = []): string
+{
+    return tableRowSearchBlob(array_merge($extra, caseRowSearchTerms($row)));
+}
+
 function enrichAppointmentCase(array &$appointment, bool $persistLink = false): void
 {
     if (!empty($appointment['case_id'])) {
@@ -565,7 +608,7 @@ function enrichAppointmentCase(array &$appointment, bool $persistLink = false): 
     }
 
     $case = Database::fetch(
-        'SELECT id, case_number, title FROM cases WHERE id = ? AND client_id = ?',
+        'SELECT id, case_number, title, service_type, services FROM cases WHERE id = ? AND client_id = ?',
         [$caseId, $clientId]
     );
 
@@ -585,6 +628,8 @@ function enrichAppointmentCase(array &$appointment, bool $persistLink = false): 
 
     $appointment['case_number'] = $case['case_number'];
     $appointment['case_title']  = $case['title'];
+    $appointment['service_type'] = $case['service_type'] ?? null;
+    $appointment['services']     = $case['services'] ?? null;
 }
 
 function calendarEventDateTime(?string $datetime): ?string
@@ -1821,10 +1866,12 @@ function getAllPayments(): array
     return Database::fetchAll(
         "SELECT p.*, p.{$paymentCol} AS payment_status, i.invoice_number, i.total AS invoice_total, i.case_id,
                 cl.first_name, cl.last_name, cl.company_name,
+                cs.service_type, cs.title AS case_title, cs.case_number, cs.services,
                 r.id AS receipt_id, r.receipt_number
          FROM payments p
          JOIN invoices i ON i.id = p.invoice_id
          JOIN clients cl ON cl.id = i.client_id
+         LEFT JOIN cases cs ON cs.id = i.case_id
          LEFT JOIN receipts r ON r.payment_id = p.id
          ORDER BY COALESCE(p.paid_at, p.created_at) DESC"
     );
@@ -1838,7 +1885,7 @@ function getAllAppointments(): array
     $appointments = Database::fetchAll(
         "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
                 cl.first_name, cl.last_name, cl.company_name,
-                cs.case_number, cs.title AS case_title
+                cs.case_number, cs.title AS case_title, cs.service_type, cs.services
          FROM appointments a
          JOIN clients cl ON cl.id = a.client_id
          LEFT JOIN cases cs ON cs.id = a.case_id

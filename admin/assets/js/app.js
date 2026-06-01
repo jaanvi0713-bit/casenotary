@@ -143,8 +143,8 @@
             const status = statusFilter?.value || '';
             const priority = priorityFilter?.value || '';
             rows.forEach(function (row) {
-                const text = row.textContent.toLowerCase();
-                const matchSearch = !q || text.includes(q);
+                const searchBlob = (row.dataset.search || row.textContent).toLowerCase();
+                const matchSearch = !q || searchBlob.includes(q);
                 const matchStatus = !status || row.dataset.status === status;
                 const matchPriority = !priority || row.dataset.priority === priority;
                 row.style.display = matchSearch && matchStatus && matchPriority ? '' : 'none';

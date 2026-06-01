@@ -1493,7 +1493,7 @@ body.sidebar-collapsed .main-content {
 .table-search {
     position: relative;
     flex: 1;
-    max-width: 240px;
+    max-width: 220px;
 }
 
 .table-search i {
