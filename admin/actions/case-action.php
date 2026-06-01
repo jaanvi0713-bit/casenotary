@@ -134,6 +134,33 @@ try {
             redirectCase($caseId, 'quotations');
             break;
 
+        case 'generate_client_letter':
+            Auth::requireAdmin();
+            if ($caseId <= 0) {
+                throw new RuntimeException('Invalid case.');
+            }
+            $instructions = trim($_POST['client_instructions'] ?? '');
+            if ($instructions !== '' && Database::columnExists('cases', 'client_instructions')) {
+                Database::query(
+                    'UPDATE cases SET client_instructions = ?, updated_at = NOW() WHERE id = ?',
+                    [$instructions, $caseId]
+                );
+            }
+            CaseService::generateClientLetter($caseId, $instructions);
+            flash('success', 'Client letter generated.');
+            redirectCase($caseId, 'client-letter');
+            break;
+
+        case 'send_client_letter':
+            Auth::requireAdmin();
+            if ($caseId <= 0) {
+                throw new RuntimeException('Invalid case.');
+            }
+            CaseService::sendClientLetterToClient($caseId);
+            flash('success', 'Client letter emailed to client.');
+            redirectCase($caseId, 'client-letter');
+            break;
+
         case 'generate_invoice':
             Auth::requireAdmin();
             CaseService::generateInvoice($caseId, $_POST);

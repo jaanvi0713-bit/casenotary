@@ -15,6 +15,7 @@ $case       = $workspace['case'];
 $pageTitle  = $case['case_number'];
 $pageSubtitle = $case['title'];
 $allowedStatuses = CaseService::getAllowedStatuses($case['status']);
+$clientLetterPath = CaseService::getClientLetterRelativePath($caseId);
 
 $successMsg = flash('success');
 $errorMsg   = flash('error');
@@ -102,6 +103,7 @@ require __DIR__ . '/../includes/header.php';
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoice-payments" type="button">Invoice & Payments</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#notes" type="button">Notes</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#activity" type="button">Activity</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#client-letter" type="button">Client Letter</button></li>
     </ul>
 
     <div class="tab-content case-tab-content">
@@ -504,6 +506,49 @@ require __DIR__ . '/../includes/header.php';
                         </ul>
                     <?php endif; ?>
                 </div>
+            </div>
+        </div>
+
+        <!-- Client Letter -->
+        <div class="tab-pane fade" id="client-letter">
+            <div class="case-panel">
+                <div class="case-panel-header">
+                    <h3 class="case-panel-title mb-0">Client Letter</h3>
+                    <div class="d-flex flex-wrap gap-2">
+                        <?php if ($clientLetterPath): ?>
+                            <a href="<?= url('actions/document-download.php?path=' . urlencode($clientLetterPath)) ?>" class="btn btn-soft btn-sm" target="_blank">
+                                <i class="bi bi-file-pdf"></i> View PDF
+                            </a>
+                            <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
+                                <?= CSRF::field() ?>
+                                <input type="hidden" name="action" value="send_client_letter">
+                                <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-envelope"></i> Email to Client
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <p class="case-panel-hint">Formal letter with case summary and client instructions. Generate or regenerate before emailing.</p>
+                <form method="post" action="<?= url('actions/case-action.php') ?>">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="generate_client_letter">
+                    <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                    <div class="mb-3">
+                        <label class="form-label">Instructions for Client</label>
+                        <textarea name="client_instructions" class="form-control" rows="4" placeholder="What the client should prepare, bring, or complete…"><?= e($case['client_instructions'] ?? '') ?></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-file-earmark-text"></i> <?= $clientLetterPath ? 'Regenerate Client Letter' : 'Generate Client Letter' ?>
+                    </button>
+                </form>
+                <?php if ($clientLetterPath): ?>
+                    <p class="text-muted small mt-3 mb-0">
+                        <i class="bi bi-check-circle text-success"></i>
+                        Client letter ready — open PDF to print or save, or email it to the client.
+                    </p>
+                <?php endif; ?>
             </div>
         </div>
     </div>

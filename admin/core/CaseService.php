@@ -791,6 +791,32 @@ class CaseService
         return $dir . '/' . $filename;
     }
 
+    public static function getClientLetterRelativePath(int $caseId): ?string
+    {
+        $relative = 'cases/' . $caseId . '/generated/client_letter.html';
+        $path     = self::documentPath($relative);
+
+        return is_file($path) ? $relative : null;
+    }
+
+    public static function sendClientLetterToClient(int $caseId): bool
+    {
+        $case = self::getCaseById($caseId);
+        if (!$case) {
+            throw new RuntimeException('Case not found.');
+        }
+
+        $client = ClientService::getById((int) ($case['client_id'] ?? 0));
+        if (!$client || empty($client['email'])) {
+            throw new RuntimeException('Client email not found.');
+        }
+
+        $instructions = trim($case['client_instructions'] ?? '');
+        $letterPath   = self::generateClientLetter($caseId, $instructions);
+
+        return MailService::sendClientLetterEmail($client, $case, $letterPath);
+    }
+
     public static function generateProposal(int $caseId, array $data): int
     {
         $case    = self::getCaseById($caseId);
