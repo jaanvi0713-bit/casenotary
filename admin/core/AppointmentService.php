@@ -27,6 +27,8 @@ class AppointmentService
 
         if ($endsAt === '') {
             $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
+        } else {
+            $endsAt = normalizeAppointmentEndTime($startsAt, $endsAt);
         }
 
         $caseId      = resolveAppointmentCaseId(
@@ -87,6 +89,8 @@ class AppointmentService
 
         if ($endsAt === '') {
             $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
+        } else {
+            $endsAt = normalizeAppointmentEndTime($startsAt, $endsAt);
         }
 
         $fields = [
@@ -170,23 +174,27 @@ class AppointmentService
         }
     }
 
-    public static function cancel(int $id): void
+    public static function delete(int $id): void
     {
         $appointment = self::getById($id);
         if (!$appointment) {
             throw new RuntimeException('Appointment not found.');
         }
 
-        try {
-            Database::query("UPDATE appointments SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [$id]);
-        } catch (Throwable $e) {
-            throw new RuntimeException('Unable to cancel appointment.');
-        }
-
         $client = ClientService::getById((int) ($appointment['client_id'] ?? 0));
         if ($client) {
-            $appointment['status'] = 'cancelled';
             self::notifyAppointment($client, $appointment, [], 'cancelled');
+        }
+
+        $icsPath = GoogleCalendarService::getIcsFilePath($id);
+        if ($icsPath && is_file($icsPath)) {
+            @unlink($icsPath);
+        }
+
+        try {
+            Database::query('DELETE FROM appointments WHERE id = ?', [$id]);
+        } catch (Throwable $e) {
+            throw new RuntimeException('Unable to delete appointment.');
         }
     }
 

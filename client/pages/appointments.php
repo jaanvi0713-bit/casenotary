@@ -23,15 +23,15 @@ foreach ($appointments as $appt) {
         continue;
     }
 
-    $end = appointmentEffectiveEnd($appt) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
+    [$calStart, $calEnd] = normalizeAppointmentCalendarRange($start, appointmentEffectiveEnd($appt));
     $links = GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $client, true);
 
     foreach (buildAppointmentCalendarEvents($appt, [
         'status'      => $appt['status'] ?? 'scheduled',
         'location'    => $appt['location'] ?? '',
         'description' => $appt['description'] ?? '',
-        'startLabel'  => formatDateTime($start, 'M j, Y g:i A'),
-        'endLabel'    => formatDateTime($end, 'M j, Y g:i A'),
+        'startLabel'  => formatDateTime($calStart, 'M j, Y g:i A'),
+        'endLabel'    => formatDateTime($calEnd, 'M j, Y g:i A'),
         'googleUrl'   => $links['google'],
         'outlookUrl'  => $links['outlook'],
         'icsUrl'      => $links['ics'],
@@ -39,6 +39,8 @@ foreach ($appointments as $appt) {
         $calendarEvents[] = $event;
     }
 }
+
+$calendarInitialDate = appointmentCalendarInitialDate($appointments);
 
 $pageStyles = '<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css" rel="stylesheet">';
 
@@ -185,6 +187,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
         timeZone: 'local',
         initialView: 'dayGridMonth',
+        initialDate: 
+HTML;
+$pageScripts .= json_encode($calendarInitialDate);
+$pageScripts .= <<<'HTML'
+,
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',

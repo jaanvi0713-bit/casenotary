@@ -19,6 +19,7 @@ Notary Management ProAppointment UpdatedDear Louis Macwell,Your appointment deta
 Subject: Updated appointment: Doc Signing
 Notary Management ProAppointment UpdatedDear Louis Macwell,Your appointment details have been updated.Doc SigningWhen: May 31, 2026 8:57 PMLocation: ZoomTest CaseAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalNotary Management Pro
 ------------------------------------------------------------
+<<<<<<< HEAD
 2026-06-01 04:37:03 | To: sarah.mitchell@email.com
 Subject: Cancelled appointment: Initial Consultation
 Notary Management ProAppointment CancelledDear Sarah Mitchell,Your appointment has been cancelled.Initial ConsultationWhen: May 29, 2026 10:00 AMLocation: To be confirmedView in Client PortalNotary Management Pro
@@ -26,3 +27,20 @@ Notary Management ProAppointment CancelledDear Sarah Mitchell,Your appointment h
 2026-06-01 04:37:42 | To: sarah.mitchell@email.com
 Subject: Updated appointment: Initial Consultation
 Notary Management ProAppointment UpdatedDear Sarah Mitchell,Your appointment details have been updated.Initial ConsultationWhen: May 29, 2026 10:00 AMLocation: To be confirmedAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalNotary Management Pro
+=======
+2026-06-01 04:37:45 | To: lara@gmail.com
+Subject: Cancelled appointment: Document
+Notary Management ProAppointment CancelledDear Lara Lara,Your appointment has been cancelled.DocumentWhen: Jun 11, 2026 12:29 PMLocation: officeView in Client PortalNotary Management Pro
+------------------------------------------------------------
+2026-06-01 04:49:23 | To: potter@gmail.com
+Subject: Your Client Portal Login
+Notary Management ProClient Portal AccessDear harry potter,Your client portal account is ready.Use your existing portal password with email potter@gmail.com.Sign in to Client PortalNotary Management Pro
+------------------------------------------------------------
+2026-06-01 04:50:35 | To: potter@gmail.com
+Subject: Appointment: Theft
+Notary Management ProAppointment ScheduledDear harry potter,An appointment has been scheduled for you.TheftWhen: Jun 03, 2026 12:50 PMLocation: officeAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalNotary Management Pro
+------------------------------------------------------------
+2026-06-01 04:59:52 | To: stefan@gmail.com
+Subject: Your Client Portal Login
+Notary Management ProClient Portal AccessDear Stefan Salvatore,Your client portal account is ready.Use your existing portal password with email stefan@gmail.com.Sign in to Client PortalInstructionsWelcome to our client portal. You can view cases, documents, and appointments after signing in.Notary Management Pro
+>>>>>>> 046cb12b27bcf01b67ae82f4e6af70b149641c27

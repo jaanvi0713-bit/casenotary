@@ -396,44 +396,12 @@ class CaseService
         try {
             if (!empty($client['user_id'])) {
                 $loginSent = MailService::sendLoginEmail($client, $instructions);
-            } elseif (!empty($data['create_client_login'])) {
-                $password = ClientService::generatePassword();
-                $userId   = self::provisionClientLogin((int) $client['id'], $client, $password);
-                if ($userId) {
-                    $client['user_id'] = $userId;
-                    $loginSent = MailService::sendLoginEmail($client, $instructions, $password);
-                }
             }
         } catch (Throwable $e) {
             $error = ($error ? $error . ' ' : '') . 'Portal login email could not be sent.';
         }
 
         return ['quote_sent' => $quoteSent, 'login_sent' => $loginSent, 'error' => $error];
-    }
-
-    private static function provisionClientLogin(int $clientId, array $client, string $password): ?int
-    {
-        if (!empty($client['user_id'])) {
-            return (int) $client['user_id'];
-        }
-
-        try {
-            $userId = Database::insert(
-                "INSERT INTO users (email, password, role, name, status, created_at, updated_at)
-                 VALUES (?, ?, 'client', ?, 'active', NOW(), NOW())",
-                [
-                    $client['email'],
-                    password_hash($password, PASSWORD_BCRYPT),
-                    clientFullName($client),
-                ]
-            );
-        } catch (Throwable $e) {
-            return null;
-        }
-
-        Database::query('UPDATE clients SET user_id = ?, updated_at = NOW() WHERE id = ?', [$userId, $clientId]);
-
-        return $userId;
     }
 
     public static function updateCase(int $id, array $data): void

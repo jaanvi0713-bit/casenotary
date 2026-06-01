@@ -147,15 +147,9 @@ require __DIR__ . '/../includes/header.php';
                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip">
                     </div>
                     <div class="col-md-6 d-flex align-items-end">
-                        <div>
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="send_emails" value="1" id="send_emails" checked>
-                                <label class="form-check-label" for="send_emails">Email quotation PDF to client</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="create_client_login" value="1" id="create_client_login">
-                                <label class="form-check-label" for="create_client_login">Create portal login if client has none</label>
-                            </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="send_emails" value="1" id="send_emails" checked>
+                            <label class="form-check-label" for="send_emails">Email quotation PDF to client</label>
                         </div>
                     </div>
                 </div>
