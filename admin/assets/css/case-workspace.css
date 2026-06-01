@@ -667,13 +667,28 @@ textarea.case-form-control {
     position: relative;
 }
 
-.case-form-password-wrap .form-control {
-    padding-right: 2.75rem;
+.case-form-password-input {
+    overflow: hidden;
+    border-radius: var(--radius-sm, 6px);
 }
 
-.case-form-password-wrap .js-password-field.is-password-hidden {
-    -webkit-text-security: disc;
-    text-security: disc;
+.case-form-password-input .form-control {
+    width: calc(100% + 3.5rem);
+    padding-right: 3.25rem;
+    margin-right: -3.5rem;
+}
+
+.case-form-password-wrap::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 1px;
+    bottom: 1px;
+    width: 2.75rem;
+    background: #fff;
+    pointer-events: none;
+    border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
+    z-index: 1;
 }
 
 .case-form-password-wrap > .password-toggle {
@@ -683,7 +698,20 @@ textarea.case-form-control {
     transform: translateY(-50%);
     z-index: 2;
     background: #fff;
-    padding-left: 0.25rem;
+    line-height: 1;
+    padding: 0.125rem 0.25rem;
+}
+
+.case-form-password-wrap input[type="password"]::-ms-reveal,
+.case-form-password-wrap input[type="password"]::-ms-clear {
+    display: none !important;
+}
+
+.case-form-password-wrap input::-webkit-textfield-decoration-container,
+.case-form-password-wrap input::-webkit-credentials-auto-fill-button {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 .case-services-list {
