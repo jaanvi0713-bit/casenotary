@@ -150,12 +150,11 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <div class="case-form-password-field">
-                                <input type="password" id="password" name="password" class="form-control case-form-control"
-                                       minlength="8" autocomplete="new-password" spellcheck="false" autocapitalize="off"
-                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
-                            </div>
+                            <input type="text" id="password" name="password" class="form-control case-form-control js-password-field is-password-hidden"
+                                   minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off"
+                                   data-lpignore="true" data-1p-ignore="true"
+                                   pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                   title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -165,10 +164,9 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <div class="case-form-password-field">
-                                <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
-                                       minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off">
-                            </div>
+                            <input type="text" id="password_confirmation" name="password_confirmation" class="form-control case-form-control js-password-field is-password-hidden"
+                                   minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off"
+                                   data-lpignore="true" data-1p-ignore="true">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -197,12 +195,11 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <div class="case-form-password-field">
-                                <input type="password" id="password" name="password" class="form-control case-form-control"
-                                       minlength="8" autocomplete="new-password" spellcheck="false" autocapitalize="off"
-                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
-                            </div>
+                            <input type="text" id="password" name="password" class="form-control case-form-control js-password-field is-password-hidden"
+                                   minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off"
+                                   data-lpignore="true" data-1p-ignore="true"
+                                   pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                   title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -212,10 +209,9 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
                         <div class="case-form-password-wrap">
-                            <div class="case-form-password-field">
-                                <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
-                                       minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off">
-                            </div>
+                            <input type="text" id="password_confirmation" name="password_confirmation" class="form-control case-form-control js-password-field is-password-hidden"
+                                   minlength="8" autocomplete="off" spellcheck="false" autocapitalize="off"
+                                   data-lpignore="true" data-1p-ignore="true">
                             <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -324,20 +320,34 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
+    function updatePasswordToggle(button, isHidden) {
+        var icon = button.querySelector("i");
+        if (icon) {
+            icon.classList.toggle("bi-eye", isHidden);
+            icon.classList.toggle("bi-eye-slash", !isHidden);
+        }
+        button.setAttribute("aria-label", isHidden ? "Show password" : "Hide password");
+    }
+
+    document.querySelectorAll(".js-password-field").forEach(function(input) {
+        input.setAttribute("readonly", "readonly");
+        input.addEventListener("focus", function() {
+            input.removeAttribute("readonly");
+        }, { once: true });
+    });
+
     document.querySelectorAll(".js-password-toggle").forEach(function(button) {
+        var input = document.getElementById(button.getAttribute("data-target"));
+        if (input) {
+            updatePasswordToggle(button, input.classList.contains("is-password-hidden"));
+        }
+
         button.addEventListener("click", function() {
-            var input = document.getElementById(this.getAttribute("data-target"));
-            if (!input) return;
+            var field = document.getElementById(this.getAttribute("data-target"));
+            if (!field) return;
 
-            var reveal = input.type === "password";
-            input.type = reveal ? "text" : "password";
-
-            var icon = this.querySelector("i");
-            if (icon) {
-                icon.classList.toggle("bi-eye", !reveal);
-                icon.classList.toggle("bi-eye-slash", reveal);
-            }
-            this.setAttribute("aria-label", reveal ? "Hide password" : "Show password");
+            var isHidden = field.classList.toggle("is-password-hidden");
+            updatePasswordToggle(this, isHidden);
         });
     });
 
