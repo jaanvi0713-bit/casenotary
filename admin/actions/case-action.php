@@ -174,7 +174,12 @@ try {
 } catch (Throwable $e) {
     $message = $e->getMessage();
     if (str_contains($message, 'SQLSTATE')) {
-        flash('error', 'Could not save the case. If this is a new install, run: php admin/sql/migrate_cases.php');
+        $config = require __DIR__ . '/../config/config.php';
+        $error  = 'Could not save the case. If this is a new install, run: php admin/sql/migrate_cases.php';
+        if (!empty($config['debug'])) {
+            $error .= ' Details: ' . $message;
+        }
+        flash('error', $error);
     } else {
         flash('error', $message);
     }

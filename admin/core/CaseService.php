@@ -87,14 +87,23 @@ class CaseService
             }
         }
 
-        $type = trim($data['service_type'] ?? '');
+        $type = $data['service_type'] ?? '';
+        if (is_array($type)) {
+            $type = (string) ($type[0] ?? '');
+        }
+        $type = trim((string) $type);
         if ($type === '') {
             throw new RuntimeException('At least one service is required.');
         }
 
+        $fee = $data['service_fee'] ?? 0;
+        if (is_array($fee)) {
+            $fee = $fee[0] ?? 0;
+        }
+
         return [[
             'type' => $type,
-            'fee'  => (float) ($data['service_fee'] ?? 0),
+            'fee'  => (float) $fee,
         ]];
     }
 
@@ -182,6 +191,25 @@ class CaseService
         return $rows;
     }
 
+    private static function ensureCasesSchema(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        if (!Database::tableExists('cases') || Database::columnExists('cases', 'services')) {
+            return;
+        }
+
+        try {
+            Database::query('ALTER TABLE cases ADD COLUMN services JSON DEFAULT NULL AFTER service_fee');
+        } catch (Throwable $e) {
+            // Migration may need to be run manually on restricted hosts.
+        }
+    }
+
     private static function resolveCaseServices(array $data): array
     {
         $services = self::parseServicesFromRequest($data);
@@ -237,10 +265,12 @@ class CaseService
         [$table, $column] = $tableMap[$prefix] ?? ['cases', 'case_number'];
 
         try {
-            $count = (int) (Database::fetch(
-                "SELECT COUNT(*) AS c FROM {$table} WHERE {$column} LIKE ?",
+            $row = Database::fetch(
+                "SELECT MAX(CAST(SUBSTRING_INDEX({$column}, '-', -1) AS UNSIGNED)) AS max_num
+                 FROM {$table} WHERE {$column} LIKE ?",
                 [$pattern]
-            )['c'] ?? 0);
+            );
+            $count = (int) ($row['max_num'] ?? 0);
         } catch (Throwable $e) {
             $count = random_int(100, 999);
         }
@@ -294,6 +324,8 @@ class CaseService
 
     public static function createCase(array $data, int $adminId): int
     {
+        self::ensureCasesSchema();
+
         $caseNumber   = self::generateNumber('CASE');
         $instructions = trim($data['client_instructions'] ?? '') ?: null;
         $status       = $data['status'] ?? 'pending';
@@ -406,6 +438,8 @@ class CaseService
 
     public static function updateCase(int $id, array $data): void
     {
+        self::ensureCasesSchema();
+
         $existing = self::getCaseById($id);
         if (!$existing) {
             throw new RuntimeException('Case not found.');
