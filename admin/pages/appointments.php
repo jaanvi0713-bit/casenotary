@@ -302,14 +302,20 @@ require __DIR__ . '/../includes/header.php';
                         <label class="form-label">Title <span class="text-danger">*</span></label>
                         <input type="text" name="title" id="appt_title" class="form-control" required placeholder="e.g. Document Signing Meeting">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Start <span class="text-danger">*</span></label>
-                        <input type="datetime-local" name="starts_at" id="appt_starts_at" class="form-control" required>
+                    <div class="col-md-4">
+                        <label class="form-label">Date <span class="text-danger">*</span></label>
+                        <input type="date" id="appt_date" class="form-control" required>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">End</label>
-                        <input type="datetime-local" name="ends_at" id="appt_ends_at" class="form-control">
+                    <div class="col-md-4">
+                        <label class="form-label">Start Time <span class="text-danger">*</span></label>
+                        <input type="time" id="appt_start_time" class="form-control" required>
                     </div>
+                    <div class="col-md-4">
+                        <label class="form-label">End Time</label>
+                        <input type="time" id="appt_end_time" class="form-control">
+                    </div>
+                    <input type="hidden" name="starts_at" id="appt_starts_at">
+                    <input type="hidden" name="ends_at" id="appt_ends_at">
                     <div class="col-md-6">
                         <label class="form-label">Location</label>
                         <input type="text" name="location" id="appt_location" class="form-control" placeholder="Office, Zoom link, etc.">
@@ -368,6 +374,10 @@ document.addEventListener("DOMContentLoaded", function() {
     var eventModalEl = document.getElementById("eventDetailModal");
     var eventModal = eventModalEl ? new bootstrap.Modal(eventModalEl) : null;
     var startsAtInput = document.getElementById("appt_starts_at");
+    var endsAtInput = document.getElementById("appt_ends_at");
+    var apptDateInput = document.getElementById("appt_date");
+    var apptStartTimeInput = document.getElementById("appt_start_time");
+    var apptEndTimeInput = document.getElementById("appt_end_time");
     var apptActionInput = document.getElementById("appt_form_action");
     var apptIdInput = document.getElementById("appt_form_id");
     var scheduleTitle = document.getElementById("scheduleModalTitle");
@@ -393,6 +403,46 @@ document.addEventListener("DOMContentLoaded", function() {
             caseSelect.disabled = false;
             caseSelect.innerHTML = "<option value=\"\">None</option>";
         }
+        if (apptDateInput) apptDateInput.value = "";
+        if (apptStartTimeInput) apptStartTimeInput.value = "";
+        if (apptEndTimeInput) apptEndTimeInput.value = "";
+        if (startsAtInput) startsAtInput.value = "";
+        if (endsAtInput) endsAtInput.value = "";
+        if (scheduleForm) scheduleForm.dataset.endDate = "";
+    }
+
+    function parseDateTimeParts(value) {
+        if (!value) {
+            return { date: "", time: "" };
+        }
+        var normalized = String(value).trim().replace(" ", "T");
+        var parts = normalized.split("T");
+        return {
+            date: parts[0] || "",
+            time: (parts[1] || "").substring(0, 5)
+        };
+    }
+
+    function setScheduleFields(startValue, endValue) {
+        var start = parseDateTimeParts(startValue);
+        var end = parseDateTimeParts(endValue);
+        if (apptDateInput) apptDateInput.value = start.date;
+        if (apptStartTimeInput) apptStartTimeInput.value = start.time;
+        if (apptEndTimeInput) apptEndTimeInput.value = end.time;
+    }
+
+    function syncHiddenDateTimes(endDateOverride) {
+        var dateVal = apptDateInput ? apptDateInput.value : "";
+        var startTime = apptStartTimeInput ? apptStartTimeInput.value : "";
+        var endTime = apptEndTimeInput ? apptEndTimeInput.value : "";
+        var endDateVal = endDateOverride || dateVal;
+
+        if (startsAtInput) {
+            startsAtInput.value = dateVal && startTime ? (dateVal + "T" + startTime) : "";
+        }
+        if (endsAtInput) {
+            endsAtInput.value = endTime ? (endDateVal + "T" + endTime) : "";
+        }
     }
 
     function setEditMode(data) {
@@ -412,8 +462,12 @@ document.addEventListener("DOMContentLoaded", function() {
         if (clientDisplay) clientDisplay.value = data.client || "—";
         if (caseDisplay) caseDisplay.value = data.case || "None";
         document.getElementById("appt_title").value = data.title || "";
-        document.getElementById("appt_starts_at").value = data.starts || "";
-        document.getElementById("appt_ends_at").value = data.ends || "";
+        setScheduleFields(data.starts || "", data.ends || "");
+        var startParts = parseDateTimeParts(data.starts || "");
+        var endParts = parseDateTimeParts(data.ends || "");
+        if (scheduleForm) {
+            scheduleForm.dataset.endDate = (endParts.date && endParts.date !== startParts.date) ? endParts.date : "";
+        }
         document.getElementById("appt_location").value = data.location || "";
         document.getElementById("appt_status").value = data.status || "scheduled";
         document.getElementById("appt_description").value = data.description || "";
@@ -442,10 +496,15 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var scheduleForm = document.getElementById("scheduleForm");
     if (scheduleForm) {
-        scheduleForm.addEventListener("submit", function() {
+        scheduleForm.addEventListener("submit", function(e) {
             if (apptActionInput && apptActionInput.value === "update_appointment" && clientSelect) {
                 clientSelect.required = false;
                 clientSelect.disabled = true;
+            }
+            syncHiddenDateTimes(scheduleForm.dataset.endDate || "");
+            if (!startsAtInput || !startsAtInput.value) {
+                e.preventDefault();
+                alert("Please select a date and start time.");
             }
         });
     }
@@ -473,18 +532,21 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function pad(n) { return String(n).padStart(2, "0"); }
 
-    function toLocalInputValue(date) {
-        return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) +
-            "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
+    function toDateValue(date) {
+        return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
     }
 
     function openScheduleModal(date) {
-        if (!scheduleModal || !startsAtInput) return;
+        if (!scheduleModal || !apptDateInput || !apptStartTimeInput) return;
         var start = new Date(date);
-        if (start.getHours() === 0 && start.getMinutes() === 0) {
-            start.setHours(9, 0, 0, 0);
+        var startTime = "09:00";
+        if (start.getHours() !== 0 || start.getMinutes() !== 0) {
+            startTime = pad(start.getHours()) + ":" + pad(start.getMinutes());
         }
-        startsAtInput.value = toLocalInputValue(start);
+        apptDateInput.value = toDateValue(start);
+        apptStartTimeInput.value = startTime;
+        if (apptEndTimeInput) apptEndTimeInput.value = "";
+        if (scheduleForm) scheduleForm.dataset.endDate = "";
         scheduleModal.show();
     }
 
