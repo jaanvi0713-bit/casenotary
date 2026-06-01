@@ -20,9 +20,9 @@ return [
     'debug'       => true,
 
     'currency' => [
-        'code'   => 'INR',
-        'symbol' => 'Rs',
-        'locale' => 'en-IN',
+        'code'   => 'GBP',
+        'symbol' => '£',
+        'locale' => 'en-GB',
     ],
 
     'session' => [

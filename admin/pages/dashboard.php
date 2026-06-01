@@ -25,7 +25,7 @@ require __DIR__ . '/../includes/header.php';
     <!-- Stat cards -->
     <div class="row g-2 mb-3 dashboard-kpi-row">
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= url('pages/clients.php') ?>" class="stat-card">
+            <a href="<?= url('pages/clients.php') ?>" class="kpi-card">
                 <div class="stat-card-icon"><i class="bi bi-people"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-title">Total Clients</div>
@@ -40,7 +40,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= url('pages/payments.php') ?>" class="stat-card">
+            <a href="<?= url('pages/payments.php') ?>" class="kpi-card">
                 <div class="stat-card-icon"><i class="bi bi-cash-stack"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-title">Total Payments</div>
@@ -55,7 +55,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= url('pages/payments.php') ?>" class="stat-card">
+            <a href="<?= url('pages/payments.php') ?>" class="kpi-card">
                 <div class="stat-card-icon"><i class="bi bi-receipt"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-title">Pending Invoices</div>
@@ -70,7 +70,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= url('pages/cases.php') ?>" class="stat-card">
+            <a href="<?= url('pages/cases.php') ?>" class="kpi-card">
                 <div class="stat-card-icon"><i class="bi bi-briefcase"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-title">Active Cases</div>

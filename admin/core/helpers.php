@@ -10,7 +10,15 @@ function url(string $path = ''): string
 
 function asset(string $path): string
 {
-    return url('assets/' . ltrim($path, '/'));
+    $relative = 'assets/' . ltrim($path, '/');
+    $filePath = __DIR__ . '/../' . $relative;
+    $url      = url($relative);
+
+    if (is_file($filePath)) {
+        $url .= '?v=' . filemtime($filePath);
+    }
+
+    return $url;
 }
 
 function adminUrl(string $path = ''): string
@@ -602,9 +610,9 @@ function getCurrencySettings(): array
     if ($currency === null) {
         $config   = require __DIR__ . '/../config/config.php';
         $currency = $config['currency'] ?? [
-            'code'   => 'INR',
-            'symbol' => 'Rs',
-            'locale' => 'en-IN',
+            'code'   => 'GBP',
+            'symbol' => '£',
+            'locale' => 'en-GB',
         ];
     }
 
@@ -616,11 +624,14 @@ function currencySymbol(): string
     return getCurrencySettings()['symbol'];
 }
 
+function currencyLocale(): string
+{
+    return getCurrencySettings()['locale'] ?? 'en-GB';
+}
+
 function formatCurrency(float $amount): string
 {
-    $symbol = currencySymbol();
-
-    return $symbol . ' ' . number_format($amount, 2);
+    return currencySymbol() . ' ' . number_format($amount, 2);
 }
 
 function invoiceStatusColumn(): string

@@ -267,9 +267,10 @@ document.addEventListener("DOMContentLoaded", function() {
     var addBtn = document.getElementById("add-service-row");
     var totalEl = document.querySelector(".case-services-total-value");
     var currencySymbol = <?= json_encode(currencySymbol()) ?>;
+    var currencyLocale = <?= json_encode(currencyLocale()) ?>;
 
     function formatMoney(value) {
-        return currencySymbol + Number(value || 0).toLocaleString(undefined, {
+        return currencySymbol + Number(value || 0).toLocaleString(currencyLocale, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });

@@ -24,7 +24,7 @@ require __DIR__ . '/../includes/header.php';
 <div class="container-fluid px-0 dashboard-page">
     <div class="row g-3 mb-4 dashboard-kpi-row">
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= clientUrl('pages/cases.php') ?>" class="stat-card">
+            <a href="<?= clientUrl('pages/cases.php') ?>" class="kpi-card">
                 <div class="stat-card-icon"><i class="bi bi-briefcase"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-title">Active Cases</div>
@@ -38,7 +38,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= clientUrl('pages/payments.php') ?>" class="stat-card">
+            <a href="<?= clientUrl('pages/payments.php') ?>" class="kpi-card">
                 <div class="stat-card-icon"><i class="bi bi-receipt"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-title">Pending Invoices</div>
@@ -52,7 +52,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= clientUrl('pages/cases.php') ?>" class="stat-card">
+            <a href="<?= clientUrl('pages/cases.php') ?>" class="kpi-card">
                 <div class="stat-card-icon"><i class="bi bi-file-earmark-text"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-title">Documents</div>
@@ -66,7 +66,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= clientUrl('pages/appointments.php') ?>" class="stat-card">
+            <a href="<?= clientUrl('pages/appointments.php') ?>" class="kpi-card">
                 <div class="stat-card-icon"><i class="bi bi-calendar-event"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-title">Upcoming Appointments</div>
