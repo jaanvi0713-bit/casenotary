@@ -35,6 +35,84 @@ class DocumentTemplate
         );
     }
 
+    public static function clientLetter(array $case, array $client, string $instructions = ''): string
+    {
+        $company     = getCompanySettings();
+        $companyName = e($company['company_name'] ?? 'Notary Management');
+        $primary     = e($company['primary_color'] ?? '#3aafa9');
+        $secondary   = e($company['secondary_color'] ?? '#00182c');
+        $name        = e(clientFullName($client) ?: 'Client');
+        $today       = date('F j, Y');
+        $services    = CaseService::getCaseServices($case);
+        $serviceList = '';
+
+        foreach ($services as $service) {
+            $serviceList .= '<li>' . e($service['type']) . ' — ' . formatCurrency((float) $service['fee']) . '</li>';
+        }
+
+        if ($serviceList === '') {
+            $serviceList = '<li>' . e($case['service_type'] ?? 'Notary services') . ' — '
+                . formatCurrency((float) ($case['service_fee'] ?? 0)) . '</li>';
+        }
+
+        $instructionsBlock = trim($instructions) !== ''
+            ? '<div class="instructions"><h3>Your instructions</h3><p>' . nl2br(e($instructions)) . '</p></div>'
+            : '';
+
+        $deadline = !empty($case['deadline'])
+            ? '<p><strong>Target deadline:</strong> ' . formatDate($case['deadline']) . '</p>'
+            : '';
+
+        $address = !empty($company['address']) ? '<div class="muted">' . nl2br(e($company['address'])) . '</div>' : '';
+        $email   = !empty($company['office_email']) ? '<div class="muted">' . e($company['office_email']) . '</div>' : '';
+        $phone   = !empty($company['office_phone']) ? '<div class="muted">' . e($company['office_phone']) . '</div>' : '';
+
+        return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Client Letter — '
+            . e($case['case_number'] ?? '') . '</title>'
+            . self::letterStyles($primary, $secondary)
+            . '</head><body>'
+            . '<div class="no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>'
+            . '<div class="header"><div><div class="brand">' . $companyName . '</div>' . $address . $email . $phone . '</div>'
+            . '<div class="doc-meta"><h1>Client Letter</h1><div class="muted">' . $today . '</div></div></div>'
+            . '<p class="salutation">Dear ' . $name . ',</p>'
+            . '<p>Thank you for choosing ' . $companyName . '. We are pleased to confirm your case '
+            . '<strong>' . e($case['case_number'] ?? '') . '</strong> — <em>' . e($case['title'] ?? '') . '</em>.</p>'
+            . '<p>Please find attached your quotation for the services listed below. We have also opened your client portal where you can upload documents, view updates, and track progress.</p>'
+            . '<div class="case-box"><h3>Case summary</h3>'
+            . '<p><strong>Reference:</strong> ' . e($case['case_number'] ?? '') . '</p>'
+            . '<p><strong>Services:</strong></p><ul>' . $serviceList . '</ul>'
+            . '<p><strong>Total fee:</strong> ' . formatCurrency((float) ($case['service_fee'] ?? 0)) . '</p>'
+            . $deadline
+            . '</div>'
+            . $instructionsBlock
+            . '<p>If you have any questions, reply to this email or contact our office. We look forward to working with you.</p>'
+            . '<p class="signoff">Kind regards,<br><strong>' . $companyName . '</strong></p>'
+            . '<div class="footer">This letter accompanies your quotation for case ' . e($case['case_number'] ?? '') . '.</div>'
+            . '</body></html>';
+    }
+
+    private static function letterStyles(string $primary, string $secondary): string
+    {
+        return '<style>
+            body{font-family:Montserrat,Arial,sans-serif;color:#0f172a;margin:40px;line-height:1.6;font-size:14px}
+            .no-print{margin-bottom:24px}
+            .no-print button{padding:10px 18px;background:' . $primary . ';color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit}
+            .header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e2e8f0}
+            .brand{font-size:22px;font-weight:700;color:' . $secondary . ';margin-bottom:6px}
+            .doc-meta{text-align:right}
+            h1{color:' . $primary . ';margin:0 0 4px;font-size:24px}
+            .muted{color:#64748b;font-size:13px}
+            .salutation{font-size:15px;margin-bottom:16px}
+            .case-box{background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid ' . $primary . ';border-radius:8px;padding:16px 18px;margin:20px 0}
+            .case-box h3,.instructions h3{margin:0 0 10px;font-size:14px;color:' . $secondary . '}
+            .case-box ul{margin:0 0 12px;padding-left:20px}
+            .instructions{background:rgba(58,175,169,.08);border:1px solid rgba(58,175,169,.25);border-radius:8px;padding:16px 18px;margin:20px 0}
+            .signoff{margin-top:28px}
+            .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}
+            @media print{body{margin:20px}.no-print{display:none}}
+        </style>';
+    }
+
     public static function proposal(array $case, array $proposal): string
     {
         $company = getCompanySettings();

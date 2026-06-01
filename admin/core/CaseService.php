@@ -382,59 +382,85 @@ class CaseService
         $client = ClientService::getById((int) ($case['client_id'] ?? 0));
 
         if (!$case || !$client) {
-            return ['quote_sent' => false, 'login_sent' => false, 'error' => null];
+            return ['quote_sent' => false, 'client_letter_sent' => false, 'login_sent' => false, 'error' => null];
         }
 
-        $instructions = trim($data['client_instructions'] ?? $case['client_instructions'] ?? '');
-        $sendEmails   = !isset($data['send_emails']) || !empty($data['send_emails']);
-
-        $quoteSent = false;
-        $loginSent = false;
-        $error     = null;
-
-        if (!$sendEmails || empty($client['email'])) {
-            return ['quote_sent' => false, 'login_sent' => false, 'error' => null];
+        if (empty($client['email'])) {
+            return ['quote_sent' => false, 'client_letter_sent' => false, 'login_sent' => false, 'error' => null];
         }
 
-        try {
-            if (!Database::tableExists('quotations')) {
-                throw new RuntimeException(
-                    'Quotation tables are not set up yet. Run: php admin/sql/migrate_cases.php'
+        $instructions     = trim($data['client_instructions'] ?? $case['client_instructions'] ?? '');
+        $sendQuotation    = !isset($data['send_emails']) || !empty($data['send_emails']);
+        $sendClientLetter = !empty($data['send_client_letter']);
+
+        if (!$sendQuotation && !$sendClientLetter) {
+            return ['quote_sent' => false, 'client_letter_sent' => false, 'login_sent' => false, 'error' => null];
+        }
+
+        $quoteSent        = false;
+        $clientLetterSent = false;
+        $loginSent        = false;
+        $error            = null;
+
+        if ($sendQuotation) {
+            try {
+                if (!Database::tableExists('quotations')) {
+                    throw new RuntimeException(
+                        'Quotation tables are not set up yet. Run: php admin/sql/migrate_cases.php'
+                    );
+                }
+
+                $quotationId = self::generateQuotation($caseId, [
+                    'title'  => 'Quotation — ' . $case['title'],
+                    'amount' => (float) $case['service_fee'],
+                ]);
+
+                $quotation = Database::fetch('SELECT * FROM quotations WHERE id = ?', [$quotationId]);
+                $docPath   = null;
+
+                if (!empty($quotation['pdf_path'])) {
+                    $config  = require __DIR__ . '/../config/config.php';
+                    $docPath = rtrim($config['upload']['path'], '/\\') . '/' . ltrim($quotation['pdf_path'], '/');
+                }
+
+                $quoteSent = MailService::sendQuoteEmail(
+                    $client,
+                    $case,
+                    $quotation['quotation_number'] ?? 'QUO',
+                    $docPath && is_file($docPath) ? $docPath : null
                 );
+            } catch (Throwable $e) {
+                $error = 'Quotation email could not be sent. You can generate one from the case page.';
             }
 
-            $quotationId = self::generateQuotation($caseId, [
-                'title'  => 'Quotation — ' . $case['title'],
-                'amount' => (float) $case['service_fee'],
-            ]);
-
-            $quotation = Database::fetch('SELECT * FROM quotations WHERE id = ?', [$quotationId]);
-            $docPath   = null;
-
-            if (!empty($quotation['pdf_path'])) {
-                $config  = require __DIR__ . '/../config/config.php';
-                $docPath = rtrim($config['upload']['path'], '/\\') . '/' . ltrim($quotation['pdf_path'], '/');
+            try {
+                if (!empty($client['user_id'])) {
+                    $loginSent = MailService::sendLoginEmail($client, $instructions);
+                }
+            } catch (Throwable $e) {
+                $error = ($error ? $error . ' ' : '') . 'Portal login email could not be sent.';
             }
-
-            $quoteSent = MailService::sendQuoteEmail(
-                $client,
-                $case,
-                $quotation['quotation_number'] ?? 'QUO',
-                $docPath && is_file($docPath) ? $docPath : null
-            );
-        } catch (Throwable $e) {
-            $error = 'Quotation email could not be sent. You can generate one from the case page.';
         }
 
-        try {
-            if (!empty($client['user_id'])) {
-                $loginSent = MailService::sendLoginEmail($client, $instructions);
+        if ($sendClientLetter) {
+            try {
+                $letterPath = self::generateClientLetter($caseId, $instructions);
+                $clientLetterSent = MailService::sendClientLetterEmail(
+                    $client,
+                    $case,
+                    $letterPath && is_file($letterPath) ? $letterPath : null
+                );
+            } catch (Throwable $e) {
+                $error = ($error ? $error . ' ' : '') . 'Client letter email could not be sent.';
             }
-        } catch (Throwable $e) {
-            $error = ($error ? $error . ' ' : '') . 'Portal login email could not be sent.';
         }
 
-        return ['quote_sent' => $quoteSent, 'login_sent' => $loginSent, 'error' => $error];
+        return [
+            'quote_sent'         => $quoteSent,
+            'client_letter_sent' => $clientLetterSent,
+            'login_sent'         => $loginSent,
+            'error'              => $error,
+        ];
     }
 
     public static function updateCase(int $id, array $data): void
@@ -737,6 +763,32 @@ class CaseService
         self::notifyCaseEvent($caseId, 'document', 'Quotation created', $number, 'pages/case-view.php?id=' . $caseId . '#quotations');
 
         return $id;
+    }
+
+    public static function generateClientLetter(int $caseId, string $instructions = ''): string
+    {
+        $case = self::getCaseById($caseId);
+        if (!$case) {
+            throw new RuntimeException('Case not found.');
+        }
+
+        $client = ClientService::getById((int) ($case['client_id'] ?? 0));
+        if (!$client) {
+            throw new RuntimeException('Client not found.');
+        }
+
+        $html = DocumentTemplate::clientLetter($case, $client, $instructions);
+
+        $config = require __DIR__ . '/../config/config.php';
+        $dir    = rtrim($config['upload']['path'], '/\\') . '/cases/' . $caseId . '/generated';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $filename = 'client_letter.html';
+        file_put_contents($dir . '/' . $filename, $html);
+
+        return $dir . '/' . $filename;
     }
 
     public static function generateProposal(int $caseId, array $data): int

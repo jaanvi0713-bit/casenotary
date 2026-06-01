@@ -147,9 +147,15 @@ require __DIR__ . '/../includes/header.php';
                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip">
                     </div>
                     <div class="col-md-6 d-flex align-items-end">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="send_emails" value="1" id="send_emails" checked>
-                            <label class="form-check-label" for="send_emails">Email quotation PDF to client</label>
+                        <div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="send_emails" value="1" id="send_emails" checked>
+                                <label class="form-check-label" for="send_emails">Email quotation PDF to client</label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="send_client_letter" value="1" id="send_client_letter" checked>
+                                <label class="form-check-label" for="send_client_letter">Email Client Letter quotation PDF to client</label>
+                            </div>
                         </div>
                     </div>
                 </div>

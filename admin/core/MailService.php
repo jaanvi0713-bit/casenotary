@@ -64,6 +64,23 @@ class MailService
         return self::send($client['email'], 'Your Quotation — ' . $case['case_number'], $body, $attachments);
     }
 
+    public static function sendClientLetterEmail(array $client, array $case, ?string $documentPath = null): bool
+    {
+        $name = clientFullName($client) ?: 'Client';
+
+        $body = self::wrapTemplate(
+            'Client Letter — ' . e($case['title']),
+            '<p>Dear ' . e($name) . ',</p>'
+            . '<p>Please find your client letter for case <strong>' . e($case['case_number']) . '</strong> attached.</p>'
+            . '<p>This letter confirms your case details and accompanies your quotation. Log in to your client portal to review documents and next steps.</p>'
+            . '<p><a href="' . e(clientUrl('auth/login.php')) . '" style="color:#3aafa9;">Open Client Portal</a></p>'
+        );
+
+        $attachments = $documentPath && is_file($documentPath) ? [$documentPath] : [];
+
+        return self::send($client['email'], 'Client Letter — ' . $case['case_number'], $body, $attachments);
+    }
+
     public static function sendLoginEmail(array $client, string $instructions, ?string $plainPassword = null): bool
     {
         $name = clientFullName($client) ?: 'Client';

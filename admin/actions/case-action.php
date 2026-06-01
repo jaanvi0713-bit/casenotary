@@ -56,6 +56,9 @@ try {
             if ($emailResult['quote_sent']) {
                 $msg .= ' Quotation email sent.';
             }
+            if (!empty($emailResult['client_letter_sent'])) {
+                $msg .= ' Client letter email sent.';
+            }
             if ($emailResult['login_sent']) {
                 $msg .= ' Portal login email sent.';
             }
