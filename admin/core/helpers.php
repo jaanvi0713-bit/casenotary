@@ -1287,57 +1287,195 @@ function getChatbotContext(): array
     ];
 }
 
+function getActiveCasesForChat(int $limit = 10): array
+{
+    return Database::fetchAll(
+        "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+         FROM cases cs
+         JOIN clients cl ON cl.id = cs.client_id
+         WHERE cs.status IN ('pending', 'in_progress', 'waiting_for_client')
+         ORDER BY cs.updated_at DESC
+         LIMIT ?",
+        [$limit]
+    );
+}
+
+function formatChatbotCaseList(array $cases, string $heading): string
+{
+    if ($cases === []) {
+        return 'No cases found matching that request.';
+    }
+
+    $lines = [$heading . ' (' . count($cases) . ')', ''];
+
+    foreach ($cases as $case) {
+        $status = ucwords(str_replace('_', ' ', $case['status'] ?? 'unknown'));
+        $client = clientFullName($case);
+        $lines[] = "• **{$case['case_number']}** — {$case['title']} (*{$status}*) — {$client}";
+    }
+
+    return implode("\n", $lines);
+}
+
+function chatbotWantsList(string $message): bool
+{
+    return (bool) preg_match('/\b(list|show|display|give me|name|which|tell me about)\b/', $message);
+}
+
+function chatbotWantsCount(string $message): bool
+{
+    return (bool) preg_match('/\b(how many|number of|count of|total number)\b/', $message);
+}
+
+function chatbotIsFollowUpList(string $message): bool
+{
+    return (bool) preg_match(
+        '/^(list them|show them|list those|show those|name them|what are they|list it|show it|go on|continue|more details|details please|yes list|yes show)$/',
+        $message
+    );
+}
+
 function generateChatbotReply(string $message): string
 {
     $message = strtolower(trim($message));
     $ctx = getChatbotContext();
     $stats = $ctx['stats'];
+    $lastTopic = $_SESSION['chatbot_last_topic'] ?? null;
 
-    if ($message === '' || preg_match('/^(hi|hello|hey|help)/', $message)) {
+    if ($message === '' || preg_match('/^(hi|hello|hey)$/', $message)) {
         return "Hello! I'm your Notary Admin Assistant. I can help with:\n\n"
             . "• **Clients** — ask \"how many clients\" or \"list clients\"\n"
-            . "• **Cases** — ask \"active cases\" or \"pending cases\"\n"
-            . "• **Payments** — ask \"total revenue\" or \"pending invoices\"\n"
+            . "• **Cases** — ask \"how many active cases\" or \"list active cases\"\n"
+            . "• **Payments** — ask \"total revenue\" or \"list recent payments\"\n"
             . "• **Appointments** — ask \"upcoming appointments\" or \"next appointment\"\n\n"
             . "What would you like to know?";
     }
 
-    if (preg_match('/how many client|total client|client count|number of client/', $message)) {
-        return "You currently have **{$stats['total_clients']} registered clients** in the system.";
+    if ($message === 'help') {
+        return "Hello! I'm your Notary Admin Assistant. I can help with:\n\n"
+            . "• **Clients** — ask \"how many clients\" or \"list clients\"\n"
+            . "• **Cases** — ask \"how many active cases\" or \"list active cases\"\n"
+            . "• **Payments** — ask \"total revenue\" or \"list recent payments\"\n"
+            . "• **Appointments** — ask \"upcoming appointments\" or \"next appointment\"\n\n"
+            . "After a count, you can say **list them** to see the items.";
     }
 
-    if (preg_match('/list client|show client|all client/', $message)) {
-        $clients = getAllClients();
-        if (empty($clients)) {
-            return 'No clients found in the system.';
+    if (chatbotIsFollowUpList($message) && $lastTopic) {
+        switch ($lastTopic) {
+            case 'active_cases':
+                $_SESSION['chatbot_last_topic'] = 'active_cases';
+                return formatChatbotCaseList(getActiveCasesForChat(), '**Active cases:**');
+            case 'clients':
+                $_SESSION['chatbot_last_topic'] = 'clients';
+                $clients = getAllClients();
+                if ($clients === []) {
+                    return 'No clients found in the system.';
+                }
+                $lines = ['Here are your **' . count($clients) . ' clients**:', ''];
+                foreach (array_slice($clients, 0, 10) as $client) {
+                    $name = clientFullName($client);
+                    $company = $client['company_name'] ? " ({$client['company_name']})" : '';
+                    $lines[] = "• {$name}{$company} — {$client['case_count']} case(s)";
+                }
+                return implode("\n", $lines);
+            case 'cases':
+                $_SESSION['chatbot_last_topic'] = 'cases';
+                return formatChatbotCaseList(
+                    Database::fetchAll(
+                        "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+                         FROM cases cs
+                         JOIN clients cl ON cl.id = cs.client_id
+                         ORDER BY cs.updated_at DESC
+                         LIMIT 10"
+                    ),
+                    '**Recent cases:**'
+                );
+            case 'payments':
+                $_SESSION['chatbot_last_topic'] = 'payments';
+                $payments = getAllPayments();
+                if ($payments === []) {
+                    return 'No payments recorded yet.';
+                }
+                $lines = ['**Recent payments:**', ''];
+                foreach (array_slice($payments, 0, 8) as $payment) {
+                    $name = clientFullName($payment);
+                    $status = ucfirst(paymentStatusValue($payment));
+                    $lines[] = '• ' . formatCurrency((float) $payment['amount']) . " from {$name} — {$payment['invoice_number']} (*{$status}*)";
+                }
+                return implode("\n", $lines);
+            case 'appointments':
+                $_SESSION['chatbot_last_topic'] = 'appointments';
+                $appointments = getUpcomingAppointments(8);
+                if ($appointments === []) {
+                    return 'No upcoming appointments scheduled.';
+                }
+                $lines = ['**Upcoming appointments:**', ''];
+                foreach ($appointments as $appointment) {
+                    $start = appointmentStart($appointment) ?? $appointment['start_time'] ?? null;
+                    $client = clientFullName($appointment);
+                    $lines[] = '• **' . ($appointment['title'] ?? 'Appointment') . '** — '
+                        . ($start ? formatDateTime($start) : 'TBD') . " — {$client}";
+                }
+                return implode("\n", $lines);
         }
-        $lines = ["Here are your **" . count($clients) . " clients**:", ''];
-        foreach (array_slice($clients, 0, 8) as $c) {
-            $name = clientFullName($c);
-            $company = $c['company_name'] ? " ({$c['company_name']})" : '';
-            $lines[] = "• {$name}{$company} — {$c['case_count']} case(s)";
-        }
-        return implode("\n", $lines);
     }
 
-    if (preg_match('/active case|open case|in progress case/', $message)) {
+    if (preg_match('/client/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist client|\bshow client|\ball client/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'clients';
+            $clients = getAllClients();
+            if ($clients === []) {
+                return 'No clients found in the system.';
+            }
+            $lines = ['Here are your **' . count($clients) . ' clients**:', ''];
+            foreach (array_slice($clients, 0, 10) as $client) {
+                $name = clientFullName($client);
+                $company = $client['company_name'] ? " ({$client['company_name']})" : '';
+                $lines[] = "• {$name}{$company} — {$client['case_count']} case(s)";
+            }
+            return implode("\n", $lines);
+        }
+
+        if (chatbotWantsCount($message) || preg_match('/how many client|total client|client count|number of client/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'clients';
+            return "You currently have **{$stats['total_clients']} registered clients** in the system.";
+        }
+    }
+
+    if (preg_match('/active case|open case|in progress case|pending case/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist active|\bshow active|\blist case|\bshow case/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'active_cases';
+            return formatChatbotCaseList(getActiveCasesForChat(), '**Active cases:**');
+        }
+
+        $_SESSION['chatbot_last_topic'] = 'active_cases';
         return "There are **{$stats['active_cases']} active cases** currently in progress or pending action.";
     }
 
-    if (preg_match('/pending case|case status|list case|show case|all case/', $message)) {
-        $cases = $ctx['recent_cases'];
-        if (empty($cases)) {
-            return 'No cases found.';
+    if (preg_match('/case/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist case|\bshow case|\ball case|recent case/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'cases';
+            return formatChatbotCaseList(
+                Database::fetchAll(
+                    "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+                     FROM cases cs
+                     JOIN clients cl ON cl.id = cs.client_id
+                     ORDER BY cs.updated_at DESC
+                     LIMIT 10"
+                ),
+                '**Recent cases:**'
+            );
         }
-        $lines = ['**Recent cases:**', ''];
-        foreach ($cases as $case) {
-            $status = ucwords(str_replace('_', ' ', $case['status']));
-            $lines[] = "• {$case['case_number']} — {$case['title']} (*{$status}*)";
+
+        if (chatbotWantsCount($message)) {
+            $_SESSION['chatbot_last_topic'] = 'cases';
+            $totalCases = (int) (Database::fetch('SELECT COUNT(*) AS c FROM cases')['c'] ?? 0);
+            return "You have **{$totalCases} cases** in total, with **{$stats['active_cases']} active**.";
         }
-        return implode("\n", $lines);
     }
 
-    if (preg_match('/revenue|total payment|payment total|earnings|income/', $message)) {
+    if (preg_match('/revenue|total payment|payment total|earnings|income/', $message) && !chatbotWantsList($message)) {
+        $_SESSION['chatbot_last_topic'] = 'revenue';
         return "**Revenue summary:**\n\n"
             . "• Total revenue: " . formatCurrency($stats['total_revenue']) . "\n"
             . "• This month: " . formatCurrency($stats['monthly_revenue']) . "\n"
@@ -1345,32 +1483,55 @@ function generateChatbotReply(string $message): string
     }
 
     if (preg_match('/pending invoice|unpaid|outstanding/', $message)) {
+        $_SESSION['chatbot_last_topic'] = 'payments';
         return "You have **{$stats['pending_invoices']} pending invoices** and **{$ctx['pending_payments']} invoices** awaiting payment follow-up.";
     }
 
-    if (preg_match('/list payment|show payment|recent payment|all payment/', $message)) {
-        $payments = getAllPayments();
-        if (empty($payments)) {
-            return 'No payments recorded yet.';
+    if (preg_match('/payment/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist payment|\bshow payment|\brecent payment|\ball payment/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'payments';
+            $payments = getAllPayments();
+            if ($payments === []) {
+                return 'No payments recorded yet.';
+            }
+            $lines = ['**Recent payments:**', ''];
+            foreach (array_slice($payments, 0, 8) as $payment) {
+                $name = clientFullName($payment);
+                $status = ucfirst(paymentStatusValue($payment));
+                $lines[] = '• ' . formatCurrency((float) $payment['amount']) . " from {$name} — {$payment['invoice_number']} (*{$status}*)";
+            }
+            return implode("\n", $lines);
         }
-        $lines = ['**Recent payments:**', ''];
-        foreach (array_slice($payments, 0, 6) as $p) {
-            $name = clientFullName($p);
-            $status = ucfirst(paymentStatusValue($p));
-            $lines[] = "• " . formatCurrency((float) $p['amount']) . " from {$name} — {$p['invoice_number']} (*{$status}*)";
-        }
-        return implode("\n", $lines);
     }
 
-    if (preg_match('/next appointment|upcoming appointment|schedule|appointment/', $message)) {
+    if (preg_match('/appointment|schedule/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist appointment|\bshow appointment|\bupcoming appointment/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'appointments';
+            $appointments = getUpcomingAppointments(8);
+            if ($appointments === []) {
+                return 'No upcoming appointments scheduled.';
+            }
+            $lines = ['**Upcoming appointments:**', ''];
+            foreach ($appointments as $appointment) {
+                $start = appointmentStart($appointment) ?? $appointment['start_time'] ?? null;
+                $client = clientFullName($appointment);
+                $lines[] = '• **' . ($appointment['title'] ?? 'Appointment') . '** — '
+                    . ($start ? formatDateTime($start) : 'TBD') . " — {$client}";
+            }
+            return implode("\n", $lines);
+        }
+
+        $_SESSION['chatbot_last_topic'] = 'appointments';
         if ($ctx['next_appointment']) {
             $appt = $ctx['next_appointment'];
-            return "**Next appointment:** {$appt['title']} on " . formatDateTime($appt['start_time']) . ".";
+            return "**Next appointment:** {$appt['title']} on " . formatDateTime($appt['start_time']) . '.';
         }
+
         return "You have **{$stats['upcoming_appointments']} upcoming appointments** scheduled. No future appointments found in the calendar.";
     }
 
     if (preg_match('/dashboard|summary|overview|status/', $message)) {
+        $_SESSION['chatbot_last_topic'] = 'dashboard';
         return "**Dashboard overview:**\n\n"
             . "• Clients: {$stats['total_clients']}\n"
             . "• Active cases: {$stats['active_cases']}\n"

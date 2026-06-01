@@ -63,7 +63,7 @@ require __DIR__ . '/../includes/header.php';
                     <button type="button" class="chat-prompt-btn" data-prompt="How many clients do we have?">
                         <i class="bi bi-people"></i> Client count
                     </button>
-                    <button type="button" class="chat-prompt-btn" data-prompt="Show active cases">
+                    <button type="button" class="chat-prompt-btn" data-prompt="List active cases">
                         <i class="bi bi-briefcase"></i> Active cases
                     </button>
                     <button type="button" class="chat-prompt-btn" data-prompt="What is our total revenue?">
