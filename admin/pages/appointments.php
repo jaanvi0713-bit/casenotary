@@ -165,13 +165,14 @@ require __DIR__ . '/../includes/header.php';
                                 <td><?= e(clientFullName($appt)) ?></td>
                                 <td class="text-muted"><?= e($caseLabel !== 'None' ? $caseLabel : '—') ?></td>
                                 <td><?= statusBadge($appt['status']) ?></td>
-                                <td>
+                                <td class="appointment-cell-calendar">
                                     <?php
                                     $links = appointmentStart($appt)
                                         ? GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $appt)
                                         : null;
                                     ?>
                                     <?php if ($links && $links['google']): ?>
+                                        <div class="appointment-inline-actions">
                                         <a href="<?= e($links['google']) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm" title="Add to Google Calendar">
                                             <i class="bi bi-google"></i>
                                         </a>
@@ -183,11 +184,13 @@ require __DIR__ . '/../includes/header.php';
                                         <a href="<?= e($links['ics']) ?>" class="btn btn-soft btn-sm" title="Download .ics">
                                             <i class="bi bi-download"></i>
                                         </a>
+                                        </div>
                                     <?php else: ?>
                                         —
                                     <?php endif; ?>
                                 </td>
-                                <td>
+                                <td class="appointment-cell-actions">
+                                    <div class="appointment-inline-actions">
                                     <button type="button" class="btn btn-soft btn-sm btn-edit-appt"
                                         data-id="<?= (int) $appt['id'] ?>"
                                         data-client-id="<?= (int) ($appt['client_id'] ?? 0) ?>"
@@ -206,6 +209,7 @@ require __DIR__ . '/../includes/header.php';
                                         <input type="hidden" name="appointment_id" value="<?= (int) $appt['id'] ?>">
                                         <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
                                     </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

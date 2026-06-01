@@ -2575,6 +2575,29 @@ body.sidebar-collapsed .main-content {
     border-bottom: none;
 }
 
+.appointment-list-table .appointment-cell-calendar,
+.appointment-list-table .appointment-cell-actions {
+    white-space: nowrap;
+    width: 1%;
+    vertical-align: middle;
+}
+
+.appointment-list-table .appointment-inline-actions {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.appointment-list-table .appointment-inline-actions form {
+    display: inline-flex;
+    margin: 0;
+}
+
+.appointment-list-table .appointment-inline-actions .btn {
+    flex-shrink: 0;
+}
+
 .appointment-calendar-wrap {
     padding: 1rem 1.25rem 1.25rem;
 }
