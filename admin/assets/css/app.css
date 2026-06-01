@@ -1006,12 +1006,31 @@ body.sidebar-collapsed .main-content {
 }
 
 .dash-stat-value {
-    display: block;
     font-size: 1.625rem;
     font-weight: 700;
     color: #1e293b;
     line-height: 1.2;
+}
+
+.dash-stat-value-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
     margin-bottom: 0.375rem;
+}
+
+.dash-stat-value-row .kpi-trend {
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.dash-stat-foot {
+    display: block;
+    font-size: 0.6875rem;
+    color: var(--gray-600);
+    line-height: 1.35;
 }
 
 .dash-stat-trend {
@@ -1066,17 +1085,17 @@ body.sidebar-collapsed .main-content {
 }
 
 .dash-chart-body-lg {
-    min-height: 320px;
+    min-height: 260px;
 }
 
 .chart-canvas-wrap {
     position: relative;
     width: 100%;
-    height: 280px;
+    height: 220px;
 }
 
 .chart-canvas-wrap-sm {
-    height: 240px;
+    height: 200px;
 }
 
 .chart-canvas-wrap canvas {
