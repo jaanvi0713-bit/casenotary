@@ -135,6 +135,65 @@ class MailService
         return self::send($client['email'], ($subjects[$event] ?? 'Appointment: ') . $appointment['title'], $body);
     }
 
+    public static function sendAppointmentReminderEmail(array $client, array $appointment, ?string $calendarUrl = null): bool
+    {
+        $name  = clientFullName($client) ?: 'Client';
+        $start = appointmentStart($appointment);
+
+        $calendarLink = $calendarUrl
+            ?: ($appointment['meeting_link'] ?? GoogleCalendarService::buildAddToCalendarUrl($appointment, $client));
+
+        $icsLink = $appointment['ics_url'] ?? clientUrl('actions/appointment-ics.php?id=' . (int) ($appointment['id'] ?? 0));
+
+        $body = self::wrapTemplate(
+            'Appointment Reminder',
+            '<p>Dear ' . e($name) . ',</p>'
+            . '<p>This is a reminder about your upcoming appointment.</p>'
+            . '<p><strong>' . e($appointment['title']) . '</strong><br>'
+            . '<strong>When:</strong> ' . e(formatDateTime($start)) . '<br>'
+            . '<strong>Location:</strong> ' . e($appointment['location'] ?: 'To be confirmed') . '</p>'
+            . (!empty($appointment['description']) ? '<p>' . nl2br(e($appointment['description'])) . '</p>' : '')
+            . '<p style="margin:20px 0;">'
+            . '<a href="' . e($calendarLink) . '" style="display:inline-block;background:#3aafa9;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;margin-right:8px;">Add to Google Calendar</a>'
+            . '<a href="' . e($icsLink) . '" style="display:inline-block;background:#00182c;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;">Download Calendar File</a>'
+            . '</p>'
+            . '<p><a href="' . e(clientUrl('pages/appointments.php')) . '" style="color:#3aafa9;">View in Client Portal</a></p>'
+        );
+
+        return self::send($client['email'], 'Reminder: ' . ($appointment['title'] ?? 'Appointment'), $body);
+    }
+
+    public static function sendTestEmail(string $to, array $overrides = []): void
+    {
+        $to = trim($to);
+        if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('Enter a valid test email address.');
+        }
+
+        $company = getCompanySettings();
+
+        if (($overrides['smtp_password'] ?? '') === '') {
+            unset($overrides['smtp_password']);
+        }
+
+        $company = array_merge($company, array_filter($overrides, static fn ($value) => $value !== null && $value !== ''));
+
+        if (empty($company['smtp_host'])) {
+            throw new RuntimeException('Enter an SMTP host before testing.');
+        }
+
+        $from     = $company['office_email'] ?? $company['smtp_username'] ?? 'noreply@localhost';
+        $fromName = $company['company_name'] ?? 'Notary Management';
+        $body     = self::wrapTemplate(
+            'SMTP Test',
+            '<p>This is a test email from your Notary Management System.</p>'
+            . '<p>If you received this message, your SMTP settings are working correctly.</p>'
+            . '<p><strong>Sent at:</strong> ' . e(formatDateTime(date('Y-m-d H:i:s'))) . '</p>'
+        );
+
+        self::sendViaSmtp($company, $to, 'SMTP Test — ' . $fromName, $body, $from, $fromName);
+    }
+
     private static function wrapTemplate(string $title, string $content): string
     {
         $company = getCompanySettings();

@@ -100,6 +100,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                                 <small><?= e($user['email']) ?></small>
                             </li>
                             <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="<?= url('pages/settings.php?tab=profile') ?>"><i class="bi bi-person me-2"></i>My Profile</a></li>
                             <li><a class="dropdown-item" href="<?= url('pages/settings.php') ?>"><i class="bi bi-gear me-2"></i>Settings</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="<?= url('auth/logout.php') ?>"><i class="bi bi-box-arrow-right me-2"></i>Sign Out</a></li>

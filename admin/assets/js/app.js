@@ -38,20 +38,32 @@
         });
     }
 
-    // Password visibility toggle
-    const togglePassword = document.getElementById('togglePassword');
-    const passwordInput = document.getElementById('password');
+    // Password visibility toggle (all pages)
+    document.querySelectorAll('.js-password-toggle').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var targetId = button.getAttribute('data-target');
+            var input = targetId ? document.getElementById(targetId) : null;
+            if (!input) return;
 
-    if (togglePassword && passwordInput) {
-        togglePassword.addEventListener('click', function () {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
+            var show = false;
+            if (input.classList.contains('password-input')) {
+                show = input.classList.contains('password-input-hidden');
+                input.classList.toggle('password-input-hidden', !show);
+                input.classList.toggle('password-input-visible', show);
+            } else {
+                show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+            }
 
-            const icon = this.querySelector('i');
-            icon.classList.toggle('bi-eye');
-            icon.classList.toggle('bi-eye-slash');
+            var icon = button.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('bi-eye', !show);
+                icon.classList.toggle('bi-eye-slash', show);
+            }
+
+            button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
         });
-    }
+    });
 
     // Subtle metric card hover (no scroll animation — cleaner)
     document.querySelectorAll('.metric-card').forEach(function (card) {
