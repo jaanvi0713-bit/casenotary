@@ -131,7 +131,7 @@ require __DIR__ . '/../includes/header.php';
                 <div class="dash-chart-header">
                     <div>
                         <h2 class="dash-chart-title">Upcoming Appointments</h2>
-                        <span class="dash-chart-subtitle">Your scheduled sessions</span>
+                        <span class="dash-chart-subtitle">Scheduled and in-progress sessions</span>
                     </div>
                     <a href="<?= clientUrl('pages/appointments.php') ?>" class="btn btn-sm btn-soft">View calendar</a>
                 </div>
@@ -145,15 +145,15 @@ require __DIR__ . '/../includes/header.php';
                     <?php else: ?>
                         <ul class="schedule-list schedule-list-compact">
                             <?php foreach ($upcomingAppointments as $appointment): ?>
+                                <?php $apptStart = appointmentEffectiveStart($appointment); ?>
                                 <li class="schedule-item">
                                     <div class="schedule-date">
-                                        <?php $apptStart = appointmentEffectiveStart($appointment); ?>
                                         <span><?= $apptStart ? date('d', strtotime($apptStart)) : '—' ?></span>
                                         <small><?= $apptStart ? date('M', strtotime($apptStart)) : '' ?></small>
                                     </div>
                                     <div class="schedule-info">
                                         <span class="schedule-title"><?= e($appointment['title']) ?></span>
-                                        <span class="schedule-meta"><?= $apptStart ? formatDateTime($apptStart, 'g:i A') : '—' ?></span>
+                                        <span class="schedule-meta"><?= formatAppointmentScheduleMeta($appointment) ?></span>
                                     </div>
                                     <?= statusBadge($appointment['status']) ?>
                                 </li>

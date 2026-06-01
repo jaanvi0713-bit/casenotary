@@ -138,6 +138,36 @@ function isUpcomingAppointment(array $appointment): bool
     return strtotime($start) >= $now;
 }
 
+function isClientScheduledAppointment(array $appointment): bool
+{
+    $status = strtolower(trim($appointment['status'] ?? ''));
+    if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+        return false;
+    }
+
+    return appointmentEffectiveStart($appointment) !== null;
+}
+
+function formatAppointmentScheduleMeta(array $appointment): string
+{
+    $start = appointmentEffectiveStart($appointment);
+    $end   = appointmentEffectiveEnd($appointment);
+
+    if (!$start) {
+        return '—';
+    }
+
+    if (!$end) {
+        return formatDateTime($start, 'M j, Y g:i A');
+    }
+
+    if (date('Y-m-d', strtotime($end)) !== date('Y-m-d', strtotime($start))) {
+        return formatDateTime($start, 'M j, Y g:i A') . ' – ' . formatDateTime($end, 'M j, Y g:i A');
+    }
+
+    return formatDateTime($start, 'M j, g:i A') . ' – ' . formatDateTime($end, 'g:i A');
+}
+
 function normalizeDateTimeInput(string $value): string
 {
     $value = trim(str_replace('T', ' ', $value));
@@ -1637,23 +1667,34 @@ function getClientRecentCases(int $clientId, int $limit = 5): array
 function getClientUpcomingAppointments(int $clientId, int $limit = 5): array
 {
     $appointments = getClientAppointments($clientId);
-    $upcoming = [];
+    $visible = [];
 
     foreach ($appointments as $appointment) {
-        if (!isUpcomingAppointment($appointment)) {
+        if (!isClientScheduledAppointment($appointment)) {
             continue;
         }
 
         $appointment['start_time'] = appointmentEffectiveStart($appointment);
         $appointment['end_time']   = appointmentEffectiveEnd($appointment);
-        $upcoming[] = $appointment;
+        $visible[] = $appointment;
     }
 
-    usort($upcoming, static function (array $a, array $b): int {
-        return strtotime(appointmentEffectiveStart($a) ?? '') <=> strtotime(appointmentEffectiveStart($b) ?? '');
+    usort($visible, static function (array $a, array $b): int {
+        $aStart = strtotime(appointmentEffectiveStart($a) ?? '');
+        $bStart = strtotime(appointmentEffectiveStart($b) ?? '');
+        $now    = time();
+
+        $aActive = isUpcomingAppointment($a);
+        $bActive = isUpcomingAppointment($b);
+
+        if ($aActive !== $bActive) {
+            return $bActive <=> $aActive;
+        }
+
+        return $aStart <=> $bStart;
     });
 
-    return array_slice($upcoming, 0, $limit);
+    return array_slice($visible, 0, $limit);
 }
 
 function getClientAppointments(int $clientId): array
