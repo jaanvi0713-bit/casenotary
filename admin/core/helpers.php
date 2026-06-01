@@ -98,22 +98,22 @@ function appointmentEnd(array $appointment): ?string
 
 function appointmentEffectiveStart(array $appointment): ?string
 {
-    $resolved = appointmentDateTimeValue($appointment['start_time'] ?? null);
+    $resolved = appointmentDateTimeValue($appointment['starts_at'] ?? null);
     if ($resolved !== null) {
         return $resolved;
     }
 
-    return appointmentDateTimeValue($appointment['starts_at'] ?? null);
+    return appointmentDateTimeValue($appointment['start_time'] ?? null);
 }
 
 function appointmentEffectiveEnd(array $appointment): ?string
 {
-    $resolved = appointmentDateTimeValue($appointment['end_time'] ?? null);
+    $resolved = appointmentDateTimeValue($appointment['ends_at'] ?? null);
     if ($resolved !== null) {
         return $resolved;
     }
 
-    return appointmentDateTimeValue($appointment['ends_at'] ?? null);
+    return appointmentDateTimeValue($appointment['end_time'] ?? null);
 }
 
 function isUpcomingAppointment(array $appointment): bool
@@ -189,10 +189,56 @@ function appointmentCalendarEventColors(array $appointment): array
 }
 
 /**
- * Build FullCalendar event segment(s) for an appointment.
- * Active appointments crossing today at midnight are split so elapsed
- * calendar days render as a linked all-day bar (past color) and today
- * onward as a timed bar (status color) — one appointment, two colours.
+ * Normalize appointment start/end for calendar display.
+ * Caps duration so bad end dates cannot span entire weeks.
+ *
+ * @return array{0: ?string, 1: ?string}
+ */
+function normalizeAppointmentCalendarRange(string $start, ?string $end, int $maxHours = 8): array
+{
+    $startTs = strtotime($start);
+    if ($startTs === false) {
+        return [null, null];
+    }
+
+    $endTs = $end ? strtotime($end) : false;
+    if ($endTs === false || $endTs <= $startTs) {
+        $endTs = strtotime('+1 hour', $startTs);
+    }
+
+    $maxEndTs = strtotime("+{$maxHours} hours", $startTs);
+    if ($endTs > $maxEndTs) {
+        $endTs = strtotime('+1 hour', $startTs);
+    }
+
+    return [
+        date('Y-m-d H:i:s', $startTs),
+        date('Y-m-d H:i:s', $endTs),
+    ];
+}
+
+function normalizeAppointmentEndTime(string $startsAt, string $endsAt, int $maxHours = 24): string
+{
+    $startTs = strtotime($startsAt);
+    if ($startTs === false) {
+        return $endsAt;
+    }
+
+    $endTs = strtotime($endsAt);
+    if ($endTs === false || $endTs <= $startTs) {
+        return date('Y-m-d H:i:s', strtotime('+1 hour', $startTs));
+    }
+
+    $maxEndTs = strtotime("+{$maxHours} hours", $startTs);
+    if ($endTs > $maxEndTs) {
+        return date('Y-m-d H:i:s', $maxEndTs);
+    }
+
+    return $endsAt;
+}
+
+/**
+ * Build FullCalendar event(s) for an appointment.
  *
  * @return array<int, array<string, mixed>>
  */
@@ -203,97 +249,19 @@ function buildAppointmentCalendarEvents(array $appointment, array $extendedProps
         return [];
     }
 
-    $end = appointmentEffectiveEnd($appointment) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
-    $startTs = strtotime($start);
-    $endTs = strtotime($end);
-    if ($startTs === false || $endTs === false || $endTs <= $startTs) {
+    [$start, $end] = normalizeAppointmentCalendarRange($start, appointmentEffectiveEnd($appointment));
+    if (!$start || !$end) {
         return [];
     }
 
     $id = (string) ($appointment['id'] ?? '');
-    $title = $appointment['title'] ?? 'Appointment';
-    $status = strtolower(trim($appointment['status'] ?? 'scheduled'));
-    $colors = appointmentStatusColors();
-    $groupId = 'appt-' . $id;
-    $extendedProps['appointmentId'] = $extendedProps['appointmentId'] ?? (int) ($appointment['id'] ?? 0);
-
-    if (in_array($status, ['cancelled', 'completed'], true)) {
-        $eventColors = appointmentCalendarEventColors($appointment);
-
-        return [[
-            'id'              => $id,
-            'groupId'         => $groupId,
-            'title'           => $title,
-            'start'           => calendarEventDateTime($start),
-            'end'             => calendarEventDateTime($end),
-            'backgroundColor' => $eventColors['backgroundColor'],
-            'borderColor'     => $eventColors['borderColor'],
-            'classNames'      => $eventColors['classNames'],
-            'extendedProps'   => $extendedProps,
-        ]];
-    }
-
-    $todayStartTs = strtotime('today');
-    $activeColor = $colors[$status] ?? $colors['scheduled'];
-    $pastColor = $colors['past'];
-
-    if ($startTs < $todayStartTs && $endTs > $todayStartTs) {
-        $splitProps = array_merge($extendedProps, [
-            'isSplit'       => true,
-            'segmentTotal'  => 2,
-            'segmentPart'   => 0,
-        ]);
-
-        $events = [];
-
-        $pastStartDate = date('Y-m-d', $startTs);
-        $pastEndDate = date('Y-m-d', $todayStartTs);
-
-        if ($pastStartDate < $pastEndDate) {
-            $events[] = [
-                'id'              => $id . '-past',
-                'groupId'         => $groupId,
-                'title'           => $title,
-                'start'           => $pastStartDate,
-                'end'             => $pastEndDate,
-                'allDay'          => true,
-                'backgroundColor' => $pastColor,
-                'borderColor'     => $pastColor,
-                'classNames'      => ['fc-event-past', 'fc-appt-linked', 'fc-appt-segment-past'],
-                'extendedProps'   => array_merge($splitProps, [
-                    'segmentRole' => 'past',
-                    'segmentPart' => 1,
-                    'timeLabel'   => formatDateTime($start, 'g:i A'),
-                ]),
-            ];
-        }
-
-        $events[] = [
-            'id'              => $id . '-active',
-            'groupId'         => $groupId,
-            'title'           => $title,
-            'start'           => date('Y-m-d', $todayStartTs),
-            'end'             => date('Y-m-d', strtotime(date('Y-m-d', $endTs) . ' +1 day')),
-            'allDay'          => true,
-            'displayEventTime' => false,
-            'backgroundColor' => $activeColor,
-            'borderColor'     => $activeColor,
-            'classNames'      => ['fc-appt-linked', 'fc-appt-segment-active'],
-            'extendedProps'   => array_merge($splitProps, [
-                'segmentRole' => 'active',
-                'segmentPart' => 2,
-            ]),
-        ];
-
-        return $events;
-    }
-
     $eventColors = appointmentCalendarEventColors($appointment);
+    $extendedProps['appointmentId'] = $extendedProps['appointmentId'] ?? (int) ($appointment['id'] ?? 0);
 
     return [[
         'id'              => $id,
-        'groupId'         => $groupId,
-        'title'           => $title,
+        'groupId'         => 'appt-' . $id,
+        'title'           => $appointment['title'] ?? 'Appointment',
         'start'           => calendarEventDateTime($start),
         'end'             => calendarEventDateTime($end),
         'backgroundColor' => $eventColors['backgroundColor'],
@@ -301,6 +269,41 @@ function buildAppointmentCalendarEvents(array $appointment, array $extendedProps
         'classNames'      => $eventColors['classNames'],
         'extendedProps'   => $extendedProps,
     ]];
+}
+
+function appointmentCalendarInitialDate(array $appointments): string
+{
+    $timestamps = [];
+
+    foreach ($appointments as $appointment) {
+        $start = appointmentEffectiveStart($appointment);
+        if ($start === null) {
+            continue;
+        }
+
+        $ts = strtotime($start);
+        if ($ts !== false) {
+            $timestamps[] = $ts;
+        }
+    }
+
+    if ($timestamps === []) {
+        return date('Y-m-d');
+    }
+
+    $now = time();
+    $best = $timestamps[0];
+    $bestDistance = abs($best - $now);
+
+    foreach ($timestamps as $timestamp) {
+        $distance = abs($timestamp - $now);
+        if ($distance < $bestDistance || ($distance === $bestDistance && $timestamp >= $now)) {
+            $best = $timestamp;
+            $bestDistance = $distance;
+        }
+    }
+
+    return date('Y-m-d', $best);
 }
 
 function isClientScheduledAppointment(array $appointment): bool
@@ -687,7 +690,7 @@ function appointmentDateTimeSql(string $primaryCol, string $fallbackCol, string 
     };
 
     if ($hasPrimary && $hasFallback) {
-        return "CASE WHEN {$isValid($fallbackCol)} THEN {$prefix}{$fallbackCol} WHEN {$isValid($primaryCol)} THEN {$prefix}{$primaryCol} ELSE NULL END";
+        return "CASE WHEN {$isValid($primaryCol)} THEN {$prefix}{$primaryCol} WHEN {$isValid($fallbackCol)} THEN {$prefix}{$fallbackCol} ELSE NULL END";
     }
 
     if ($hasPrimary) {

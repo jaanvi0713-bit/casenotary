@@ -30,7 +30,7 @@ foreach ($appointments as $appt) {
         continue;
     }
 
-    $end = appointmentEffectiveEnd($appt) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
+    [$calStart, $calEnd] = normalizeAppointmentCalendarRange($start, appointmentEffectiveEnd($appt));
     $calUrl = $appt['meeting_link'] ?? GoogleCalendarService::buildAddToCalendarUrl($appt, $appt);
 
     foreach (buildAppointmentCalendarEvents($appt, [
@@ -39,14 +39,16 @@ foreach ($appointments as $appt) {
         'status'      => $appt['status'] ?? 'scheduled',
         'location'    => $appt['location'] ?? '',
         'description' => $appt['description'] ?? '',
-        'startLabel'  => formatDateTime($start, 'M j, Y g:i A'),
-        'endLabel'    => formatDateTime($end, 'M j, Y g:i A'),
+        'startLabel'  => formatDateTime($calStart, 'M j, Y g:i A'),
+        'endLabel'    => formatDateTime($calEnd, 'M j, Y g:i A'),
         'calUrl'      => $calUrl,
         'icsUrl'      => url('actions/appointment-ics.php?id=' . (int) ($appt['id'] ?? 0)),
     ]) as $event) {
         $calendarEvents[] = $event;
     }
 }
+
+$calendarInitialDate = appointmentCalendarInitialDate($appointments);
 
 $pageStyles = '<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css" rel="stylesheet">';
 
@@ -185,14 +187,12 @@ require __DIR__ . '/../includes/header.php';
                                         data-location="<?= e($appt['location'] ?? '') ?>"
                                         data-status="<?= e($appt['status']) ?>"
                                         data-description="<?= e($appt['description'] ?? '') ?>">Edit</button>
-                                    <?php if (($appt['status'] ?? '') !== 'cancelled'): ?>
-                                        <form method="post" action="<?= url('actions/appointment-action.php') ?>" class="d-inline" onsubmit="return confirm('Cancel this appointment?');">
-                                            <?= CSRF::field() ?>
-                                            <input type="hidden" name="action" value="cancel_appointment">
-                                            <input type="hidden" name="appointment_id" value="<?= (int) $appt['id'] ?>">
-                                            <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
-                                        </form>
-                                    <?php endif; ?>
+                                    <form method="post" action="<?= url('actions/appointment-action.php') ?>" class="d-inline" onsubmit="return confirm('Delete this appointment permanently? This cannot be undone.');">
+                                        <?= CSRF::field() ?>
+                                        <input type="hidden" name="action" value="delete_appointment">
+                                        <input type="hidden" name="appointment_id" value="<?= (int) $appt['id'] ?>">
+                                        <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -499,6 +499,7 @@ document.addEventListener("DOMContentLoaded", function() {
         var calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
             timeZone: "local",
             initialView: "dayGridMonth",
+            initialDate: "' . $calendarInitialDate . '",
             height: "auto",
             headerToolbar: {
                 left: "prev,next today",

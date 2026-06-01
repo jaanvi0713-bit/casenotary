@@ -27,13 +27,13 @@ try {
         redirect('pages/appointments.php');
     }
 
-    if ($action === 'cancel_appointment') {
+    if ($action === 'delete_appointment' || $action === 'cancel_appointment') {
         $id = (int) ($_POST['appointment_id'] ?? 0);
         if ($id <= 0) {
             throw new RuntimeException('Invalid appointment.');
         }
-        AppointmentService::cancel($id);
-        flash('success', 'Appointment cancelled.');
+        AppointmentService::delete($id);
+        flash('success', 'Appointment deleted.');
         redirect('pages/appointments.php');
     }
 
