@@ -103,8 +103,44 @@ class Auth
         if (!self::isClient()) {
             return null;
         }
-        $row = Database::fetch('SELECT id FROM clients WHERE user_id = ? LIMIT 1', [self::id()]);
-        return $row ? (int) $row['id'] : null;
+
+        $userId = self::id();
+        if (!$userId) {
+            return null;
+        }
+
+        $client = Database::fetch('SELECT id FROM clients WHERE user_id = ? LIMIT 1', [$userId]);
+        if ($client) {
+            return (int) $client['id'];
+        }
+
+        $user = Database::fetch('SELECT email, client_id FROM users WHERE id = ?', [$userId]);
+
+        if (!empty($user['client_id']) && Database::columnExists('users', 'client_id')) {
+            return (int) $user['client_id'];
+        }
+
+        $email = trim($user['email'] ?? ($_SESSION['user_email'] ?? ''));
+        if ($email === '' || !Database::columnExists('clients', 'email')) {
+            return null;
+        }
+
+        $client = Database::fetch('SELECT id, user_id FROM clients WHERE email = ? LIMIT 1', [$email]);
+        if (!$client) {
+            return null;
+        }
+
+        if (empty($client['user_id'])) {
+            Database::query('UPDATE clients SET user_id = ?, updated_at = NOW() WHERE id = ?', [$userId, $client['id']]);
+        }
+
+        try {
+            Database::query('UPDATE users SET client_id = ? WHERE id = ?', [(int) $client['id'], $userId]);
+        } catch (Throwable $e) {
+            // optional column
+        }
+
+        return (int) $client['id'];
     }
 
     public static function requireClient(): void

@@ -41,9 +41,14 @@ try {
         case 'create_case':
             Auth::requireAdmin();
             $id = CaseService::createCase($_POST, Auth::id());
+            $caseId = $id;
 
+            $uploadWarning = null;
             if (!empty($_FILES['document']['name'])) {
-                CaseService::uploadDocument($id, $_FILES['document'], Auth::id(), 'admin');
+                $uploadResult = CaseService::uploadDocument($id, $_FILES['document'], Auth::id(), 'admin');
+                if (!$uploadResult['success']) {
+                    $uploadWarning = $uploadResult['message'];
+                }
             }
 
             $emailResult = CaseService::runCreateWorkflow($id, $_POST, Auth::id());
@@ -54,7 +59,15 @@ try {
             if ($emailResult['login_sent']) {
                 $msg .= ' Portal login email sent.';
             }
-            flash('success', $msg);
+
+            if (!empty($emailResult['error'])) {
+                flash('warning', $msg . ' ' . $emailResult['error']);
+            } elseif ($uploadWarning) {
+                flash('warning', $msg . ' File upload failed: ' . $uploadWarning);
+            } else {
+                flash('success', $msg);
+            }
+
             redirect('pages/case-view.php?id=' . $id);
             break;
 
@@ -159,7 +172,12 @@ try {
             redirect('pages/cases.php');
     }
 } catch (Throwable $e) {
-    flash('error', $e->getMessage());
+    $message = $e->getMessage();
+    if (str_contains($message, 'SQLSTATE')) {
+        flash('error', 'Could not save the case. If this is a new install, run: php admin/sql/migrate_cases.php');
+    } else {
+        flash('error', $message);
+    }
     if ($caseId > 0) {
         $isClient ? redirectClientCase($caseId) : redirectCase($caseId);
     }

@@ -101,4 +101,15 @@ foreach ($userColumns as $column => $definition) {
     }
 }
 
+if (!columnExists($pdo, 'company_settings', 'business_hours')) {
+    try {
+        $pdo->exec("ALTER TABLE company_settings ADD COLUMN business_hours TEXT DEFAULT NULL AFTER office_phone");
+        echo "[OK] Added company_settings.business_hours\n";
+    } catch (Throwable $e) {
+        echo "[SKIP] company_settings.business_hours: {$e->getMessage()}\n";
+    }
+} else {
+    echo "[OK] company_settings.business_hours already exists\n";
+}
+
 echo "\nWorkflow migration complete.\n";

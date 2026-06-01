@@ -71,14 +71,363 @@ function clientFullName(array $client): string
     return trim(($client['first_name'] ?? '') . ' ' . ($client['last_name'] ?? ''));
 }
 
+function appointmentDateTimeValue(?string $value): ?string
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $value = trim($value);
+
+    if ($value === '' || str_starts_with($value, '0000-00-00')) {
+        return null;
+    }
+
+    return $value;
+}
+
 function appointmentStart(array $appointment): ?string
 {
-    return $appointment['starts_at'] ?? $appointment['start_time'] ?? null;
+    return appointmentEffectiveStart($appointment);
 }
 
 function appointmentEnd(array $appointment): ?string
 {
-    return $appointment['ends_at'] ?? $appointment['end_time'] ?? null;
+    return appointmentEffectiveEnd($appointment);
+}
+
+function appointmentEffectiveStart(array $appointment): ?string
+{
+    $resolved = appointmentDateTimeValue($appointment['start_time'] ?? null);
+    if ($resolved !== null) {
+        return $resolved;
+    }
+
+    return appointmentDateTimeValue($appointment['starts_at'] ?? null);
+}
+
+function appointmentEffectiveEnd(array $appointment): ?string
+{
+    $resolved = appointmentDateTimeValue($appointment['end_time'] ?? null);
+    if ($resolved !== null) {
+        return $resolved;
+    }
+
+    return appointmentDateTimeValue($appointment['ends_at'] ?? null);
+}
+
+function isUpcomingAppointment(array $appointment): bool
+{
+    $status = strtolower(trim($appointment['status'] ?? ''));
+    if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+        return false;
+    }
+
+    $start = appointmentEffectiveStart($appointment);
+    if (!$start) {
+        return false;
+    }
+
+    $now = time();
+    $end = appointmentEffectiveEnd($appointment);
+
+    if ($end && strtotime($end) >= $now) {
+        return true;
+    }
+
+    return strtotime($start) >= $now;
+}
+
+function isPastAppointment(array $appointment): bool
+{
+    $start = appointmentEffectiveStart($appointment);
+    if (!$start) {
+        return false;
+    }
+
+    $now = time();
+    $end = appointmentEffectiveEnd($appointment);
+
+    if ($end) {
+        return strtotime($end) < $now;
+    }
+
+    return strtotime($start) < $now;
+}
+
+function appointmentStatusColors(): array
+{
+    return [
+        'scheduled' => '#3aafa9',
+        'confirmed' => '#10b981',
+        'completed' => '#64748b',
+        'cancelled' => '#ef4444',
+        'past'      => '#f59e0b',
+    ];
+}
+
+function appointmentCalendarEventColors(array $appointment): array
+{
+    $colors = appointmentStatusColors();
+    $status = strtolower(trim($appointment['status'] ?? 'scheduled'));
+
+    if (in_array($status, ['cancelled', 'completed'], true)) {
+        $color = $colors[$status];
+    } elseif (isPastAppointment($appointment)) {
+        $color = $colors['past'];
+    } else {
+        $color = $colors[$status] ?? $colors['scheduled'];
+    }
+
+    return [
+        'backgroundColor' => $color,
+        'borderColor'     => $color,
+        'classNames'      => isPastAppointment($appointment) && !in_array($status, ['cancelled', 'completed'], true)
+            ? ['fc-event-past']
+            : [],
+    ];
+}
+
+/**
+ * Build FullCalendar event segment(s) for an appointment.
+ * Active appointments crossing today at midnight are split so elapsed
+ * calendar days render as a linked all-day bar (past color) and today
+ * onward as a timed bar (status color) — one appointment, two colours.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function buildAppointmentCalendarEvents(array $appointment, array $extendedProps = []): array
+{
+    $start = appointmentEffectiveStart($appointment);
+    if (!$start) {
+        return [];
+    }
+
+    $end = appointmentEffectiveEnd($appointment) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
+    $startTs = strtotime($start);
+    $endTs = strtotime($end);
+    if ($startTs === false || $endTs === false || $endTs <= $startTs) {
+        return [];
+    }
+
+    $id = (string) ($appointment['id'] ?? '');
+    $title = $appointment['title'] ?? 'Appointment';
+    $status = strtolower(trim($appointment['status'] ?? 'scheduled'));
+    $colors = appointmentStatusColors();
+    $groupId = 'appt-' . $id;
+    $extendedProps['appointmentId'] = $extendedProps['appointmentId'] ?? (int) ($appointment['id'] ?? 0);
+
+    if (in_array($status, ['cancelled', 'completed'], true)) {
+        $eventColors = appointmentCalendarEventColors($appointment);
+
+        return [[
+            'id'              => $id,
+            'groupId'         => $groupId,
+            'title'           => $title,
+            'start'           => calendarEventDateTime($start),
+            'end'             => calendarEventDateTime($end),
+            'backgroundColor' => $eventColors['backgroundColor'],
+            'borderColor'     => $eventColors['borderColor'],
+            'classNames'      => $eventColors['classNames'],
+            'extendedProps'   => $extendedProps,
+        ]];
+    }
+
+    $todayStartTs = strtotime('today');
+    $activeColor = $colors[$status] ?? $colors['scheduled'];
+    $pastColor = $colors['past'];
+
+    if ($startTs < $todayStartTs && $endTs > $todayStartTs) {
+        $splitProps = array_merge($extendedProps, [
+            'isSplit'       => true,
+            'segmentTotal'  => 2,
+            'segmentPart'   => 0,
+        ]);
+
+        $events = [];
+
+        $pastStartDate = date('Y-m-d', $startTs);
+        $pastEndDate = date('Y-m-d', $todayStartTs);
+
+        if ($pastStartDate < $pastEndDate) {
+            $events[] = [
+                'id'              => $id . '-past',
+                'groupId'         => $groupId,
+                'title'           => $title,
+                'start'           => $pastStartDate,
+                'end'             => $pastEndDate,
+                'allDay'          => true,
+                'backgroundColor' => $pastColor,
+                'borderColor'     => $pastColor,
+                'classNames'      => ['fc-event-past', 'fc-appt-linked', 'fc-appt-segment-past'],
+                'extendedProps'   => array_merge($splitProps, [
+                    'segmentRole' => 'past',
+                    'segmentPart' => 1,
+                    'timeLabel'   => formatDateTime($start, 'g:i A'),
+                ]),
+            ];
+        }
+
+        $events[] = [
+            'id'              => $id . '-active',
+            'groupId'         => $groupId,
+            'title'           => $title,
+            'start'           => date('Y-m-d', $todayStartTs),
+            'end'             => date('Y-m-d', strtotime(date('Y-m-d', $endTs) . ' +1 day')),
+            'allDay'          => true,
+            'displayEventTime' => false,
+            'backgroundColor' => $activeColor,
+            'borderColor'     => $activeColor,
+            'classNames'      => ['fc-appt-linked', 'fc-appt-segment-active'],
+            'extendedProps'   => array_merge($splitProps, [
+                'segmentRole' => 'active',
+                'segmentPart' => 2,
+            ]),
+        ];
+
+        return $events;
+    }
+
+    $eventColors = appointmentCalendarEventColors($appointment);
+
+    return [[
+        'id'              => $id,
+        'groupId'         => $groupId,
+        'title'           => $title,
+        'start'           => calendarEventDateTime($start),
+        'end'             => calendarEventDateTime($end),
+        'backgroundColor' => $eventColors['backgroundColor'],
+        'borderColor'     => $eventColors['borderColor'],
+        'classNames'      => $eventColors['classNames'],
+        'extendedProps'   => $extendedProps,
+    ]];
+}
+
+function isClientScheduledAppointment(array $appointment): bool
+{
+    $status = strtolower(trim($appointment['status'] ?? ''));
+    if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+        return false;
+    }
+
+    return appointmentEffectiveStart($appointment) !== null;
+}
+
+function formatAppointmentScheduleMeta(array $appointment): string
+{
+    $start = appointmentEffectiveStart($appointment);
+    $end   = appointmentEffectiveEnd($appointment);
+
+    if (!$start) {
+        return '—';
+    }
+
+    if (!$end) {
+        return formatDateTime($start, 'M j, Y g:i A');
+    }
+
+    if (date('Y-m-d', strtotime($end)) !== date('Y-m-d', strtotime($start))) {
+        return formatDateTime($start, 'M j, Y g:i A') . ' – ' . formatDateTime($end, 'M j, Y g:i A');
+    }
+
+    return formatDateTime($start, 'M j, g:i A') . ' – ' . formatDateTime($end, 'g:i A');
+}
+
+function resolveAppointmentCaseId(int $clientId, ?int $requestedCaseId = null): ?int
+{
+    if ($clientId <= 0) {
+        return null;
+    }
+
+    if ($requestedCaseId !== null && $requestedCaseId > 0) {
+        $case = Database::fetch(
+            'SELECT id FROM cases WHERE id = ? AND client_id = ?',
+            [$requestedCaseId, $clientId]
+        );
+
+        return $case ? (int) $case['id'] : null;
+    }
+
+    $openCase = Database::fetch(
+        "SELECT id FROM cases
+         WHERE client_id = ?
+           AND status NOT IN ('completed', 'closed')
+         ORDER BY updated_at DESC
+         LIMIT 1",
+        [$clientId]
+    );
+
+    if ($openCase) {
+        return (int) $openCase['id'];
+    }
+
+    $recentCase = Database::fetch(
+        'SELECT id FROM cases WHERE client_id = ? ORDER BY updated_at DESC LIMIT 1',
+        [$clientId]
+    );
+
+    return $recentCase ? (int) $recentCase['id'] : null;
+}
+
+function appointmentCaseLabel(array $appointment): string
+{
+    $caseNumber = trim((string) ($appointment['case_number'] ?? ''));
+    $caseTitle  = trim((string) ($appointment['case_title'] ?? ''));
+
+    if ($caseNumber !== '') {
+        return $caseTitle !== '' ? $caseNumber . ' — ' . $caseTitle : $caseNumber;
+    }
+
+    return 'None';
+}
+
+function enrichAppointmentCase(array &$appointment, bool $persistLink = false): void
+{
+    if (!empty($appointment['case_id'])) {
+        return;
+    }
+
+    $clientId = (int) ($appointment['client_id'] ?? 0);
+    $caseId = resolveAppointmentCaseId($clientId, null);
+    if (!$caseId) {
+        return;
+    }
+
+    $case = Database::fetch(
+        'SELECT id, case_number, title FROM cases WHERE id = ? AND client_id = ?',
+        [$caseId, $clientId]
+    );
+
+    if (!$case) {
+        return;
+    }
+
+    if ($persistLink && !empty($appointment['id'])) {
+        Database::query(
+            'UPDATE appointments SET case_id = ? WHERE id = ? AND (case_id IS NULL OR case_id = 0)',
+            [$caseId, (int) $appointment['id']]
+        );
+        $appointment['case_id'] = $caseId;
+    } else {
+        $appointment['resolved_case_id'] = (int) $case['id'];
+    }
+
+    $appointment['case_number'] = $case['case_number'];
+    $appointment['case_title']  = $case['title'];
+}
+
+function calendarEventDateTime(?string $datetime): ?string
+{
+    if (!$datetime) {
+        return null;
+    }
+
+    $timestamp = strtotime($datetime);
+    if ($timestamp === false) {
+        return null;
+    }
+
+    return date('Y-m-d\TH:i:s', $timestamp);
 }
 
 function normalizeDateTimeInput(string $value): string
@@ -315,6 +664,43 @@ function appointmentEndColumn(): string
     return $column;
 }
 
+function appointmentStartSql(string $alias = ''): string
+{
+    return appointmentDateTimeSql('starts_at', 'start_time', $alias);
+}
+
+function appointmentEndSql(string $alias = ''): string
+{
+    return appointmentDateTimeSql('ends_at', 'end_time', $alias);
+}
+
+function appointmentDateTimeSql(string $primaryCol, string $fallbackCol, string $alias = ''): string
+{
+    $prefix = $alias !== '' ? "{$alias}." : '';
+    $hasPrimary  = Database::columnExists('appointments', $primaryCol);
+    $hasFallback = Database::columnExists('appointments', $fallbackCol);
+
+    $isValid = static function (string $column) use ($prefix): string {
+        $col = "{$prefix}{$column}";
+
+        return "({$col} IS NOT NULL AND YEAR({$col}) > 0)";
+    };
+
+    if ($hasPrimary && $hasFallback) {
+        return "CASE WHEN {$isValid($fallbackCol)} THEN {$prefix}{$fallbackCol} WHEN {$isValid($primaryCol)} THEN {$prefix}{$primaryCol} ELSE NULL END";
+    }
+
+    if ($hasPrimary) {
+        return "CASE WHEN {$isValid($primaryCol)} THEN {$prefix}{$primaryCol} ELSE NULL END";
+    }
+
+    if ($hasFallback) {
+        return "CASE WHEN {$isValid($fallbackCol)} THEN {$prefix}{$fallbackCol} ELSE NULL END";
+    }
+
+    return 'NULL';
+}
+
 function userDisplayNameSql(string $alias = 'u', string $as = 'name'): string
 {
     if (Database::columnExists('users', 'name')) {
@@ -400,7 +786,8 @@ function getDashboardStats(): array
     syncOverdueInvoices();
     $invoiceStatus = invoiceStatusColumn();
     $paymentStatus = paymentStatusColumn();
-    $appointmentStart = appointmentStartColumn();
+    $appointmentStart = appointmentStartSql();
+    $appointmentEnd   = appointmentEndSql();
 
     $totalClients = Database::fetch('SELECT COUNT(*) AS count FROM clients')['count'] ?? 0;
 
@@ -417,7 +804,9 @@ function getDashboardStats(): array
     )['count'] ?? 0;
 
     $upcomingAppointments = Database::fetch(
-        "SELECT COUNT(*) AS count FROM appointments WHERE {$appointmentStart} >= NOW() AND status IN ('scheduled', 'confirmed')"
+        "SELECT COUNT(*) AS count FROM appointments
+         WHERE status IN ('scheduled', 'confirmed')
+           AND ({$appointmentStart} >= NOW() OR ({$appointmentEnd} IS NOT NULL AND {$appointmentEnd} >= NOW()))"
     )['count'] ?? 0;
 
     $totalRevenue = Database::fetch(
@@ -555,8 +944,9 @@ function getBusinessActivityFeed(int $limit = 20): array
     }
 
     try {
+        $startSql = appointmentStartSql('a');
         $appointments = Database::fetchAll(
-            "SELECT a.title, a.starts_at, a.created_at, c.first_name, c.last_name
+            "SELECT a.title, {$startSql} AS starts_at, a.created_at, c.first_name, c.last_name
              FROM appointments a
              JOIN clients c ON c.id = a.client_id
              ORDER BY a.created_at DESC
@@ -771,17 +1161,18 @@ function getUnreadNotificationCount(int $userId): int
 
 function getUpcomingAppointments(int $limit = 5): array
 {
-    $startCol = appointmentStartColumn();
-    $endCol = appointmentEndColumn();
+    $startSql = appointmentStartSql('a');
+    $endSql   = appointmentEndSql('a');
 
     return Database::fetchAll(
-        "SELECT a.*, a.{$startCol} AS start_time, a.{$endCol} AS end_time,
+        "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
                 c.company_name, cu.first_name, cu.last_name
          FROM appointments a
          JOIN clients c ON c.id = a.client_id
          JOIN users cu ON cu.id = c.user_id
-         WHERE a.{$startCol} >= NOW() AND a.status IN ('scheduled', 'confirmed')
-         ORDER BY a.{$startCol} ASC
+         WHERE a.status IN ('scheduled', 'confirmed')
+           AND ({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))
+         ORDER BY {$startSql} ASC
          LIMIT ?",
         [$limit]
     );
@@ -1192,17 +1583,25 @@ function getAllPayments(): array
 
 function getAllAppointments(): array
 {
-    $startCol = appointmentStartColumn();
-    $endCol   = appointmentEndColumn();
+    $startSql = appointmentStartSql('a');
+    $endSql   = appointmentEndSql('a');
 
-    return Database::fetchAll(
-        "SELECT a.*, a.{$startCol} AS start_time, a.{$endCol} AS end_time,
-                cl.first_name, cl.last_name, cl.company_name, cs.case_number
+    $appointments = Database::fetchAll(
+        "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
+                cl.first_name, cl.last_name, cl.company_name,
+                cs.case_number, cs.title AS case_title
          FROM appointments a
          JOIN clients cl ON cl.id = a.client_id
          LEFT JOIN cases cs ON cs.id = a.case_id
-         ORDER BY a.{$startCol} DESC"
+         ORDER BY {$startSql} DESC"
     );
+
+    foreach ($appointments as &$appointment) {
+        enrichAppointmentCase($appointment, true);
+    }
+    unset($appointment);
+
+    return $appointments;
 }
 
 function getChatbotContext(): array
@@ -1217,10 +1616,13 @@ function getChatbotContext(): array
         "SELECT COUNT(*) AS count FROM invoices WHERE payment_status IN ('pending', 'overdue', 'partially_paid')"
     )['count'] ?? 0;
 
+    $startSql = appointmentStartSql();
+    $endSql   = appointmentEndSql();
     $nextAppointment = Database::fetch(
-        'SELECT title, ' . appointmentStartColumn() . ' AS start_time FROM appointments
-         WHERE ' . appointmentStartColumn() . " >= NOW() AND status IN ('scheduled', 'confirmed')
-         ORDER BY " . appointmentStartColumn() . ' ASC LIMIT 1'
+        "SELECT title, {$startSql} AS start_time FROM appointments
+         WHERE status IN ('scheduled', 'confirmed')
+           AND ({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))
+         ORDER BY {$startSql} ASC LIMIT 1"
     );
 
     return [
@@ -1231,57 +1633,195 @@ function getChatbotContext(): array
     ];
 }
 
+function getActiveCasesForChat(int $limit = 10): array
+{
+    return Database::fetchAll(
+        "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+         FROM cases cs
+         JOIN clients cl ON cl.id = cs.client_id
+         WHERE cs.status IN ('pending', 'in_progress', 'waiting_for_client')
+         ORDER BY cs.updated_at DESC
+         LIMIT ?",
+        [$limit]
+    );
+}
+
+function formatChatbotCaseList(array $cases, string $heading): string
+{
+    if ($cases === []) {
+        return 'No cases found matching that request.';
+    }
+
+    $lines = [$heading . ' (' . count($cases) . ')', ''];
+
+    foreach ($cases as $case) {
+        $status = ucwords(str_replace('_', ' ', $case['status'] ?? 'unknown'));
+        $client = clientFullName($case);
+        $lines[] = "• **{$case['case_number']}** — {$case['title']} (*{$status}*) — {$client}";
+    }
+
+    return implode("\n", $lines);
+}
+
+function chatbotWantsList(string $message): bool
+{
+    return (bool) preg_match('/\b(list|show|display|give me|name|which|tell me about)\b/', $message);
+}
+
+function chatbotWantsCount(string $message): bool
+{
+    return (bool) preg_match('/\b(how many|number of|count of|total number)\b/', $message);
+}
+
+function chatbotIsFollowUpList(string $message): bool
+{
+    return (bool) preg_match(
+        '/^(list them|show them|list those|show those|name them|what are they|list it|show it|go on|continue|more details|details please|yes list|yes show)$/',
+        $message
+    );
+}
+
 function generateChatbotReply(string $message): string
 {
     $message = strtolower(trim($message));
     $ctx = getChatbotContext();
     $stats = $ctx['stats'];
+    $lastTopic = $_SESSION['chatbot_last_topic'] ?? null;
 
-    if ($message === '' || preg_match('/^(hi|hello|hey|help)/', $message)) {
+    if ($message === '' || preg_match('/^(hi|hello|hey)$/', $message)) {
         return "Hello! I'm your Notary Admin Assistant. I can help with:\n\n"
             . "• **Clients** — ask \"how many clients\" or \"list clients\"\n"
-            . "• **Cases** — ask \"active cases\" or \"pending cases\"\n"
-            . "• **Payments** — ask \"total revenue\" or \"pending invoices\"\n"
+            . "• **Cases** — ask \"how many active cases\" or \"list active cases\"\n"
+            . "• **Payments** — ask \"total revenue\" or \"list recent payments\"\n"
             . "• **Appointments** — ask \"upcoming appointments\" or \"next appointment\"\n\n"
             . "What would you like to know?";
     }
 
-    if (preg_match('/how many client|total client|client count|number of client/', $message)) {
-        return "You currently have **{$stats['total_clients']} registered clients** in the system.";
+    if ($message === 'help') {
+        return "Hello! I'm your Notary Admin Assistant. I can help with:\n\n"
+            . "• **Clients** — ask \"how many clients\" or \"list clients\"\n"
+            . "• **Cases** — ask \"how many active cases\" or \"list active cases\"\n"
+            . "• **Payments** — ask \"total revenue\" or \"list recent payments\"\n"
+            . "• **Appointments** — ask \"upcoming appointments\" or \"next appointment\"\n\n"
+            . "After a count, you can say **list them** to see the items.";
     }
 
-    if (preg_match('/list client|show client|all client/', $message)) {
-        $clients = getAllClients();
-        if (empty($clients)) {
-            return 'No clients found in the system.';
+    if (chatbotIsFollowUpList($message) && $lastTopic) {
+        switch ($lastTopic) {
+            case 'active_cases':
+                $_SESSION['chatbot_last_topic'] = 'active_cases';
+                return formatChatbotCaseList(getActiveCasesForChat(), '**Active cases:**');
+            case 'clients':
+                $_SESSION['chatbot_last_topic'] = 'clients';
+                $clients = getAllClients();
+                if ($clients === []) {
+                    return 'No clients found in the system.';
+                }
+                $lines = ['Here are your **' . count($clients) . ' clients**:', ''];
+                foreach (array_slice($clients, 0, 10) as $client) {
+                    $name = clientFullName($client);
+                    $company = $client['company_name'] ? " ({$client['company_name']})" : '';
+                    $lines[] = "• {$name}{$company} — {$client['case_count']} case(s)";
+                }
+                return implode("\n", $lines);
+            case 'cases':
+                $_SESSION['chatbot_last_topic'] = 'cases';
+                return formatChatbotCaseList(
+                    Database::fetchAll(
+                        "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+                         FROM cases cs
+                         JOIN clients cl ON cl.id = cs.client_id
+                         ORDER BY cs.updated_at DESC
+                         LIMIT 10"
+                    ),
+                    '**Recent cases:**'
+                );
+            case 'payments':
+                $_SESSION['chatbot_last_topic'] = 'payments';
+                $payments = getAllPayments();
+                if ($payments === []) {
+                    return 'No payments recorded yet.';
+                }
+                $lines = ['**Recent payments:**', ''];
+                foreach (array_slice($payments, 0, 8) as $payment) {
+                    $name = clientFullName($payment);
+                    $status = ucfirst(paymentStatusValue($payment));
+                    $lines[] = '• ' . formatCurrency((float) $payment['amount']) . " from {$name} — {$payment['invoice_number']} (*{$status}*)";
+                }
+                return implode("\n", $lines);
+            case 'appointments':
+                $_SESSION['chatbot_last_topic'] = 'appointments';
+                $appointments = getUpcomingAppointments(8);
+                if ($appointments === []) {
+                    return 'No upcoming appointments scheduled.';
+                }
+                $lines = ['**Upcoming appointments:**', ''];
+                foreach ($appointments as $appointment) {
+                    $start = appointmentStart($appointment) ?? $appointment['start_time'] ?? null;
+                    $client = clientFullName($appointment);
+                    $lines[] = '• **' . ($appointment['title'] ?? 'Appointment') . '** — '
+                        . ($start ? formatDateTime($start) : 'TBD') . " — {$client}";
+                }
+                return implode("\n", $lines);
         }
-        $lines = ["Here are your **" . count($clients) . " clients**:", ''];
-        foreach (array_slice($clients, 0, 8) as $c) {
-            $name = clientFullName($c);
-            $company = $c['company_name'] ? " ({$c['company_name']})" : '';
-            $lines[] = "• {$name}{$company} — {$c['case_count']} case(s)";
-        }
-        return implode("\n", $lines);
     }
 
-    if (preg_match('/active case|open case|in progress case/', $message)) {
+    if (preg_match('/client/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist client|\bshow client|\ball client/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'clients';
+            $clients = getAllClients();
+            if ($clients === []) {
+                return 'No clients found in the system.';
+            }
+            $lines = ['Here are your **' . count($clients) . ' clients**:', ''];
+            foreach (array_slice($clients, 0, 10) as $client) {
+                $name = clientFullName($client);
+                $company = $client['company_name'] ? " ({$client['company_name']})" : '';
+                $lines[] = "• {$name}{$company} — {$client['case_count']} case(s)";
+            }
+            return implode("\n", $lines);
+        }
+
+        if (chatbotWantsCount($message) || preg_match('/how many client|total client|client count|number of client/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'clients';
+            return "You currently have **{$stats['total_clients']} registered clients** in the system.";
+        }
+    }
+
+    if (preg_match('/active case|open case|in progress case|pending case/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist active|\bshow active|\blist case|\bshow case/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'active_cases';
+            return formatChatbotCaseList(getActiveCasesForChat(), '**Active cases:**');
+        }
+
+        $_SESSION['chatbot_last_topic'] = 'active_cases';
         return "There are **{$stats['active_cases']} active cases** currently in progress or pending action.";
     }
 
-    if (preg_match('/pending case|case status|list case|show case|all case/', $message)) {
-        $cases = $ctx['recent_cases'];
-        if (empty($cases)) {
-            return 'No cases found.';
+    if (preg_match('/case/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist case|\bshow case|\ball case|recent case/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'cases';
+            return formatChatbotCaseList(
+                Database::fetchAll(
+                    "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+                     FROM cases cs
+                     JOIN clients cl ON cl.id = cs.client_id
+                     ORDER BY cs.updated_at DESC
+                     LIMIT 10"
+                ),
+                '**Recent cases:**'
+            );
         }
-        $lines = ['**Recent cases:**', ''];
-        foreach ($cases as $case) {
-            $status = ucwords(str_replace('_', ' ', $case['status']));
-            $lines[] = "• {$case['case_number']} — {$case['title']} (*{$status}*)";
+
+        if (chatbotWantsCount($message)) {
+            $_SESSION['chatbot_last_topic'] = 'cases';
+            $totalCases = (int) (Database::fetch('SELECT COUNT(*) AS c FROM cases')['c'] ?? 0);
+            return "You have **{$totalCases} cases** in total, with **{$stats['active_cases']} active**.";
         }
-        return implode("\n", $lines);
     }
 
-    if (preg_match('/revenue|total payment|payment total|earnings|income/', $message)) {
+    if (preg_match('/revenue|total payment|payment total|earnings|income/', $message) && !chatbotWantsList($message)) {
+        $_SESSION['chatbot_last_topic'] = 'revenue';
         return "**Revenue summary:**\n\n"
             . "• Total revenue: " . formatCurrency($stats['total_revenue']) . "\n"
             . "• This month: " . formatCurrency($stats['monthly_revenue']) . "\n"
@@ -1289,32 +1829,55 @@ function generateChatbotReply(string $message): string
     }
 
     if (preg_match('/pending invoice|unpaid|outstanding/', $message)) {
+        $_SESSION['chatbot_last_topic'] = 'payments';
         return "You have **{$stats['pending_invoices']} pending invoices** and **{$ctx['pending_payments']} invoices** awaiting payment follow-up.";
     }
 
-    if (preg_match('/list payment|show payment|recent payment|all payment/', $message)) {
-        $payments = getAllPayments();
-        if (empty($payments)) {
-            return 'No payments recorded yet.';
+    if (preg_match('/payment/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist payment|\bshow payment|\brecent payment|\ball payment/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'payments';
+            $payments = getAllPayments();
+            if ($payments === []) {
+                return 'No payments recorded yet.';
+            }
+            $lines = ['**Recent payments:**', ''];
+            foreach (array_slice($payments, 0, 8) as $payment) {
+                $name = clientFullName($payment);
+                $status = ucfirst(paymentStatusValue($payment));
+                $lines[] = '• ' . formatCurrency((float) $payment['amount']) . " from {$name} — {$payment['invoice_number']} (*{$status}*)";
+            }
+            return implode("\n", $lines);
         }
-        $lines = ['**Recent payments:**', ''];
-        foreach (array_slice($payments, 0, 6) as $p) {
-            $name = clientFullName($p);
-            $status = ucfirst(paymentStatusValue($p));
-            $lines[] = "• " . formatCurrency((float) $p['amount']) . " from {$name} — {$p['invoice_number']} (*{$status}*)";
-        }
-        return implode("\n", $lines);
     }
 
-    if (preg_match('/next appointment|upcoming appointment|schedule|appointment/', $message)) {
+    if (preg_match('/appointment|schedule/', $message)) {
+        if (chatbotWantsList($message) || preg_match('/\blist appointment|\bshow appointment|\bupcoming appointment/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'appointments';
+            $appointments = getUpcomingAppointments(8);
+            if ($appointments === []) {
+                return 'No upcoming appointments scheduled.';
+            }
+            $lines = ['**Upcoming appointments:**', ''];
+            foreach ($appointments as $appointment) {
+                $start = appointmentStart($appointment) ?? $appointment['start_time'] ?? null;
+                $client = clientFullName($appointment);
+                $lines[] = '• **' . ($appointment['title'] ?? 'Appointment') . '** — '
+                    . ($start ? formatDateTime($start) : 'TBD') . " — {$client}";
+            }
+            return implode("\n", $lines);
+        }
+
+        $_SESSION['chatbot_last_topic'] = 'appointments';
         if ($ctx['next_appointment']) {
             $appt = $ctx['next_appointment'];
-            return "**Next appointment:** {$appt['title']} on " . formatDateTime($appt['start_time']) . ".";
+            return "**Next appointment:** {$appt['title']} on " . formatDateTime($appt['start_time']) . '.';
         }
+
         return "You have **{$stats['upcoming_appointments']} upcoming appointments** scheduled. No future appointments found in the calendar.";
     }
 
     if (preg_match('/dashboard|summary|overview|status/', $message)) {
+        $_SESSION['chatbot_last_topic'] = 'dashboard';
         return "**Dashboard overview:**\n\n"
             . "• Clients: {$stats['total_clients']}\n"
             . "• Active cases: {$stats['active_cases']}\n"
@@ -1343,16 +1906,11 @@ function getClientDashboardStats(int $clientId): array
         [$clientId]
     )['c'] ?? 0);
 
-    $upcoming = (int) (Database::fetch(
-        'SELECT COUNT(*) AS c FROM appointments WHERE client_id = ? AND ' . appointmentStartColumn() . " >= NOW() AND status IN ('scheduled','confirmed')",
-        [$clientId]
-    )['c'] ?? 0);
-
     return [
         'active_cases'          => $activeCases,
         'pending_invoices'      => $pendingInvoices,
         'documents'             => $documents,
-        'upcoming_appointments' => $upcoming,
+        'upcoming_appointments' => count(getClientUpcomingAppointments($clientId, 1000)),
     ];
 }
 
@@ -1378,28 +1936,58 @@ function getClientRecentCases(int $clientId, int $limit = 5): array
 
 function getClientUpcomingAppointments(int $clientId, int $limit = 5): array
 {
-    $startCol = appointmentStartColumn();
+    $appointments = getClientAppointments($clientId);
+    $visible = [];
 
-    return Database::fetchAll(
-        "SELECT a.*, a.{$startCol} AS start_time FROM appointments a
-         WHERE a.client_id = ? AND a.{$startCol} >= NOW() AND a.status IN ('scheduled','confirmed')
-         ORDER BY a.{$startCol} ASC LIMIT ?",
-        [$clientId, $limit]
-    );
+    foreach ($appointments as $appointment) {
+        if (!isClientScheduledAppointment($appointment)) {
+            continue;
+        }
+
+        $appointment['start_time'] = appointmentEffectiveStart($appointment);
+        $appointment['end_time']   = appointmentEffectiveEnd($appointment);
+        $visible[] = $appointment;
+    }
+
+    usort($visible, static function (array $a, array $b): int {
+        $aStart = strtotime(appointmentEffectiveStart($a) ?? '');
+        $bStart = strtotime(appointmentEffectiveStart($b) ?? '');
+        $now    = time();
+
+        $aActive = isUpcomingAppointment($a);
+        $bActive = isUpcomingAppointment($b);
+
+        if ($aActive !== $bActive) {
+            return $bActive <=> $aActive;
+        }
+
+        return $aStart <=> $bStart;
+    });
+
+    return array_slice($visible, 0, $limit);
 }
 
 function getClientAppointments(int $clientId): array
 {
-    $startCol = appointmentStartColumn();
-    $endCol   = appointmentEndColumn();
+    $startSql = appointmentStartSql('a');
+    $endSql   = appointmentEndSql('a');
 
-    return Database::fetchAll(
-        "SELECT a.*, a.{$startCol} AS start_time, a.{$endCol} AS end_time
+    $appointments = Database::fetchAll(
+        "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
+                cs.case_number, cs.title AS case_title
          FROM appointments a
+         LEFT JOIN cases cs ON cs.id = a.case_id
          WHERE a.client_id = ?
-         ORDER BY a.{$startCol} DESC",
+         ORDER BY {$startSql} DESC",
         [$clientId]
     );
+
+    foreach ($appointments as &$appointment) {
+        enrichAppointmentCase($appointment, true);
+    }
+    unset($appointment);
+
+    return $appointments;
 }
 
 function getClientInvoices(int $clientId): array

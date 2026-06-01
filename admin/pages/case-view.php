@@ -114,8 +114,28 @@ require __DIR__ . '/../includes/header.php';
                         <div class="case-detail-grid">
                             <div><span class="case-detail-label">Client</span><strong><?= e(clientFullName($case)) ?></strong><?php if ($case['company_name']): ?><small class="d-block text-muted"><?= e($case['company_name']) ?></small><?php endif; ?></div>
                             <div><span class="case-detail-label">Email</span><strong><?= e($case['email'] ?? '—') ?></strong></div>
-                            <div><span class="case-detail-label">Service Type</span><strong><?= e($case['service_type']) ?></strong></div>
-                            <div><span class="case-detail-label">Service Fee</span><strong><?= formatCurrency((float) $case['service_fee']) ?></strong></div>
+                            <div class="case-detail-span-2">
+                                <span class="case-detail-label">Services</span>
+                                <div class="case-services-table-wrap mt-1">
+                                    <table class="table table-sm case-services-table mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Service</th>
+                                                <th class="text-end">Fee</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?= CaseService::formatCaseServicesHtml($case) ?>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <th>Total</th>
+                                                <th class="text-end"><?= formatCurrency((float) $case['service_fee']) ?></th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
                             <div><span class="case-detail-label">Assigned Admin</span><strong><?= e($case['admin_name'] ?? 'Unassigned') ?></strong></div>
                             <div><span class="case-detail-label">Deadline</span><strong><?= formatDate($case['deadline']) ?></strong></div>
                             <div><span class="case-detail-label">Created</span><strong><?= formatDateTime($case['created_at']) ?></strong></div>

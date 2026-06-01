@@ -21,6 +21,7 @@ class SettingsService
             'logo'            => null,
             'office_email'    => null,
             'office_phone'    => null,
+            'business_hours'  => "Monday – Friday: 9:00 AM – 5:00 PM\nSaturday – Sunday: Closed",
             'address'         => null,
             'description'     => null,
             'smtp_host'       => null,
@@ -75,36 +76,53 @@ class SettingsService
             $stripeSecret = $settings['stripe_secret_key'] ?? null;
         }
 
-        Database::query(
-            'UPDATE company_settings SET
-                company_name = ?, logo = ?, primary_color = ?, secondary_color = ?, dark_accent = ?,
-                font_family = ?, description = ?, office_email = ?, office_phone = ?, address = ?,
-                smtp_host = ?, smtp_port = ?, smtp_username = ?, smtp_password = ?, smtp_encryption = ?,
-                stripe_public_key = ?, stripe_secret_key = ?, updated_at = NOW()
-             WHERE id = ?',
-            [
-                trim($data['company_name'] ?? 'Notary Management'),
-                $logoPath,
-                self::normalizeColor($data['primary_color'] ?? '#3aafa9'),
-                self::normalizeColor($data['secondary_color'] ?? '#00182c'),
-                self::normalizeColor($data['dark_accent'] ?? '#000000'),
-                trim($data['font_family'] ?? 'Montserrat'),
-                trim($data['description'] ?? '') ?: null,
-                trim($data['office_email'] ?? '') ?: null,
-                trim($data['office_phone'] ?? '') ?: null,
-                trim($data['address'] ?? '') ?: null,
-                trim($data['smtp_host'] ?? '') ?: null,
-                (int) ($data['smtp_port'] ?? 587),
-                trim($data['smtp_username'] ?? '') ?: null,
-                $smtpPassword,
-                in_array($data['smtp_encryption'] ?? 'tls', ['tls', 'ssl', 'none'], true)
-                    ? $data['smtp_encryption']
-                    : 'tls',
-                trim($data['stripe_public_key'] ?? '') ?: null,
-                $stripeSecret,
-                $id,
-            ]
-        );
+        $params = [
+            trim($data['company_name'] ?? 'Notary Management'),
+            $logoPath,
+            self::normalizeColor($data['primary_color'] ?? '#3aafa9'),
+            self::normalizeColor($data['secondary_color'] ?? '#00182c'),
+            self::normalizeColor($data['dark_accent'] ?? '#000000'),
+            trim($data['font_family'] ?? 'Montserrat'),
+            trim($data['description'] ?? '') ?: null,
+            trim($data['office_email'] ?? '') ?: null,
+            trim($data['office_phone'] ?? '') ?: null,
+            trim($data['address'] ?? '') ?: null,
+            trim($data['smtp_host'] ?? '') ?: null,
+            (int) ($data['smtp_port'] ?? 587),
+            trim($data['smtp_username'] ?? '') ?: null,
+            $smtpPassword,
+            in_array($data['smtp_encryption'] ?? 'tls', ['tls', 'ssl', 'none'], true)
+                ? $data['smtp_encryption']
+                : 'tls',
+            trim($data['stripe_public_key'] ?? '') ?: null,
+            $stripeSecret,
+            $id,
+        ];
+
+        $businessHours = trim($data['business_hours'] ?? '') ?: null;
+
+        if (Database::columnExists('company_settings', 'business_hours')) {
+            array_splice($params, 9, 0, [$businessHours]);
+            Database::query(
+                'UPDATE company_settings SET
+                    company_name = ?, logo = ?, primary_color = ?, secondary_color = ?, dark_accent = ?,
+                    font_family = ?, description = ?, office_email = ?, office_phone = ?, business_hours = ?, address = ?,
+                    smtp_host = ?, smtp_port = ?, smtp_username = ?, smtp_password = ?, smtp_encryption = ?,
+                    stripe_public_key = ?, stripe_secret_key = ?, updated_at = NOW()
+                 WHERE id = ?',
+                $params
+            );
+        } else {
+            Database::query(
+                'UPDATE company_settings SET
+                    company_name = ?, logo = ?, primary_color = ?, secondary_color = ?, dark_accent = ?,
+                    font_family = ?, description = ?, office_email = ?, office_phone = ?, address = ?,
+                    smtp_host = ?, smtp_port = ?, smtp_username = ?, smtp_password = ?, smtp_encryption = ?,
+                    stripe_public_key = ?, stripe_secret_key = ?, updated_at = NOW()
+                 WHERE id = ?',
+                $params
+            );
+        }
 
         self::clearCache();
     }

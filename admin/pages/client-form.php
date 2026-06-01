@@ -257,6 +257,21 @@ document.addEventListener("DOMContentLoaded", function() {
     var phoneInput = document.getElementById("phone");
     var iti = null;
 
+    function syncPhoneInputPadding() {
+        if (!phoneInput) {
+            return;
+        }
+
+        var container = phoneInput.closest(".iti");
+        var countryContainer = container ? container.querySelector(".iti__country-container") : null;
+        if (!countryContainer) {
+            return;
+        }
+
+        var gap = 14;
+        phoneInput.style.paddingLeft = (countryContainer.offsetWidth + gap) + "px";
+    }
+
     if (phoneInput && window.intlTelInput) {
         var initialPhone = (phoneInput.getAttribute("data-initial-phone") || phoneInput.value || "").trim();
         phoneInput.value = "";
@@ -276,11 +291,26 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
+        syncPhoneInputPadding();
+        phoneInput.addEventListener("countrychange", syncPhoneInputPadding);
+        window.addEventListener("resize", syncPhoneInputPadding);
+
         if (window.intlTelInputUtils) {
             applyInitialPhone();
+            syncPhoneInputPadding();
         } else {
-            phoneInput.addEventListener("loadutils", applyInitialPhone, { once: true });
-            setTimeout(applyInitialPhone, 400);
+            phoneInput.addEventListener("loadutils", function() {
+                applyInitialPhone();
+                syncPhoneInputPadding();
+            }, { once: true });
+            setTimeout(function() {
+                applyInitialPhone();
+                syncPhoneInputPadding();
+            }, 400);
+        }
+
+        if (iti.promise) {
+            iti.promise.then(syncPhoneInputPadding);
         }
 
         if (form) {

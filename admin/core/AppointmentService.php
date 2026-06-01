@@ -21,7 +21,10 @@ class AppointmentService
         [$startsAt, $endsAt] = self::resolveTimes($data);
         self::assertNoConflicts($startsAt, $endsAt, null, $adminId);
 
-        $caseId      = !empty($data['case_id']) ? (int) $data['case_id'] : null;
+        $caseId      = resolveAppointmentCaseId(
+            $clientId,
+            !empty($data['case_id']) ? (int) $data['case_id'] : null
+        );
         $description = trim($data['description'] ?? '') ?: null;
         $location    = trim($data['location'] ?? '') ?: null;
         $status      = $data['status'] ?? 'scheduled';
@@ -50,7 +53,7 @@ class AppointmentService
             $appointment['ics_url'] = $calendar['ics_url'];
         }
 
-        self::notifyAppointment($client, $appointment ?? ['title' => $title, 'starts_at' => $startsAt, 'ends_at' => $endsAt, 'location' => $location, 'description' => $description], $calendar);
+        self::notifyAppointment($client, $appointment ?? ['title' => $title, 'starts_at' => $startsAt, 'ends_at' => $endsAt, 'location' => $location, 'description' => $description], $calendar, 'scheduled');
 
         return $id;
     }
@@ -81,17 +84,56 @@ class AppointmentService
             'ends_at'     => $endsAt,
         ];
 
-        try {
-            Database::query(
-                'UPDATE appointments SET title = ?, description = ?, location = ?, status = ?, starts_at = ?, ends_at = ?, updated_at = NOW() WHERE id = ?',
-                [$fields['title'], $fields['description'], $fields['location'], $fields['status'], $fields['starts_at'], $fields['ends_at'], $id]
-            );
-        } catch (Throwable $e) {
-            Database::query(
-                'UPDATE appointments SET title = ?, description = ?, location = ?, status = ?, start_time = ?, end_time = ?, updated_at = NOW() WHERE id = ?',
-                [$fields['title'], $fields['description'], $fields['location'], $fields['status'], $fields['starts_at'], $fields['ends_at'], $id]
-            );
+        $setParts = [
+            'title = ?',
+            'description = ?',
+            'location = ?',
+            'status = ?',
+            'updated_at = NOW()',
+        ];
+        $params = [
+            $fields['title'],
+            $fields['description'],
+            $fields['location'],
+            $fields['status'],
+        ];
+
+        if (Database::columnExists('appointments', 'starts_at')) {
+            $setParts[] = 'starts_at = ?';
+            $params[] = $fields['starts_at'];
         }
+        if (Database::columnExists('appointments', 'start_time')) {
+            $setParts[] = 'start_time = ?';
+            $params[] = $fields['starts_at'];
+        }
+        if (Database::columnExists('appointments', 'ends_at')) {
+            $setParts[] = 'ends_at = ?';
+            $params[] = $fields['ends_at'];
+        }
+        if (Database::columnExists('appointments', 'end_time')) {
+            $setParts[] = 'end_time = ?';
+            $params[] = $fields['ends_at'];
+        }
+
+        $clientId = (int) ($appointment['client_id'] ?? 0);
+        $existingCaseId = (int) ($appointment['case_id'] ?? 0);
+        if ($existingCaseId <= 0 && $clientId > 0) {
+            $linkedCaseId = resolveAppointmentCaseId(
+                $clientId,
+                !empty($data['case_id']) ? (int) $data['case_id'] : null
+            );
+            if ($linkedCaseId) {
+                $setParts[] = 'case_id = ?';
+                $params[] = $linkedCaseId;
+            }
+        }
+
+        $params[] = $id;
+
+        Database::query(
+            'UPDATE appointments SET ' . implode(', ', $setParts) . ' WHERE id = ?',
+            $params
+        );
 
         if ($previousStart !== $startsAt) {
             ReminderService::resetReminder($id);
@@ -99,7 +141,22 @@ class AppointmentService
 
         $client = ClientService::getById((int) ($appointment['client_id'] ?? 0));
         if ($client) {
-            GoogleCalendarService::syncAppointment($id, $client);
+            try {
+                $calendar = GoogleCalendarService::syncAppointment($id, $client);
+            } catch (Throwable $e) {
+                $calendar = [];
+            }
+            $updated  = self::getById($id);
+            if ($updated) {
+                if (!empty($calendar['url'])) {
+                    $updated['meeting_link'] = $calendar['url'];
+                }
+                try {
+                    self::notifyAppointment($client, $updated, $calendar, 'updated');
+                } catch (Throwable $e) {
+                    // Appointment saved; notification failure should not block the update
+                }
+            }
         }
     }
 
@@ -116,6 +173,12 @@ class AppointmentService
             Database::query("UPDATE appointments SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [$id]);
         } catch (Throwable $e) {
             throw new RuntimeException('Unable to cancel appointment.');
+        }
+
+        $client = ClientService::getById((int) ($appointment['client_id'] ?? 0));
+        if ($client) {
+            $appointment['status'] = 'cancelled';
+            self::notifyAppointment($client, $appointment, [], 'cancelled');
         }
     }
 
@@ -155,8 +218,11 @@ class AppointmentService
 
     public static function getById(int $id): ?array
     {
+        $startSql = appointmentStartSql('a');
+        $endSql   = appointmentEndSql('a');
+
         $row = Database::fetch(
-            'SELECT a.*, a.starts_at AS start_time, a.ends_at AS end_time FROM appointments a WHERE a.id = ?',
+            "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time FROM appointments a WHERE a.id = ?",
             [$id]
         );
 
@@ -211,49 +277,53 @@ class AppointmentService
         throw new RuntimeException('This time overlaps with: ' . implode('; ', $labels));
     }
 
-    private static function notifyAppointment(array $client, array $appointment, array $calendar = []): void
+    private static function notifyAppointment(array $client, array $appointment, array $calendar = [], string $event = 'scheduled'): void
     {
+        $appointmentId = (int) ($appointment['id'] ?? 0);
+        $links = GoogleCalendarService::getCalendarLinks($appointmentId, $appointment, $client, true);
+
         if (!empty($client['email'])) {
-            MailService::sendAppointmentEmail($client, $appointment, $calendar['url'] ?? null);
+            MailService::sendAppointmentEmail($client, $appointment, $links, $event);
         }
 
         $userId = (int) ($client['user_id'] ?? 0);
         $start  = formatDateTime(appointmentStart($appointment));
 
-        if ($userId > 0) {
-            $link = $calendar['url'] ?? clientUrl('pages/dashboard.php');
+        $titles = [
+            'scheduled' => 'Appointment scheduled',
+            'updated'   => 'Appointment updated',
+            'cancelled' => 'Appointment cancelled',
+        ];
 
-            try {
-                Database::insert(
-                    'INSERT INTO notifications (user_id, title, message, type, is_read, link, created_at) VALUES (?, ?, ?, ?, 0, ?, NOW())',
-                    [
-                        $userId,
-                        'Appointment scheduled',
-                        ($appointment['title'] ?? 'Appointment') . ' — ' . $start,
-                        'appointment',
-                        $link,
-                    ]
-                );
-            } catch (Throwable $e) {
-                // optional
-            }
+        $clientMessage = ($appointment['title'] ?? 'Appointment') . ' — ' . $start;
+        if ($event === 'cancelled') {
+            $clientMessage = ($appointment['title'] ?? 'Appointment') . ' on ' . $start . ' has been cancelled.';
         }
 
+        if ($userId > 0) {
+            createNotification(
+                $userId,
+                $titles[$event] ?? 'Appointment update',
+                $clientMessage,
+                'appointment',
+                clientUrl('pages/appointments.php')
+            );
+        }
+
+        $adminTitles = [
+            'scheduled' => 'Appointment scheduled',
+            'updated'   => 'Appointment updated',
+            'cancelled' => 'Appointment cancelled',
+        ];
+
         foreach (Database::fetchAll("SELECT id FROM users WHERE role = 'admin' AND status = 'active'") as $admin) {
-            try {
-                Database::insert(
-                    'INSERT INTO notifications (user_id, title, message, type, is_read, link, created_at) VALUES (?, ?, ?, ?, 0, ?, NOW())',
-                    [
-                        (int) $admin['id'],
-                        'Appointment scheduled',
-                        clientFullName($client) . ' — ' . ($appointment['title'] ?? 'Appointment') . ' (' . $start . ')',
-                        'appointment',
-                        url('pages/appointments.php'),
-                    ]
-                );
-            } catch (Throwable $e) {
-                // optional
-            }
+            createNotification(
+                (int) $admin['id'],
+                $adminTitles[$event] ?? 'Appointment update',
+                clientFullName($client) . ' — ' . ($appointment['title'] ?? 'Appointment') . ' (' . $start . ')',
+                'appointment',
+                url('pages/appointments.php')
+            );
         }
     }
 }

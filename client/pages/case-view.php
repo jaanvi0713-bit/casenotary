@@ -44,8 +44,28 @@ require __DIR__ . '/../includes/header.php';
             <div class="case-panel">
                 <h3 class="case-panel-title">Case Details</h3>
                 <div class="case-detail-grid">
-                    <div><span class="case-detail-label">Service</span><strong><?= e($case['service_type']) ?></strong></div>
-                    <div><span class="case-detail-label">Fee</span><strong><?= formatCurrency((float) $case['service_fee']) ?></strong></div>
+                    <div class="case-detail-span-2">
+                        <span class="case-detail-label">Services</span>
+                        <div class="case-services-table-wrap mt-1">
+                            <table class="table table-sm case-services-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Service</th>
+                                        <th class="text-end">Fee</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?= CaseService::formatCaseServicesHtml($case) ?>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th>Total</th>
+                                        <th class="text-end"><?= formatCurrency((float) $case['service_fee']) ?></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
                     <div><span class="case-detail-label">Deadline</span><strong><?= formatDate($case['deadline']) ?></strong></div>
                     <div><span class="case-detail-label">Priority</span><strong><?= ucfirst($case['priority']) ?></strong></div>
                 </div>

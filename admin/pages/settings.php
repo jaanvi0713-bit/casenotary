@@ -226,7 +226,11 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Office Phone</label>
-                        <input type="text" name="office_phone" class="form-control" value="<?= e($settings['office_phone'] ?? '') ?>">
+                        <input type="text" name="office_phone" class="form-control" value="<?= e($settings['office_phone'] ?? '') ?>" placeholder="+1 (555) 123-4567">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Business Hours</label>
+                        <textarea name="business_hours" class="form-control" rows="3" placeholder="Monday – Friday: 9:00 AM – 5:00 PM"><?= e($settings['business_hours'] ?? '') ?></textarea>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Address</label>

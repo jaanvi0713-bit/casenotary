@@ -40,14 +40,21 @@ class MailService
 
     public static function sendQuoteEmail(array $client, array $case, string $quotationNumber, ?string $documentPath = null): bool
     {
-        $name = clientFullName($client) ?: 'Client';
+        $name     = clientFullName($client) ?: 'Client';
+        $services = CaseService::getCaseServices($case);
+        $serviceHtml = '';
+
+        foreach ($services as $service) {
+            $serviceHtml .= e($service['type']) . ' — ' . formatCurrency((float) $service['fee']) . '<br>';
+        }
+
         $body = self::wrapTemplate(
             'Quotation — ' . e($case['title']),
             '<p>Dear ' . e($name) . ',</p>'
             . '<p>Please find your quotation <strong>' . e($quotationNumber) . '</strong> for case '
             . '<strong>' . e($case['case_number']) . '</strong>.</p>'
-            . '<p><strong>Service:</strong> ' . e($case['service_type']) . '<br>'
-            . '<strong>Fee:</strong> ' . formatCurrency((float) $case['service_fee']) . '</p>'
+            . '<p><strong>Services:</strong><br>' . $serviceHtml
+            . '<strong>Total:</strong> ' . formatCurrency((float) $case['service_fee']) . '</p>'
             . '<p>Log in to your client portal to review documents and next steps.</p>'
             . '<p><a href="' . e(clientUrl('auth/login.php')) . '" style="color:#3aafa9;">Open Client Portal</a></p>'
         );
@@ -78,32 +85,54 @@ class MailService
         return self::send($client['email'], 'Your Client Portal Login', $body);
     }
 
-    public static function sendAppointmentEmail(array $client, array $appointment, ?string $calendarUrl = null): bool
+    public static function sendAppointmentEmail(array $client, array $appointment, ?array $calendarLinks = null, string $event = 'scheduled'): bool
     {
         $name  = clientFullName($client) ?: 'Client';
         $start = appointmentStart($appointment);
+        $appointmentId = (int) ($appointment['id'] ?? 0);
 
-        $calendarLink = $calendarUrl
-            ?: ($appointment['meeting_link'] ?? GoogleCalendarService::buildAddToCalendarUrl($appointment, $client));
+        $links = $calendarLinks ?: GoogleCalendarService::getCalendarLinks($appointmentId, $appointment, $client, true);
 
-        $icsLink = $appointment['ics_url'] ?? url('actions/appointment-ics.php?id=' . (int) ($appointment['id'] ?? 0));
+        $headings = [
+            'scheduled' => 'Appointment Scheduled',
+            'updated'   => 'Appointment Updated',
+            'cancelled' => 'Appointment Cancelled',
+        ];
+
+        $intros = [
+            'scheduled' => 'An appointment has been scheduled for you.',
+            'updated'   => 'Your appointment details have been updated.',
+            'cancelled' => 'Your appointment has been cancelled.',
+        ];
+
+        $calendarButtons = '';
+        if ($event !== 'cancelled') {
+            $calendarButtons = '<p style="margin:20px 0;">'
+                . '<a href="' . e($links['google']) . '" style="display:inline-block;background:#3aafa9;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">Add to Google Calendar</a>'
+                . '<a href="' . e($links['outlook']) . '" style="display:inline-block;background:#0078d4;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">Add to Outlook Calendar</a>'
+                . '<a href="' . e($links['ics']) . '" style="display:inline-block;background:#00182c;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">Download Calendar File</a>'
+                . '</p>';
+        }
 
         $body = self::wrapTemplate(
-            'Appointment Scheduled',
+            $headings[$event] ?? 'Appointment Update',
             '<p>Dear ' . e($name) . ',</p>'
-            . '<p>An appointment has been scheduled for you.</p>'
+            . '<p>' . e($intros[$event] ?? 'There is an update to your appointment.') . '</p>'
             . '<p><strong>' . e($appointment['title']) . '</strong><br>'
             . '<strong>When:</strong> ' . e(formatDateTime($start)) . '<br>'
             . '<strong>Location:</strong> ' . e($appointment['location'] ?: 'To be confirmed') . '</p>'
             . (!empty($appointment['description']) ? '<p>' . nl2br(e($appointment['description'])) . '</p>' : '')
-            . '<p style="margin:20px 0;">'
-            . '<a href="' . e($calendarLink) . '" style="display:inline-block;background:#3aafa9;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;margin-right:8px;">Add to Google Calendar</a>'
-            . '<a href="' . e($icsLink) . '" style="display:inline-block;background:#00182c;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;">Download Calendar File</a>'
-            . '</p>'
-            . '<p><a href="' . e(clientUrl('pages/dashboard.php')) . '" style="color:#3aafa9;">View in Client Portal</a></p>'
+            . $calendarButtons
+            . '<p><a href="' . e(clientUrl('pages/appointments.php')) . '" style="color:#3aafa9;">View in Client Portal</a></p>'
         );
 
-        return self::send($client['email'], 'Appointment: ' . $appointment['title'], $body);
+        $subjects = [
+            'scheduled' => 'Appointment: ',
+            'updated'   => 'Updated appointment: ',
+            'cancelled' => 'Cancelled appointment: ',
+        ];
+
+        return self::send($client['email'], ($subjects[$event] ?? 'Appointment: ') . $appointment['title'], $body);
     }
 
     public static function sendAppointmentReminderEmail(array $client, array $appointment, ?string $calendarUrl = null): bool

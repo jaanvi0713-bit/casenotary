@@ -50,6 +50,17 @@ if (!tableExists($pdo, 'case_notes')) {
     echo "[OK] case_notes already exists\n";
 }
 
+if (tableExists($pdo, 'cases') && !columnExists($pdo, 'cases', 'services')) {
+    try {
+        $pdo->exec("ALTER TABLE cases ADD COLUMN services JSON DEFAULT NULL AFTER service_fee");
+        echo "[OK] Added cases.services\n";
+    } catch (PDOException $e) {
+        echo "[SKIP] cases.services: " . $e->getMessage() . "\n";
+    }
+} elseif (tableExists($pdo, 'cases')) {
+    echo "[OK] cases.services already exists\n";
+}
+
 if (tableExists($pdo, 'documents') && !columnExists($pdo, 'documents', 'upload_source')) {
     $pdo->exec("ALTER TABLE documents ADD COLUMN upload_source ENUM('admin','client') NOT NULL DEFAULT 'admin' AFTER uploaded_by");
     echo "[OK] Added documents.upload_source\n";

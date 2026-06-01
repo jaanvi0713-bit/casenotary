@@ -20,6 +20,7 @@ if ($isEdit) {
 
 $clients = getAllClients();
 $admins  = CaseService::getAdmins();
+$caseServices = $isEdit ? CaseService::getCaseServices($case) : [['type' => '', 'fee' => 0]];
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -169,23 +170,53 @@ require __DIR__ . '/../includes/header.php';
                         <p class="case-form-section-desc">Billing, priority, and target completion date.</p>
                     </div>
                 </div>
-                <div class="row g-3">
-                    <div class="col-md-6 col-lg-3">
-                        <label class="case-form-label" for="service_type">Service Type <span class="text-danger">*</span></label>
-                        <input type="text" id="service_type" name="service_type" class="form-control case-form-control" required
-                               placeholder="Property Transfer"
-                               value="<?= e($case['service_type'] ?? ($_SESSION['old']['service_type'] ?? '')) ?>">
+                <div class="case-services-block">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <p class="case-form-section-desc mb-0">Add one or more services for this case.</p>
+                        <button type="button" class="btn btn-soft btn-sm" id="add-service-row">
+                            <i class="bi bi-plus-lg"></i> Add Service
+                        </button>
                     </div>
-                    <div class="col-md-6 col-lg-3">
-                        <label class="case-form-label" for="service_fee">Service Fee</label>
-                        <div class="input-group case-fee-input">
-                            <span class="input-group-text"><?= e(currencySymbol()) ?></span>
-                            <input type="number" step="0.01" min="0" id="service_fee" name="service_fee"
-                                   class="form-control case-form-control"
-                                   value="<?= e((string) ($case['service_fee'] ?? '0')) ?>">
-                        </div>
+
+                    <div id="case-services-list" class="case-services-list">
+                        <?php foreach ($caseServices as $index => $service): ?>
+                            <div class="case-service-row row g-2 align-items-end<?= $index > 0 ? '' : ' case-service-row-first' ?>">
+                                <div class="col-md-6 col-lg-5">
+                                    <?php if ($index === 0): ?>
+                                        <label class="case-form-label">Service Type <span class="text-danger">*</span></label>
+                                    <?php endif; ?>
+                                    <input type="text" name="services[type][]" class="form-control case-form-control case-service-type"
+                                           placeholder="Property Transfer" required
+                                           value="<?= e($service['type']) ?>">
+                                </div>
+                                <div class="col-md-4 col-lg-3">
+                                    <?php if ($index === 0): ?>
+                                        <label class="case-form-label">Service Fee</label>
+                                    <?php endif; ?>
+                                    <div class="input-group case-fee-input">
+                                        <span class="input-group-text"><?= e(currencySymbol()) ?></span>
+                                        <input type="number" step="0.01" min="0" name="services[fee][]"
+                                               class="form-control case-form-control case-service-fee"
+                                               value="<?= e((string) ($service['fee'] ?? '0')) ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-2 col-lg-2">
+                                    <button type="button" class="btn btn-soft-danger btn-sm w-100 js-remove-service"<?= $index === 0 ? ' hidden' : '' ?>>
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
-                    <div class="col-md-6 col-lg-3">
+
+                    <div class="case-services-total mt-3">
+                        <span class="case-form-label d-inline">Total Fee</span>
+                        <strong class="case-services-total-value"><?= formatCurrency(CaseService::caseServicesTotal($caseServices)) ?></strong>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-1">
+                    <div class="col-md-6 col-lg-4">
                         <label class="case-form-label" for="priority">Priority</label>
                         <select id="priority" name="priority" class="form-select case-form-control">
                             <?php foreach (['low','medium','high','urgent'] as $p): ?>
@@ -193,7 +224,7 @@ require __DIR__ . '/../includes/header.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-4">
                         <label class="case-form-label" for="deadline">Deadline</label>
                         <input type="date" id="deadline" name="deadline" class="form-control case-form-control"
                                value="<?= e($case['deadline'] ?? '') ?>">
@@ -213,5 +244,94 @@ require __DIR__ . '/../includes/header.php';
         </div>
     </form>
 </div>
+
+<template id="case-service-row-template">
+    <div class="case-service-row row g-2 align-items-end">
+        <div class="col-md-6 col-lg-5">
+            <input type="text" name="services[type][]" class="form-control case-form-control case-service-type"
+                   placeholder="Property Transfer" required>
+        </div>
+        <div class="col-md-4 col-lg-3">
+            <div class="input-group case-fee-input">
+                <span class="input-group-text"><?= e(currencySymbol()) ?></span>
+                <input type="number" step="0.01" min="0" name="services[fee][]"
+                       class="form-control case-form-control case-service-fee" value="0">
+            </div>
+        </div>
+        <div class="col-md-2 col-lg-2">
+            <button type="button" class="btn btn-soft-danger btn-sm w-100 js-remove-service">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+</template>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var list = document.getElementById("case-services-list");
+    var template = document.getElementById("case-service-row-template");
+    var addBtn = document.getElementById("add-service-row");
+    var totalEl = document.querySelector(".case-services-total-value");
+    var currencySymbol = <?= json_encode(currencySymbol()) ?>;
+
+    function formatMoney(value) {
+        return currencySymbol + Number(value || 0).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function updateTotal() {
+        var total = 0;
+        list.querySelectorAll(".case-service-fee").forEach(function(input) {
+            total += parseFloat(input.value || "0") || 0;
+        });
+        if (totalEl) {
+            totalEl.textContent = formatMoney(total);
+        }
+    }
+
+    function refreshRemoveButtons() {
+        var rows = list.querySelectorAll(".case-service-row");
+        rows.forEach(function(row, index) {
+            var removeBtn = row.querySelector(".js-remove-service");
+            if (removeBtn) {
+                removeBtn.hidden = rows.length === 1;
+            }
+        });
+    }
+
+    function bindRow(row) {
+        row.querySelectorAll(".case-service-fee").forEach(function(input) {
+            input.addEventListener("input", updateTotal);
+        });
+
+        var removeBtn = row.querySelector(".js-remove-service");
+        if (removeBtn) {
+            removeBtn.addEventListener("click", function() {
+                if (list.querySelectorAll(".case-service-row").length === 1) {
+                    return;
+                }
+                row.remove();
+                refreshRemoveButtons();
+                updateTotal();
+            });
+        }
+    }
+
+    list.querySelectorAll(".case-service-row").forEach(bindRow);
+    updateTotal();
+
+    if (addBtn && template) {
+        addBtn.addEventListener("click", function() {
+            var row = template.content.firstElementChild.cloneNode(true);
+            list.appendChild(row);
+            bindRow(row);
+            refreshRemoveButtons();
+            row.querySelector(".case-service-type").focus();
+        });
+    }
+});
+</script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

@@ -23,43 +23,29 @@ if ($addedId > 0) {
     }
 }
 
-$statusColors = [
-    'scheduled' => '#3aafa9',
-    'confirmed' => '#10b981',
-    'completed' => '#64748b',
-    'cancelled' => '#ef4444',
-];
-
 $calendarEvents = [];
 foreach ($appointments as $appt) {
-    $start = appointmentStart($appt);
+    $start = appointmentEffectiveStart($appt);
     if (!$start) {
         continue;
     }
 
-    $end = appointmentEnd($appt) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
+    $end = appointmentEffectiveEnd($appt) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
     $calUrl = $appt['meeting_link'] ?? GoogleCalendarService::buildAddToCalendarUrl($appt, $appt);
 
-    $calendarEvents[] = [
-        'id'              => (string) ($appt['id'] ?? ''),
-        'title'           => $appt['title'] ?? 'Appointment',
-        'start'           => date('c', strtotime($start)),
-        'end'             => date('c', strtotime($end)),
-        'backgroundColor' => $statusColors[$appt['status'] ?? 'scheduled'] ?? '#3aafa9',
-        'borderColor'     => $statusColors[$appt['status'] ?? 'scheduled'] ?? '#3aafa9',
-        'extendedProps'   => [
-            'client'      => clientFullName($appt),
-            'case'        => $appt['case_number'] ?? '',
-            'status'      => $appt['status'] ?? 'scheduled',
-            'location'    => $appt['location'] ?? '',
-            'description' => $appt['description'] ?? '',
-            'startLabel'  => formatDateTime($start, 'M j, Y g:i A'),
-            'endLabel'    => formatDateTime($end, 'M j, Y g:i A'),
-            'calUrl'      => $calUrl,
-            'icsUrl'      => url('actions/appointment-ics.php?id=' . (int) ($appt['id'] ?? 0)),
-            'hasConflict' => false,
-        ],
-    ];
+    foreach (buildAppointmentCalendarEvents($appt, [
+        'client'      => clientFullName($appt),
+        'case'        => appointmentCaseLabel($appt),
+        'status'      => $appt['status'] ?? 'scheduled',
+        'location'    => $appt['location'] ?? '',
+        'description' => $appt['description'] ?? '',
+        'startLabel'  => formatDateTime($start, 'M j, Y g:i A'),
+        'endLabel'    => formatDateTime($end, 'M j, Y g:i A'),
+        'calUrl'      => $calUrl,
+        'icsUrl'      => url('actions/appointment-ics.php?id=' . (int) ($appt['id'] ?? 0)),
+    ]) as $event) {
+        $calendarEvents[] = $event;
+    }
 }
 
 for ($i = 0; $i < count($calendarEvents); $i++) {
@@ -127,6 +113,7 @@ require __DIR__ . '/../includes/header.php';
         <div class="appointment-calendar-legend">
             <span><i style="background:#3aafa9"></i> Scheduled</span>
             <span><i style="background:#10b981"></i> Confirmed</span>
+            <span><i style="background:#f59e0b"></i> Past</span>
             <span><i style="background:#64748b"></i> Completed</span>
             <span><i style="background:#ef4444"></i> Cancelled</span>
             <span><i style="background:#f59e0b;border:2px solid #f59e0b"></i> Overlap</span>
@@ -176,6 +163,7 @@ require __DIR__ . '/../includes/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($appointments as $appt): ?>
+                            <?php $caseLabel = appointmentCaseLabel($appt); ?>
                             <tr data-status="<?= e($appt['status']) ?>">
                                 <td>
                                     <span class="table-primary"><?= formatDate(appointmentStart($appt)) ?></span>
@@ -185,7 +173,7 @@ require __DIR__ . '/../includes/header.php';
                                 </td>
                                 <td><?= e($appt['title']) ?></td>
                                 <td><?= e(clientFullName($appt)) ?></td>
-                                <td class="text-muted"><?= e($appt['case_number'] ?: '—') ?></td>
+                                <td class="text-muted"><?= e($caseLabel !== 'None' ? $caseLabel : '—') ?></td>
                                 <td><?= statusBadge($appt['status']) ?></td>
                                 <td>
                                     <?php
@@ -208,6 +196,10 @@ require __DIR__ . '/../includes/header.php';
                                 <td>
                                     <button type="button" class="btn btn-soft btn-sm btn-edit-appt"
                                         data-id="<?= (int) $appt['id'] ?>"
+                                        data-client-id="<?= (int) ($appt['client_id'] ?? 0) ?>"
+                                        data-case-id="<?= (int) ($appt['case_id'] ?? $appt['resolved_case_id'] ?? 0) ?>"
+                                        data-client="<?= e(clientFullName($appt)) ?>"
+                                        data-case="<?= e($caseLabel) ?>"
                                         data-title="<?= e($appt['title']) ?>"
                                         data-starts="<?= e(date('Y-m-d\TH:i', strtotime(appointmentStart($appt)))) ?>"
                                         data-ends="<?= e(appointmentEnd($appt) ? date('Y-m-d\TH:i', strtotime(appointmentEnd($appt))) : '') ?>"
@@ -281,7 +273,7 @@ require __DIR__ . '/../includes/header.php';
             <div class="modal-body">
                 <div id="apptConflictAlert" class="alert alert-warning border-0 small d-none mb-3"></div>
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-6 appt-field-create">
                         <label class="form-label">Client <span class="text-danger">*</span></label>
                         <select name="client_id" id="appt_client_id" class="form-select" required>
                             <option value="">Select client</option>
@@ -290,11 +282,19 @@ require __DIR__ . '/../includes/header.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 appt-field-create">
                         <label class="form-label">Related Case</label>
                         <select name="case_id" id="appt_case_id" class="form-select">
                             <option value="">None</option>
                         </select>
+                    </div>
+                    <div class="col-md-6 appt-field-edit d-none">
+                        <label class="form-label">Client</label>
+                        <input type="text" class="form-control appt-readonly-field" id="appt_client_display" readonly tabindex="-1">
+                    </div>
+                    <div class="col-md-6 appt-field-edit d-none">
+                        <label class="form-label">Related Case</label>
+                        <input type="text" class="form-control appt-readonly-field" id="appt_case_display" readonly tabindex="-1">
                     </div>
                     <div class="col-12">
                         <label class="form-label">Title <span class="text-danger">*</span></label>
@@ -338,8 +338,22 @@ require __DIR__ . '/../includes/header.php';
 <?php
 $casesByClient = [];
 foreach (getAllCases() as $c) {
-    $casesByClient[(int) $c['client_id']][] = ['id' => (int) $c['id'], 'label' => $c['case_number'] . ' — ' . $c['title']];
+    $casesByClient[(int) $c['client_id']][] = [
+        'id'     => (int) $c['id'],
+        'label'  => $c['case_number'] . ' — ' . $c['title'],
+        'status' => $c['status'] ?? '',
+    ];
 }
+foreach ($casesByClient as &$clientCases) {
+    usort($clientCases, static function (array $a, array $b): int {
+        $closed = ['completed', 'closed'];
+        $aOpen = !in_array($a['status'], $closed, true);
+        $bOpen = !in_array($b['status'], $closed, true);
+
+        return $bOpen <=> $aOpen;
+    });
+}
+unset($clientCases);
 $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
@@ -361,14 +375,27 @@ document.addEventListener("DOMContentLoaded", function() {
     var endsAtInput = document.getElementById("appt_ends_at");
     var conflictTimer = null;
     var hasBlockingConflict = false;
+    var clientDisplay = document.getElementById("appt_client_display");
+    var caseDisplay = document.getElementById("appt_case_display");
+    var createFields = document.querySelectorAll(".appt-field-create");
+    var editFields = document.querySelectorAll(".appt-field-edit");
 
     function setCreateMode() {
         if (apptActionInput) apptActionInput.value = "create_appointment";
         if (apptIdInput) apptIdInput.value = "";
         if (scheduleTitle) scheduleTitle.textContent = "Schedule Appointment";
         if (scheduleSubmitBtn) scheduleSubmitBtn.textContent = "Schedule & Notify Client";
-        if (clientSelect) { clientSelect.disabled = false; clientSelect.required = true; }
-        if (caseSelect) caseSelect.disabled = false;
+        createFields.forEach(function(el) { el.classList.remove("d-none"); });
+        editFields.forEach(function(el) { el.classList.add("d-none"); });
+        if (clientSelect) {
+            clientSelect.disabled = false;
+            clientSelect.required = true;
+            clientSelect.value = "";
+        }
+        if (caseSelect) {
+            caseSelect.disabled = false;
+            caseSelect.innerHTML = "<option value=\"\">None</option>";
+        }
         hideConflictAlert();
     }
 
@@ -433,6 +460,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 e.preventDefault();
                 return false;
             }
+            if (apptActionInput && apptActionInput.value === "update_appointment" && clientSelect) {
+                clientSelect.required = false;
+                clientSelect.disabled = true;
+            }
         });
     }
 
@@ -441,8 +472,17 @@ document.addEventListener("DOMContentLoaded", function() {
         if (apptIdInput) apptIdInput.value = data.id || "";
         if (scheduleTitle) scheduleTitle.textContent = "Edit Appointment";
         if (scheduleSubmitBtn) scheduleSubmitBtn.textContent = "Save Changes";
-        if (clientSelect) { clientSelect.disabled = true; clientSelect.required = false; }
-        if (caseSelect) caseSelect.disabled = true;
+        createFields.forEach(function(el) { el.classList.add("d-none"); });
+        editFields.forEach(function(el) { el.classList.remove("d-none"); });
+        if (clientSelect) {
+            clientSelect.required = false;
+            clientSelect.disabled = true;
+        }
+        if (caseSelect) {
+            caseSelect.disabled = true;
+        }
+        if (clientDisplay) clientDisplay.value = data.client || "—";
+        if (caseDisplay) caseDisplay.value = data.case || "None";
         document.getElementById("appt_title").value = data.title || "";
         document.getElementById("appt_starts_at").value = data.starts || "";
         document.getElementById("appt_ends_at").value = data.ends || "";
@@ -458,6 +498,8 @@ document.addEventListener("DOMContentLoaded", function() {
         btn.addEventListener("click", function() {
             setEditMode({
                 id: btn.dataset.id,
+                client: btn.dataset.client,
+                case: btn.getAttribute("data-case"),
                 title: btn.dataset.title,
                 starts: btn.dataset.starts,
                 ends: btn.dataset.ends,
@@ -480,12 +522,16 @@ document.addEventListener("DOMContentLoaded", function() {
         clientSelect.addEventListener("change", function() {
             var cid = this.value;
             caseSelect.innerHTML = "<option value=\"\">None</option>";
-            (casesByClient[cid] || []).forEach(function(c) {
+            var cases = casesByClient[cid] || [];
+            cases.forEach(function(c) {
                 var opt = document.createElement("option");
                 opt.value = c.id;
                 opt.textContent = c.label;
                 caseSelect.appendChild(opt);
             });
+            if (cases.length > 0) {
+                caseSelect.value = String(cases[0].id);
+            }
         });
     }
 
@@ -544,7 +590,8 @@ document.addEventListener("DOMContentLoaded", function() {
     var calendarEl = document.getElementById("appointmentCalendar");
     if (calendarEl && window.FullCalendar) {
         var savedView = localStorage.getItem("appointmentCalendarView") || "timeGridWeek";
-        var calendar = new FullCalendar.Calendar(calendarEl, {
+        var calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
+            timeZone: "local",
             initialView: savedView,
             height: "auto",
             nowIndicator: true,
@@ -588,7 +635,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 minute: "2-digit",
                 meridiem: "short"
             }
-        });
+        }, window.AppointmentCalendar ? window.AppointmentCalendar.calendarOptions() : {}));
         calendar.render();
     }
 });
