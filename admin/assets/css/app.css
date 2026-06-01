@@ -525,14 +525,19 @@ body.sidebar-collapsed .main-content {
     flex: 1;
     margin-left: var(--sidebar-width);
     min-height: 100vh;
+    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     transition: margin-left 0.25s ease;
     background: #f1f5f9;
+    -webkit-overflow-scrolling: touch;
 }
 
 .page-content {
     padding: 1.75rem;
+    padding-bottom: 2.5rem;
     flex: 1;
     max-width: 1480px;
     width: 100%;

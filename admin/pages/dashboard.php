@@ -154,45 +154,8 @@ require __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-    <!-- Appointments -->
-    <div class="row g-4 mb-4">
-        <div class="col-12">
-            <div class="dash-chart-card">
-                <div class="dash-chart-header">
-                    <h2 class="dash-chart-title">Upcoming Appointments</h2>
-                    <a href="<?= url('pages/appointments.php') ?>" class="btn btn-sm btn-soft">View all</a>
-                </div>
-                <div class="dash-chart-body p-0 pt-0">
-                    <?php if (empty($upcomingAppointments)): ?>
-                        <div class="empty-state empty-state-panel py-4">
-                            <i class="bi bi-calendar-x"></i>
-                            <p class="mb-0">No upcoming appointments</p>
-                            <span class="empty-state-hint">Scheduled sessions will appear here.</span>
-                        </div>
-                    <?php else: ?>
-                        <ul class="schedule-list schedule-list-compact">
-                            <?php foreach ($upcomingAppointments as $appt): ?>
-                                <li class="schedule-item">
-                                    <div class="schedule-date">
-                                        <span><?= date('d', strtotime($appt['start_time'])) ?></span>
-                                        <small><?= date('M', strtotime($appt['start_time'])) ?></small>
-                                    </div>
-                                    <div class="schedule-info">
-                                        <span class="schedule-title"><?= e($appt['title']) ?></span>
-                                        <span class="schedule-meta"><?= formatDateTime($appt['start_time'], 'g:i A') ?> · <?= e(clientFullName($appt)) ?></span>
-                                    </div>
-                                    <?= statusBadge($appt['status']) ?>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Recent Cases + Activity -->
-    <div class="row g-4">
+    <div class="row g-4 mb-4">
         <div class="col-xl-8">
             <div class="dash-chart-card">
                 <div class="dash-chart-header">
@@ -275,6 +238,43 @@ require __DIR__ . '/../includes/header.php';
                                         <p class="activity-stream-detail"><?= e($item['detail']) ?></p>
                                     </div>
                                     <time class="activity-stream-time"><?= timeAgo($item['created_at']) ?></time>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Appointments -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="dash-chart-card">
+                <div class="dash-chart-header">
+                    <h2 class="dash-chart-title">Upcoming Appointments</h2>
+                    <a href="<?= url('pages/appointments.php') ?>" class="btn btn-sm btn-soft">View all</a>
+                </div>
+                <div class="dash-chart-body p-0 pt-0">
+                    <?php if (empty($upcomingAppointments)): ?>
+                        <div class="empty-state empty-state-panel py-4">
+                            <i class="bi bi-calendar-x"></i>
+                            <p class="mb-0">No upcoming appointments</p>
+                            <span class="empty-state-hint">Scheduled sessions will appear here.</span>
+                        </div>
+                    <?php else: ?>
+                        <ul class="schedule-list schedule-list-compact">
+                            <?php foreach ($upcomingAppointments as $appt): ?>
+                                <li class="schedule-item">
+                                    <div class="schedule-date">
+                                        <span><?= date('d', strtotime($appt['start_time'])) ?></span>
+                                        <small><?= date('M', strtotime($appt['start_time'])) ?></small>
+                                    </div>
+                                    <div class="schedule-info">
+                                        <span class="schedule-title"><?= e($appt['title']) ?></span>
+                                        <span class="schedule-meta"><?= formatDateTime($appt['start_time'], 'g:i A') ?> · <?= e(clientFullName($appt)) ?></span>
+                                    </div>
+                                    <?= statusBadge($appt['status']) ?>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
