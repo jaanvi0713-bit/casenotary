@@ -671,17 +671,18 @@ textarea.case-form-control {
     padding-right: 2.75rem;
 }
 
-/* Keep a single custom reveal toggle — hide browser duplicate icons */
+.case-form-password-wrap .js-password-input.is-masked {
+    -webkit-text-security: disc;
+    text-security: disc;
+}
+
+/* Fallback if type=password is used — hide browser duplicate icons */
 .case-form-password-wrap input[type="password"]::-ms-reveal,
 .case-form-password-wrap input[type="password"]::-ms-clear {
     display: none;
 }
 
-.case-form-password-wrap input[type="password"]::-webkit-textfield-decoration-container {
-    visibility: hidden;
-    pointer-events: none;
-}
-
+.case-form-password-wrap input[type="password"]::-webkit-textfield-decoration-container,
 .case-form-password-wrap input[type="password"]::-webkit-credentials-auto-fill-button {
     visibility: hidden;
     pointer-events: none;
