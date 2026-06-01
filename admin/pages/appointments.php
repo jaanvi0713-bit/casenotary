@@ -23,12 +23,7 @@ if ($addedId > 0) {
     }
 }
 
-$statusColors = [
-    'scheduled' => '#3aafa9',
-    'confirmed' => '#10b981',
-    'completed' => '#64748b',
-    'cancelled' => '#ef4444',
-];
+$statusColors = appointmentStatusColors();
 
 $calendarEvents = [];
 foreach ($appointments as $appt) {
@@ -39,14 +34,16 @@ foreach ($appointments as $appt) {
 
     $end = appointmentEffectiveEnd($appt) ?: date('Y-m-d H:i:s', strtotime($start . ' +1 hour'));
     $calUrl = $appt['meeting_link'] ?? GoogleCalendarService::buildAddToCalendarUrl($appt, $appt);
+    $eventColors = appointmentCalendarEventColors($appt);
 
     $calendarEvents[] = [
         'id'              => (string) ($appt['id'] ?? ''),
         'title'           => $appt['title'] ?? 'Appointment',
         'start'           => calendarEventDateTime($start),
         'end'             => calendarEventDateTime($end),
-        'backgroundColor' => $statusColors[$appt['status'] ?? 'scheduled'] ?? '#3aafa9',
-        'borderColor'     => $statusColors[$appt['status'] ?? 'scheduled'] ?? '#3aafa9',
+        'backgroundColor' => $eventColors['backgroundColor'],
+        'borderColor'     => $eventColors['borderColor'],
+        'classNames'      => $eventColors['classNames'],
         'extendedProps'   => [
             'client'      => clientFullName($appt),
             'case'        => $appt['case_number'] ?? '',
@@ -106,6 +103,7 @@ require __DIR__ . '/../includes/header.php';
         <div class="appointment-calendar-legend">
             <span><i style="background:#3aafa9"></i> Scheduled</span>
             <span><i style="background:#10b981"></i> Confirmed</span>
+            <span><i style="background:#f59e0b"></i> Past</span>
             <span><i style="background:#64748b"></i> Completed</span>
             <span><i style="background:#ef4444"></i> Cancelled</span>
         </div>

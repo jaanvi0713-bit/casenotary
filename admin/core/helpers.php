@@ -138,6 +138,56 @@ function isUpcomingAppointment(array $appointment): bool
     return strtotime($start) >= $now;
 }
 
+function isPastAppointment(array $appointment): bool
+{
+    $start = appointmentEffectiveStart($appointment);
+    if (!$start) {
+        return false;
+    }
+
+    $now = time();
+    $end = appointmentEffectiveEnd($appointment);
+
+    if ($end) {
+        return strtotime($end) < $now;
+    }
+
+    return strtotime($start) < $now;
+}
+
+function appointmentStatusColors(): array
+{
+    return [
+        'scheduled' => '#3aafa9',
+        'confirmed' => '#10b981',
+        'completed' => '#64748b',
+        'cancelled' => '#ef4444',
+        'past'      => '#f59e0b',
+    ];
+}
+
+function appointmentCalendarEventColors(array $appointment): array
+{
+    $colors = appointmentStatusColors();
+    $status = strtolower(trim($appointment['status'] ?? 'scheduled'));
+
+    if (in_array($status, ['cancelled', 'completed'], true)) {
+        $color = $colors[$status];
+    } elseif (isPastAppointment($appointment)) {
+        $color = $colors['past'];
+    } else {
+        $color = $colors[$status] ?? $colors['scheduled'];
+    }
+
+    return [
+        'backgroundColor' => $color,
+        'borderColor'     => $color,
+        'classNames'      => isPastAppointment($appointment) && !in_array($status, ['cancelled', 'completed'], true)
+            ? ['fc-event-past']
+            : [],
+    ];
+}
+
 function isClientScheduledAppointment(array $appointment): bool
 {
     $status = strtolower(trim($appointment['status'] ?? ''));
