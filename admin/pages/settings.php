@@ -41,88 +41,127 @@ require __DIR__ . '/../includes/header.php';
             <input type="hidden" name="tab" value="<?= e($tab) ?>">
 
             <?php if ($tab === 'branding'): ?>
-                <div class="row g-3">
-                    <div class="col-md-8">
-                        <label class="form-label">Company Name</label>
-                        <input type="text" name="company_name" class="form-control" required value="<?= e($settings['company_name']) ?>">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Font Family</label>
-                        <?php $activeFont = companyFontFamily($settings); ?>
-                        <select name="font_family" id="fontFamilySelect" class="form-select">
-                            <?php foreach (companyFontCatalog() as $fontKey => $fontMeta): ?>
-                                <option value="<?= e($fontKey) ?>" <?= $activeFont === $fontKey ? 'selected' : '' ?>>
-                                    <?= e($fontMeta['label']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Primary Color</label>
-                        <input type="color" name="primary_color" class="form-control form-control-color w-100" value="<?= e($settings['primary_color']) ?>">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Secondary Color</label>
-                        <input type="color" name="secondary_color" class="form-control form-control-color w-100" value="<?= e($settings['secondary_color']) ?>">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Accent Color</label>
-                        <input type="color" name="dark_accent" class="form-control form-control-color w-100" value="<?= e($settings['dark_accent'] ?? '#000000') ?>">
+                <div class="row g-4 settings-branding-form">
+                    <div class="col-12">
+                        <div class="settings-form-section">
+                            <div class="settings-form-section__header">
+                                <h3 class="settings-form-section__title">Brand &amp; appearance</h3>
+                                <p class="settings-form-section__desc">Name, typography, and colors used across the admin and client portals.</p>
+                            </div>
+                            <div class="settings-form-section__body row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label">Company Name</label>
+                                    <input type="text" name="company_name" class="form-control" required value="<?= e($settings['company_name']) ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Font Family</label>
+                                    <?php $activeFont = companyFontFamily($settings); ?>
+                                    <select name="font_family" id="fontFamilySelect" class="form-select">
+                                        <?php foreach (companyFontCatalog() as $fontKey => $fontMeta): ?>
+                                            <option value="<?= e($fontKey) ?>" <?= $activeFont === $fontKey ? 'selected' : '' ?>>
+                                                <?= e($fontMeta['label']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Primary Color</label>
+                                    <input type="color" name="primary_color" class="form-control form-control-color w-100" value="<?= e($settings['primary_color']) ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Secondary Color</label>
+                                    <input type="color" name="secondary_color" class="form-control form-control-color w-100" value="<?= e($settings['secondary_color']) ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Accent Color</label>
+                                    <input type="color" name="dark_accent" class="form-control form-control-color w-100" value="<?= e($settings['dark_accent'] ?? '#000000') ?>">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12">
-                        <h3 class="settings-section-title">Company Information</h3>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Company Website</label>
-                        <input type="url" name="company_website" class="form-control" value="<?= e($settings['company_website'] ?? '') ?>" placeholder="https://www.example.com">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Company Registration Number</label>
-                        <input type="text" name="registration_number" class="form-control" value="<?= e($settings['registration_number'] ?? '') ?>" placeholder="e.g. 12345678">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Tax / VAT Number</label>
-                        <input type="text" name="tax_vat_number" class="form-control" value="<?= e($settings['tax_vat_number'] ?? '') ?>" placeholder="e.g. GB123456789">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Office Email</label>
-                        <input type="email" name="office_email" class="form-control" value="<?= e($settings['office_email'] ?? '') ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Office Phone</label>
-                        <input type="text" name="office_phone" class="form-control" value="<?= e($settings['office_phone'] ?? '') ?>" placeholder="+1 (555) 123-4567">
-                    </div>
-                    <div class="col-12">
-                        <h3 class="settings-section-title">Social Media</h3>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Facebook URL</label>
-                        <input type="url" name="facebook_url" class="form-control" value="<?= e($settings['facebook_url'] ?? '') ?>" placeholder="https://facebook.com/...">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Instagram URL</label>
-                        <input type="url" name="instagram_url" class="form-control" value="<?= e($settings['instagram_url'] ?? '') ?>" placeholder="https://instagram.com/...">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">LinkedIn URL</label>
-                        <input type="url" name="linkedin_url" class="form-control" value="<?= e($settings['linkedin_url'] ?? '') ?>" placeholder="https://linkedin.com/company/...">
+                        <div class="settings-form-section">
+                            <div class="settings-form-section__header">
+                                <h3 class="settings-form-section__title">Company Information</h3>
+                                <p class="settings-form-section__desc">Legal identifiers and primary contact details for your business.</p>
+                            </div>
+                            <div class="settings-form-section__body row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Company Website</label>
+                                    <input type="url" name="company_website" class="form-control" value="<?= e($settings['company_website'] ?? '') ?>" placeholder="https://www.example.com">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Company Registration Number</label>
+                                    <input type="text" name="registration_number" class="form-control" value="<?= e($settings['registration_number'] ?? '') ?>" placeholder="e.g. 12345678">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Tax / VAT Number</label>
+                                    <input type="text" name="tax_vat_number" class="form-control" value="<?= e($settings['tax_vat_number'] ?? '') ?>" placeholder="e.g. GB123456789">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Office Email</label>
+                                    <input type="email" name="office_email" class="form-control" value="<?= e($settings['office_email'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Office Phone</label>
+                                    <input type="text" name="office_phone" class="form-control" value="<?= e($settings['office_phone'] ?? '') ?>" placeholder="+1 (555) 123-4567">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Business Hours</label>
-                        <textarea name="business_hours" class="form-control" rows="3" placeholder="Monday – Friday: 9:00 AM – 5:00 PM"><?= e($settings['business_hours'] ?? '') ?></textarea>
+                        <div class="settings-form-section">
+                            <div class="settings-form-section__header">
+                                <h3 class="settings-form-section__title">Social Media</h3>
+                                <p class="settings-form-section__desc">Profile links shown on the client portal and documents where applicable.</p>
+                            </div>
+                            <div class="settings-form-section__body row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Facebook URL</label>
+                                    <input type="url" name="facebook_url" class="form-control" value="<?= e($settings['facebook_url'] ?? '') ?>" placeholder="https://facebook.com/...">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Instagram URL</label>
+                                    <input type="url" name="instagram_url" class="form-control" value="<?= e($settings['instagram_url'] ?? '') ?>" placeholder="https://instagram.com/...">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">LinkedIn URL</label>
+                                    <input type="url" name="linkedin_url" class="form-control" value="<?= e($settings['linkedin_url'] ?? '') ?>" placeholder="https://linkedin.com/company/...">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Address</label>
-                        <textarea name="address" class="form-control" rows="2"><?= e($settings['address'] ?? '') ?></textarea>
+                        <div class="settings-form-section">
+                            <div class="settings-form-section__header">
+                                <h3 class="settings-form-section__title">Office &amp; description</h3>
+                                <p class="settings-form-section__desc">Hours, location, and a short summary of your services.</p>
+                            </div>
+                            <div class="settings-form-section__body row g-3">
+                                <div class="col-12">
+                                    <label class="form-label">Business Hours</label>
+                                    <textarea name="business_hours" class="form-control" rows="3" placeholder="Monday – Friday: 9:00 AM – 5:00 PM"><?= e($settings['business_hours'] ?? '') ?></textarea>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Address</label>
+                                    <textarea name="address" class="form-control" rows="2"><?= e($settings['address'] ?? '') ?></textarea>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Description</label>
+                                    <textarea name="description" class="form-control" rows="3"><?= e($settings['description'] ?? '') ?></textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Description</label>
-                        <textarea name="description" class="form-control" rows="3"><?= e($settings['description'] ?? '') ?></textarea>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Company Logo</label>
-                        <p class="text-muted small mb-3">Upload a square image (or crop one) so it fills the sidebar and login areas.</p>
-                        <div class="logo-branding-panel">
+                        <div class="settings-form-section">
+                            <div class="settings-form-section__header">
+                                <h3 class="settings-form-section__title">Logo &amp; favicon</h3>
+                                <p class="settings-form-section__desc">Upload a square logo for the sidebar and login page, plus a browser tab icon.</p>
+                            </div>
+                            <div class="settings-form-section__body">
+                        <label class="form-label d-block">Company Logo</label>
+                        <div class="logo-branding-panel mb-4">
                             <div class="logo-upload-toolbar">
                                 <input type="file" id="logoFileInput" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.webp,.svg,image/*">
                                 <?php if ($logoUrl): ?>
@@ -173,10 +212,7 @@ require __DIR__ . '/../includes/header.php';
                                 <?php endif; ?>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Favicon</label>
-                        <p class="text-muted small mb-3">Icon shown in the browser tab. Use a square PNG or ICO (32×32 px recommended).</p>
+                        <label class="form-label d-block">Favicon</label>
                         <div class="logo-branding-panel favicon-branding-panel">
                             <div class="logo-upload-toolbar">
                                 <input type="file" name="favicon" class="form-control" accept=".ico,.png,image/x-icon,image/png">
@@ -196,6 +232,8 @@ require __DIR__ . '/../includes/header.php';
                                 <?php else: ?>
                                     <p class="favicon-preview-empty mb-0">No favicon uploaded — the browser uses its default tab icon.</p>
                                 <?php endif; ?>
+                            </div>
+                        </div>
                             </div>
                         </div>
                     </div>
