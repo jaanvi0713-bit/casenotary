@@ -220,7 +220,7 @@ function isPastAppointment(array $appointment): bool
 function appointmentStatusColors(): array
 {
     return [
-        'requested' => '#6366f1',
+        'requested' => '#3aafa9',
         'scheduled' => '#3aafa9',
         'confirmed' => '#10b981',
         'completed' => '#64748b',

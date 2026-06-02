@@ -151,7 +151,6 @@ require __DIR__ . '/../includes/header.php';
     <div class="appointment-calendar-wrap">
         <div id="appointmentCalendar"></div>
         <div class="appointment-calendar-legend">
-            <span><i style="background:#6366f1"></i> Requested</span>
             <span><i style="background:#3aafa9"></i> Scheduled</span>
             <span><i style="background:#10b981"></i> Confirmed</span>
             <span><i style="background:#f59e0b"></i> Past</span>
