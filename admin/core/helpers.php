@@ -2158,7 +2158,7 @@ function getChatbotContext(): array
 function getActiveCasesForChat(int $limit = 10): array
 {
     return Database::fetchAll(
-        "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+        "SELECT cs.id, cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
          FROM cases cs
          JOIN clients cl ON cl.id = cs.client_id
          WHERE cs.status IN ('pending', 'in_progress', 'waiting_for_client')
@@ -2179,10 +2179,27 @@ function formatChatbotCaseList(array $cases, string $heading): string
     foreach ($cases as $case) {
         $status = ucwords(str_replace('_', ' ', $case['status'] ?? 'unknown'));
         $client = clientFullName($case);
-        $lines[] = "• **{$case['case_number']}** — {$case['title']} (*{$status}*) — {$client}";
+        $line = "• **{$case['case_number']}** — {$case['title']} (*{$status}*) — {$client}";
+        if (!empty($case['id'])) {
+            $line .= ' — ' . chatbotAdminLink('pages/case-view.php?id=' . (int) $case['id'], 'Open case');
+        }
+        $lines[] = $line;
     }
 
+    $lines[] = '';
+    $lines[] = chatbotAdminLink('pages/cases.php', 'View all cases');
+
     return implode("\n", $lines);
+}
+
+function chatbotAdminLink(string $path, string $label): string
+{
+    $path = ltrim($path, '/');
+    if (!str_starts_with($path, '../')) {
+        $path = '../' . $path;
+    }
+
+    return '[' . $label . '](' . $path . ')';
 }
 
 function chatbotNormalizeLookupTerm(string $message): string
@@ -2191,7 +2208,7 @@ function chatbotNormalizeLookupTerm(string $message): string
     $message = preg_replace('/[^\w\s@.-]/', ' ', $message);
     $message = preg_replace('/\s+/', ' ', $message);
     $message = preg_replace(
-        '/^(tell me about|what about|info on|information on|show me|about|find|search for|lookup|who is|details for|more on|more about|can you find|do we have|what is|whats|what\'s)\s+/',
+        '/^(tell me about|what about|info on|information on|show me|about|find|search for|lookup|who is|details for|details of|more on|more about|can you find|do we have|what is|whats|what\'s)\s+/',
         '',
         $message
     );
@@ -2445,6 +2462,20 @@ function chatbotIsFollowUpList(string $message): bool
     );
 }
 
+function getChatbotDefaultQuickPrompts(): array
+{
+    return [
+        ['icon' => 'bi-sunrise', 'label' => 'Morning briefing', 'prompt' => 'Morning briefing'],
+        ['icon' => 'bi-grid-1x2', 'label' => 'Dashboard summary', 'prompt' => 'Give me a dashboard summary'],
+        ['icon' => 'bi-people', 'label' => 'Client count', 'prompt' => 'How many clients do we have?'],
+        ['icon' => 'bi-briefcase', 'label' => 'Active cases', 'prompt' => 'List active cases'],
+        ['icon' => 'bi-cash-stack', 'label' => 'Total revenue', 'prompt' => 'What is our total revenue?'],
+        ['icon' => 'bi-calendar-event', 'label' => 'Upcoming appointments', 'prompt' => 'Show upcoming appointments'],
+        ['icon' => 'bi-credit-card', 'label' => 'Recent payments', 'prompt' => 'List recent payments'],
+        ['icon' => 'bi-exclamation-circle', 'label' => 'Overdue invoices', 'prompt' => 'List overdue invoices'],
+    ];
+}
+
 function generateChatbotReply(string $message): string
 {
     $message = strtolower(trim($message));
@@ -2575,7 +2606,7 @@ function generateChatbotReply(string $message): string
             $_SESSION['chatbot_last_topic'] = 'cases';
             return formatChatbotCaseList(
                 Database::fetchAll(
-                    "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+                    "SELECT cs.id, cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
                      FROM cases cs
                      JOIN clients cl ON cl.id = cs.client_id
                      ORDER BY cs.updated_at DESC
@@ -2623,6 +2654,13 @@ function generateChatbotReply(string $message): string
     }
 
     if (preg_match('/appointment|schedule/', $message)) {
+        if (function_exists('chatbotReplyForAppointmentQueries')) {
+            $appointmentReply = chatbotReplyForAppointmentQueries($message);
+            if ($appointmentReply !== null) {
+                return $appointmentReply;
+            }
+        }
+
         if (chatbotWantsList($message) || preg_match('/\blist appointment|\bshow appointment|\bupcoming appointment/', $message)) {
             $_SESSION['chatbot_last_topic'] = 'appointments';
             $appointments = getUpcomingAppointments(8);
@@ -2639,13 +2677,19 @@ function generateChatbotReply(string $message): string
             return implode("\n", $lines);
         }
 
+        if (chatbotWantsCount($message) || preg_match('/\bhow many\b/', $message)) {
+            $_SESSION['chatbot_last_topic'] = 'appointments';
+            return "You have **{$stats['upcoming_appointments']} upcoming appointments** scheduled.";
+        }
+
         $_SESSION['chatbot_last_topic'] = 'appointments';
         if ($ctx['next_appointment']) {
             $appt = $ctx['next_appointment'];
-            return "**Next appointment:** {$appt['title']} on " . formatDateTime($appt['start_time']) . '.';
+            return "**Next appointment:** {$appt['title']} on " . formatDateTime($appt['start_time']) . '. '
+                . chatbotAdminLink('pages/appointments.php', 'Open appointments');
         }
 
-        return "You have **{$stats['upcoming_appointments']} upcoming appointments** scheduled. No future appointments found in the calendar.";
+        return "You have **{$stats['upcoming_appointments']} upcoming appointments** scheduled.";
     }
 
     if (preg_match('/dashboard|summary|overview|status/', $message)) {

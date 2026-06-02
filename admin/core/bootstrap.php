@@ -34,3 +34,8 @@ require_once __DIR__ . '/GoogleOAuthService.php';
 require_once __DIR__ . '/ReminderService.php';
 require_once __DIR__ . '/ProfileService.php';
 require_once __DIR__ . '/SettingsService.php';
+require_once __DIR__ . '/ChatbotConversation.php';
+require_once __DIR__ . '/ChatbotChatStore.php';
+require_once __DIR__ . '/ChatbotKnowledge.php';
+require_once __DIR__ . '/ChatbotQueries.php';
+require_once __DIR__ . '/ChatbotService.php';
