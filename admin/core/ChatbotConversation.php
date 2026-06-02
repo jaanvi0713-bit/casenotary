@@ -60,7 +60,7 @@ function chatbotIsContextualFollowUp(string $message): bool
     }
 
     return (bool) preg_match(
-        '/^(tell me more|what else|anything else|more info|more information|more details|go on|continue|what about that|and theirs?)$/i',
+        '/^(tell me more|what else|anything else|more info|more information|more details|go on|continue|what about that|and theirs?|what about them|and them)$/i',
         $normalized
     );
 }
@@ -78,14 +78,13 @@ function chatbotReplyForMetaQuestions(string $message): ?string
     }
 
     if (preg_match('/\b(what can you do|what do you do|your capabilities|help me|are you chatgpt|like chatgpt)\b/', $normalized)) {
-        return "I work **like ChatGPT in conversation** — ask naturally — but I'm wired to **your real business data**:\n\n"
-            . "• **Clients** — e.g. *details of Emily*, *list clients*\n"
-            . "• **Cases** — counts, statuses, active cases\n"
-            . "• **Invoices & payments** — pending, overdue, receipts, revenue\n"
-            . "• **Appointments** — upcoming, scheduled, cancelled\n"
-            . "• **Documents** — uploads, client files\n"
-            . "• **Follow-ups** — after a client profile, try *what about her invoices* or just *list*\n\n"
-            . 'No OpenAI key needed. Ask anything about your portal in plain English.';
+        return "I answer **any question about this system** — live data, how-tos, and general topics:\n\n"
+            . "• **Live data** — clients, cases, invoices, payments, appointments, documents, notifications\n"
+            . "• **How-to** — *How do I add a client?*, *Where are settings?*, *Approve appointment requests*\n"
+            . "• **Search** — client names, case numbers, overdue invoices, revenue\n"
+            . "• **Follow-ups** — after a client profile, try *what about her invoices* or *list them*\n"
+            . "• **Notary help** — definitions, drafts, general advice (optional AI if configured)\n\n"
+            . 'Ask in plain English — no special phrasing required.';
     }
 
     return null;

@@ -73,11 +73,7 @@ class ChatbotService
 
     private static function regenerateDetailed(string $reply): string
     {
-        $extra = "\n\n**Expanded version:**\n"
-            . "• If you want, I can tailor this to a specific client/case.\n"
-            . "• I can also convert it into a ready-to-send email or letter format.";
-
-        return "**Alternative (detailed):**\n\n" . $reply . $extra;
+        return "**Alternative:**\n\n" . $reply;
     }
 
     private static function resolveReply(string $message): string
@@ -86,6 +82,11 @@ class ChatbotService
 
         if ($normalized === '' || preg_match('/^(hi|hello|hey|help)$/', $normalized)) {
             return generateChatbotReply($message);
+        }
+
+        $followUp = chatbotTryFollowUpReply($message);
+        if ($followUp !== null) {
+            return $followUp;
         }
 
         $meta = chatbotReplyForMetaQuestions($message);
@@ -106,6 +107,79 @@ class ChatbotService
         $calculation = chatbotReplyForCalculations($message);
         if ($calculation !== null) {
             return $calculation;
+        }
+
+        $draftReply = chatbotReplyForDraftRequest($message);
+        if ($draftReply !== null) {
+            return $draftReply;
+        }
+
+        $portalClient = chatbotReplyForPortalClientLookup($message);
+        if ($portalClient !== null) {
+            return $portalClient;
+        }
+
+        $focused = chatbotReplyForFocusedQuestion($message);
+        if ($focused !== null) {
+            return $focused;
+        }
+
+        if (chatbotIsPortalSystemQuestion($message) || chatbotIsProceduralQuery($message)) {
+            $portalSystem = chatbotReplyForPortalSystemQuestion($message);
+            if ($portalSystem !== null) {
+                return $portalSystem;
+            }
+        }
+
+        if (!chatbotIsSystemDataQuestion($message) && !chatbotIsPortalSystemQuestion($message)) {
+            $universal = self::replyForUniversalKnowledge($message);
+            if ($universal !== null) {
+                return $universal;
+            }
+        }
+
+        if (chatbotIsSystemDataQuestion($message) || chatbotIsPortalSystemQuestion($message)) {
+            $portalData = chatbotReplyForPortalDataQuestion($message);
+            if ($portalData !== null) {
+                return $portalData;
+            }
+
+            $systemInsight = chatbotReplyForSystemInsights($message);
+            if ($systemInsight !== null) {
+                return $systemInsight;
+            }
+
+            $appointments = chatbotReplyForAppointmentQueries($message);
+            if ($appointments !== null) {
+                return $appointments;
+            }
+
+            $cases = chatbotReplyForCaseQueries($message);
+            if ($cases !== null) {
+                return $cases;
+            }
+
+            $notifications = chatbotReplyForNotificationQueries($message);
+            if ($notifications !== null) {
+                return $notifications;
+            }
+
+            $followUp = chatbotTryFollowUpReply($message);
+            if ($followUp !== null) {
+                return $followUp;
+            }
+
+            if (chatbotLooksLikePersonNameSearch($message)) {
+                $entityReply = chatbotReplyForEntityLookup($message);
+                if ($entityReply !== null) {
+                    return $entityReply;
+                }
+            }
+
+            $dataReply = generateChatbotReply($message);
+            if (!self::isGenericFallback($dataReply)) {
+                return $dataReply;
+            }
         }
 
         $adviceOrGeneral = chatbotReplyForAdviceAndGeneral($message);
@@ -142,6 +216,20 @@ class ChatbotService
             return $namedClient;
         }
 
+        if (!chatbotIsSystemDataQuestion($message) && !chatbotIsPortalSystemQuestion($message)) {
+            $universal = self::replyForUniversalKnowledge($message);
+            if ($universal !== null) {
+                return $universal;
+            }
+        }
+
+        if (chatbotIsPortalSystemQuestion($message) || chatbotIsProceduralQuery($message)) {
+            $portalSystem = chatbotReplyForPortalSystemQuestion($message);
+            if ($portalSystem !== null) {
+                return $portalSystem;
+            }
+        }
+
         if (chatbotIsAdviceOrHowToQuery($message)
             || (chatbotIsGeneralQuestion($message) && !chatbotIsSystemDataQuestion($message))) {
             $open = chatbotReplyForOpenEndedLocal($message);
@@ -161,9 +249,27 @@ class ChatbotService
             }
         }
 
-        $entityReply = chatbotReplyForEntityLookup($message);
-        if ($entityReply !== null) {
-            return $entityReply;
+        if (chatbotLooksLikePersonNameSearch($message)) {
+            $entityReply = chatbotReplyForEntityLookup($message);
+            if ($entityReply !== null) {
+                return $entityReply;
+            }
+        }
+
+        if (chatbotIsPortalSystemQuestion($message) || chatbotIsProceduralQuery($message)) {
+            $portalSystem = chatbotReplyForPortalSystemQuestion($message);
+            if ($portalSystem !== null) {
+                return $portalSystem;
+            }
+        }
+
+        if (!chatbotIsSystemDataQuestion($message) && !chatbotIsPortalSystemQuestion($message)) {
+            $universal = self::replyForUniversalKnowledge($message);
+            if ($universal !== null) {
+                return $universal;
+            }
+        } elseif (($portalData = chatbotReplyForPortalDataQuestion($message)) !== null) {
+            return $portalData;
         }
 
         $systemInsight = chatbotReplyForSystemInsights($message);
@@ -172,14 +278,14 @@ class ChatbotService
         }
 
         if (!chatbotWantsCount($normalized) && !chatbotWantsList($normalized)) {
-            if (chatbotIsPortalProceduralQuery($message)) {
-                $procedural = self::replyForProcedural($message);
-                if ($procedural !== null) {
-                    return $procedural;
+            if (chatbotIsPortalSystemQuestion($message) || chatbotIsPortalProceduralQuery($message) || chatbotIsProceduralQuery($message)) {
+                $portalSystem = chatbotReplyForPortalSystemQuestion($message);
+                if ($portalSystem !== null) {
+                    return $portalSystem;
                 }
             }
 
-            if (chatbotIsGeneralQuestion($message) && !chatbotIsSystemDataQuestion($message)) {
+            if (chatbotIsGeneralQuestion($message) && !chatbotIsSystemDataQuestion($message) && !chatbotIsPortalSystemQuestion($message)) {
                 $general = chatbotReplyForGeneralKnowledge($message);
                 if ($general !== null) {
                     return $general;
@@ -205,11 +311,6 @@ class ChatbotService
         $knowledge = self::replyFromKnowledgeBase($message);
         if ($knowledge !== null) {
             return $knowledge;
-        }
-
-        $llm = self::replyViaLlm($message);
-        if ($llm !== null) {
-            return $llm;
         }
 
         $openEnded = chatbotReplyForOpenEndedLocal($message);
@@ -240,6 +341,39 @@ class ChatbotService
         }
 
         return trim($config['api_key'] ?? '') !== '';
+    }
+
+    /**
+     * Broad world knowledge: built-in notary topics → Wikipedia → optional LLM → thoughtful fallback.
+     */
+    public static function replyForUniversalKnowledge(string $message): ?string
+    {
+        $offline = chatbotReplyForUniversalKnowledgeOffline($message);
+        if ($offline !== null) {
+            return $offline;
+        }
+
+        if (self::hasOptionalLlm() && chatbotIsGeneralKnowledgeQuestion($message)) {
+            $llm = self::replyViaLlm($message);
+            if ($llm !== null && trim($llm) !== '') {
+                return $llm;
+            }
+        }
+
+        if (!chatbotIsGeneralKnowledgeQuestion($message)) {
+            return null;
+        }
+
+        $subject = chatbotExtractDefinitionTerm($message);
+        if ($subject === '') {
+            $subject = chatbotExtractQuestionSubject($message);
+        }
+
+        if (str_word_count(strtolower($message)) <= 6 || chatbotLooksLikeKnowledgeQuery($message)) {
+            return chatbotTemplateDefinition($subject, $message);
+        }
+
+        return chatbotTemplateOpenAnswer($subject, $message);
     }
 
     /**
@@ -305,6 +439,11 @@ class ChatbotService
 
     public static function replyForProcedural(string $message): ?string
     {
+        $focused = chatbotReplyForFocusedQuestion($message);
+        if ($focused !== null) {
+            return $focused;
+        }
+
         $normalized = strtolower(trim($message));
         $lastTopic  = $_SESSION['chatbot_last_topic'] ?? null;
 
@@ -317,18 +456,6 @@ class ChatbotService
             return null;
         }
 
-        if (preg_match('/\b(appointment|schedule|calendar|meeting|book)\b/', $normalized)) {
-            return self::generalAppointmentGuide();
-        }
-
-        if (preg_match('/\b(payment|invoice|quotation|quote|client letter|receipt)\b/', $normalized)) {
-            return self::generalPaymentGuide();
-        }
-
-        if (preg_match('/\b(create case|new case|case status|update case)\b/', $normalized)) {
-            return self::generalCaseGuide();
-        }
-
         if (is_string($lastTopic) && preg_match('/^case_(\d+)$/', $lastTopic, $matches)
             && preg_match('/\binstructions?\b|proceed|next step|what should|what do i|what now/', $normalized)) {
             return self::proceduralReplyForCase((int) $matches[1], $normalized);
@@ -339,8 +466,16 @@ class ChatbotService
             return self::proceduralReplyForClient((int) $matches[1], $normalized);
         }
 
-        if (preg_match('/\binstructions?\b/', $normalized)) {
-            return self::generalInstructionsGuide();
+        if (!preg_match('/\b(workflow|overview|all about|everything|in general|explain the)\b/', $normalized)) {
+            return null;
+        }
+
+        if (preg_match('/\b(appointment|schedule|calendar|meeting|book)\b/', $normalized)) {
+            return self::generalAppointmentGuide();
+        }
+
+        if (preg_match('/\b(payment|invoice|quotation|quote|client letter|receipt)\b/', $normalized)) {
+            return self::generalPaymentGuide();
         }
 
         if (preg_match('/\b(case|cases)\b/', $normalized)) {
@@ -352,6 +487,11 @@ class ChatbotService
 
     public static function replyFromKnowledgeBase(string $message): ?string
     {
+        $focused = chatbotReplyForFocusedQuestion($message);
+        if ($focused !== null) {
+            return $focused;
+        }
+
         $normalized = strtolower(trim($message));
 
         $topics = [
@@ -880,6 +1020,13 @@ class ChatbotService
             return "You're welcome! Let me know if you need anything else.";
         }
 
+        if (chatbotIsPortalSystemQuestion($message) || chatbotIsProceduralQuery($message)) {
+            $portalSystem = chatbotReplyForPortalSystemQuestion($message);
+            if ($portalSystem !== null) {
+                return $portalSystem;
+            }
+        }
+
         $systemInsight = chatbotReplyForSystemInsights($message);
         if ($systemInsight !== null) {
             return $systemInsight;
@@ -982,15 +1129,21 @@ class ChatbotService
         return <<<PROMPT
 You are Notary Admin AI, the intelligent assistant inside a Notary Management admin portal.
 
-Answer ANY question the admin asks: business data, workflows, general knowledge, advice, and how-to steps.
+Answer the admin's question directly. Portal/business data, workflows, general knowledge, definitions, advice, and drafting.
 
 Rules:
-- Use the live business context below when answering data questions. Do not invent client names or case numbers not in context.
-- For admin workflow questions, explain steps in the portal: Clients, Cases, Payments, Appointments, Notifications, Settings.
+- **Answer ONLY what was asked.** Do not add unrelated modules, tips, overviews, or "you can also ask…" unless they requested a list or overview.
+- **Be concise:** usually 1–5 short bullets or numbered steps; no broad "workflow" dumps for a single how-to question.
+- Use live business context below for data questions. Do not invent client names or case numbers not in context.
+- For "how do I X" give step-by-step instructions for **X only** (e.g. create a case → only creation steps, not all case features).
+- For counts/lists, give the number or list only unless they asked for explanation.
+- Do not refuse as "out of scope" unless harmful; prefer a best-effort focused answer.
 - Client instructions: set on case create/edit ("Instructions for Client"); clients see them highlighted on their case view.
 - Appointment requests: clients submit requests; admins approve by changing status from Requested to Scheduled/Confirmed.
 - Be concise, friendly, and use markdown (**bold**, bullet lists) sparingly.
-- If you lack specific data, say so and suggest what they can look up in the portal.
+- **Drafting:** When asked to draft/write/compose any document (email, letter, affidavit, quotation, contract, memo, etc.), provide a complete editable draft with [placeholders].
+- **Definitions:** Explain terms plainly; add notary context only when it helps.
+- If you lack specific portal data, say so and suggest what they can look up in the portal.
 - When the admin attaches images or files, analyze them carefully and relate answers to notary workflows when relevant.
 
 Live business context:
@@ -1099,12 +1252,10 @@ PROMPT;
 
     private static function generalInstructionsGuide(): string
     {
-        return "**Client instructions — how they work:**\n\n"
-            . "1. When creating or editing a case, fill in **Instructions for Client** (what to prepare, bring, or complete).\n"
-            . "2. Clients see these instructions highlighted on their **case view** in the portal.\n"
-            . "3. For cases **Waiting for Client**, review instructions and send a **Client Letter** or email from the case page.\n"
-            . "4. After the client completes their part, update the case status to **In Progress**.\n\n"
-            . "Ask about a specific **client name** or **case number** first, then say **“how to proceed with instructions”** for tailored next steps.";
+        return "**Client instructions — overview:**\n\n"
+            . "1. Set them on the case create/edit form.\n"
+            . "2. Clients see them on their case view.\n"
+            . "3. Update case status when the client completes their part.";
     }
 
     private static function generalCaseGuide(): string

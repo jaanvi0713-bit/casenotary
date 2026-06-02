@@ -28,7 +28,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
         body { font-family: var(--font-family); }
     </style>
 </head>
-<body>
+<body<?= !empty($pageBodyClass) ? ' class="' . e($pageBodyClass) . '"' : '' ?>>
     <div class="app-wrapper">
         <?php require __DIR__ . '/sidebar.php'; ?>
 

@@ -50,5 +50,19 @@ return [
         'max_size'        => 10 * 1024 * 1024,
         'allowed_types'   => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'doc', 'docx'],
         'upload_path'     => __DIR__ . '/../uploads/chatbot/',
+        'wikipedia'       => [
+            'enabled' => true,
+        ],
+    ],
+
+    // Optional: enable for the widest answers (any topic). Set OPENAI_API_KEY in the environment.
+    'ai' => [
+        'enabled'     => filter_var(getenv('CHATBOT_AI_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN),
+        'provider'    => getenv('CHATBOT_AI_PROVIDER') ?: 'openai',
+        'api_key'     => getenv('OPENAI_API_KEY') ?: '',
+        'model'       => getenv('CHATBOT_AI_MODEL') ?: 'gpt-4o-mini',
+        'base_url'    => getenv('CHATBOT_AI_BASE_URL') ?: 'https://api.openai.com/v1',
+        'ollama_url'  => getenv('OLLAMA_URL') ?: 'http://127.0.0.1:11434',
+        'ollama_model'=> getenv('OLLAMA_MODEL') ?: 'llama3.2',
     ],
 ];

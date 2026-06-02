@@ -41,6 +41,8 @@
         let isSending = false;
         let activeConversationId = 0;
         let conversations = [];
+        let pendingSyncOnSend = false;
+        const chatEditHint = document.getElementById("chatEditHint");
 
         function getCsrfToken() {
             return csrfInput ? csrfInput.value : "";
@@ -57,6 +59,13 @@
             const div = document.createElement("div");
             div.textContent = text == null ? "" : String(text);
             return div.innerHTML;
+        }
+
+        function escapeAttr(text) {
+            return String(text == null ? "" : text)
+                .replace(/&/g, "&amp;")
+                .replace(/"/g, "&quot;")
+                .replace(/</g, "&lt;");
         }
 
         function stripMarkdown(text) {
@@ -258,7 +267,7 @@
             chatPromptsEl.innerHTML = promptCatalog.map(function(p, index) {
                 const icon = p.icon || "bi-chat-dots";
                 const label = escapeHtml(p.label || p.prompt);
-                const prompt = escapeHtml(p.prompt || "");
+                const prompt = escapeAttr(p.prompt || "");
                 return '<button type="button" class="chat-prompt-btn" data-prompt-index="' + index
                     + '" data-prompt="' + prompt + '" title="Send this prompt">'
                     + '<i class="bi ' + escapeHtml(icon) + '"></i> ' + label + "</button>";
@@ -282,6 +291,63 @@
             chatInput.value = text;
             chatInput.focus();
             chatInput.setSelectionRange(text.length, text.length);
+            chatInput.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+
+        function setEditingState(active) {
+            if (chatForm) {
+                chatForm.classList.toggle("is-editing", active);
+            }
+            if (chatEditHint) {
+                chatEditHint.classList.toggle("d-none", !active);
+            }
+            if (!active) {
+                pendingSyncOnSend = false;
+            }
+        }
+
+        function removeMessagesFrom(fromEl) {
+            if (!chatMessages || !fromEl) return;
+
+            const all = Array.from(
+                chatMessages.querySelectorAll(".chat-message:not(.chat-welcome):not(.chat-typing)")
+            );
+            const start = all.indexOf(fromEl);
+            if (start < 0) return;
+
+            for (let i = all.length - 1; i >= start; i--) {
+                all[i].remove();
+            }
+
+            const remaining = chatMessages.querySelectorAll(".chat-message-user:not(.chat-welcome)");
+            if (remaining.length) {
+                const lastUser = remaining[remaining.length - 1];
+                lastUserPrompt = lastUser.getAttribute("data-prompt") || "";
+            } else {
+                lastUserPrompt = "";
+            }
+        }
+
+        async function startEditMessage(userEl) {
+            if (!userEl || isSending) return;
+
+            const text = (userEl.getAttribute("data-prompt") || "").trim();
+            if (!text || text === "(attached files)") {
+                alert("Messages with attachments cannot be edited. Send a new message instead.");
+                return;
+            }
+
+            removeMessagesFrom(userEl);
+            pendingSyncOnSend = true;
+            setEditingState(true);
+            fillPrompt(text);
+
+            try {
+                await saveCurrentMessages();
+                await apiJson({ action: "clear" });
+            } catch (err) {
+                /* keep edit mode; sync_messages will fix history on send */
+            }
         }
 
         function buildMessageActions(type, promptText, replyText) {
@@ -290,7 +356,7 @@
 
             if (type === "user" && promptText) {
                 actions.innerHTML = '<button type="button" class="chat-msg-action-btn" data-action="copy" title="Copy prompt"><i class="bi bi-clipboard"></i></button>'
-                    + '<button type="button" class="chat-msg-action-btn" data-action="edit" title="Edit prompt"><i class="bi bi-pencil"></i></button>';
+                    + '<button type="button" class="chat-msg-action-btn" data-action="edit" title="Edit and resend"><i class="bi bi-pencil"></i></button>';
                 return actions;
             }
 
@@ -451,6 +517,8 @@
             await apiJson({ action: "clear" });
             clearMessageArea();
             setActiveConversationId(0);
+            setEditingState(false);
+            if (chatInput) chatInput.value = "";
             if (chatInput) chatInput.focus();
         }
 
@@ -536,14 +604,23 @@
             const trimmed = (message || "").trim();
             if (!trimmed && !files.length) return;
 
+            let syncMessages = null;
+            if (pendingSyncOnSend) {
+                syncMessages = collectMessagesFromDom();
+                pendingSyncOnSend = false;
+            }
+
             if (options.regenerate) {
                 removeLastTurn();
                 await saveCurrentMessages();
+                await apiJson({ action: "clear" });
             } else {
                 const fileNames = files.map(function(f) { return f.name; });
                 appendMessage(trimmed || "(attached files)", "user", fileNames);
                 lastUserPrompt = trimmed;
             }
+
+            setEditingState(false);
 
             if (chatInput) chatInput.value = "";
             isSending = true;
@@ -572,18 +649,24 @@
                         body: formData
                     });
                 } else {
+                    const payload = {
+                        message: trimmed,
+                        conversation_id: activeConversationId || 0,
+                        regenerate: !!options.regenerate,
+                        _csrf_token: csrfToken
+                    };
+
+                    if (syncMessages) {
+                        payload.sync_messages = syncMessages;
+                    }
+
                     response = await fetch(apiUrl, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
                             "X-CSRF-Token": csrfToken
                         },
-                        body: JSON.stringify({
-                            message: trimmed,
-                            conversation_id: activeConversationId || 0,
-                            regenerate: !!options.regenerate,
-                            _csrf_token: csrfToken
-                        })
+                        body: JSON.stringify(payload)
                     });
                 }
 
@@ -661,21 +744,26 @@
                 const btn = e.target.closest(".chat-msg-action-btn");
                 if (!btn) return;
 
+                e.preventDefault();
+                e.stopPropagation();
+
                 const userEl = btn.closest(".chat-message-user");
                 const botEl = btn.closest(".chat-message-bot");
 
                 if (userEl) {
                     const text = userEl.getAttribute("data-prompt") || "";
-                    if (btn.getAttribute("data-action") === "copy") copyText(text, btn);
-                    if (btn.getAttribute("data-action") === "edit") fillPrompt(text);
+                    const action = btn.getAttribute("data-action");
+                    if (action === "copy") copyText(text, btn);
+                    if (action === "edit") startEditMessage(userEl);
                     return;
                 }
 
                 if (botEl) {
                     const reply = botEl.getAttribute("data-reply") || "";
-                    if (btn.getAttribute("data-action") === "copy-reply") copyText(stripMarkdown(reply), btn);
-                    if (btn.getAttribute("data-action") === "copy-table") copyText(bulletsToTable(reply), btn);
-                    if (btn.getAttribute("data-action") === "regenerate") regenerateReply();
+                    const action = btn.getAttribute("data-action");
+                    if (action === "copy-reply") copyText(stripMarkdown(reply), btn);
+                    if (action === "copy-table") copyText(bulletsToTable(reply), btn);
+                    if (action === "regenerate") regenerateReply();
                 }
             });
         }

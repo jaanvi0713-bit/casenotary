@@ -2443,7 +2443,7 @@ function getChatbotContext(): array
 function getActiveCasesForChat(int $limit = 10): array
 {
     return Database::fetchAll(
-        "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+        "SELECT cs.id, cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
          FROM cases cs
          JOIN clients cl ON cl.id = cs.client_id
          WHERE cs.status IN ('pending', 'in_progress', 'waiting_for_client')
@@ -2465,7 +2465,13 @@ function formatChatbotCaseList(array $cases, string $heading): string
         $status = ucwords(str_replace('_', ' ', $case['status'] ?? 'unknown'));
         $client = clientFullName($case);
         $lines[] = "• **{$case['case_number']}** — {$case['title']} (*{$status}*) — {$client}";
+        if (!empty($case['id'])) {
+            $lines[] = '  ' . chatbotAdminLink('pages/case-view.php?id=' . (int) $case['id'], 'Open case');
+        }
     }
+
+    $lines[] = '';
+    $lines[] = chatbotAdminLink('pages/cases.php', 'Open cases');
 
     return implode("\n", $lines);
 }
@@ -2484,9 +2490,141 @@ function chatbotNormalizeLookupTerm(string $message): string
     return trim($message);
 }
 
+/**
+ * @return list<string>
+ */
+function chatbotClientLookupTerms(string $message): array
+{
+    $terms = [];
+    $normalized = chatbotNormalizeLookupTerm($message);
+    if ($normalized !== '') {
+        $terms[] = $normalized;
+        $stripped = trim(preg_replace('/\b(meaning|definition|definitions|defn|means|mean|explain|described?)\b/i', ' ', $normalized) ?? '');
+        $stripped = trim(preg_replace('/\s+/', ' ', $stripped));
+        if ($stripped !== '' && $stripped !== $normalized) {
+            $terms[] = $stripped;
+        }
+    }
+
+    $fromDefinition = chatbotExtractDefinitionTerm($message);
+    if ($fromDefinition !== '' && !in_array($fromDefinition, $terms, true)) {
+        $terms[] = $fromDefinition;
+    }
+
+    return array_values(array_unique(array_filter($terms, static fn (string $t): bool => $t !== '')));
+}
+
+function chatbotTermLooksLikeNotaryKeyword(string $term): bool
+{
+    $term = strtolower(trim($term));
+    if ($term === '') {
+        return false;
+    }
+
+    return (bool) preg_match(
+        '/\b(apostille|affidavit|notary|notaris|jurat|acknowledg|legaliz|hague|attestation|oath|witness|'
+        . 'signer|deed|probate|immigration|certif|journal|impartial|fraud|identification|poa)\b/i',
+        $term
+    );
+}
+
+function chatbotMessageRefersToPortalClient(string $message): bool
+{
+    foreach (chatbotClientLookupTerms($message) as $term) {
+        if (strlen($term) < 2 || str_word_count($term) > 4) {
+            continue;
+        }
+
+        if (findClientsForChatbot($term, 1) === []) {
+            continue;
+        }
+
+        if (chatbotTermLooksLikeNotaryKeyword($term)
+            && preg_match('/\b(what is|what are|meaning|definition|define|explain)\b/i', $message)
+            && !preg_match('/\b(client|customer|profile|our)\b/i', $message)) {
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+function chatbotReplyForPortalClientLookup(string $message): ?string
+{
+    if (chatbotIsDraftRequest($message) || chatbotIsFollowUpList($message) || chatbotIsContextualFollowUp($message)) {
+        return null;
+    }
+
+    $trimmed = strtolower(trim($message));
+    if ($trimmed === '' || preg_match('/^(help|hi|hello|hey|thanks|thank you|ok|yes|no)$/', $trimmed)) {
+        return null;
+    }
+
+    if (chatbotIsSystemDataQuestion($message)
+        && (chatbotWantsList($message) || chatbotWantsCount($message))
+        && !preg_match('/\b(for|about|named|called)\s+/i', $message)) {
+        return null;
+    }
+
+    if (!chatbotMessageRefersToPortalClient($message)) {
+        return null;
+    }
+
+    $term = '';
+    $clients = [];
+    foreach (chatbotClientLookupTerms($message) as $candidate) {
+        if (strlen($candidate) < 2 || str_word_count($candidate) > 4) {
+            continue;
+        }
+
+        $found = findClientsForChatbot($candidate, 8);
+        if ($found !== []) {
+            $term = $candidate;
+            $clients = $found;
+            break;
+        }
+    }
+
+    if ($clients === []) {
+        return null;
+    }
+
+    if (count($clients) === 1) {
+        return formatChatbotClientDetail($clients[0]);
+    }
+
+    $lines = ['I found **' . count($clients) . ' clients** matching “' . $term . '”:', ''];
+    foreach ($clients as $client) {
+        $name = clientFullName($client);
+        $company = $client['company_name'] ? ' (' . $client['company_name'] . ')' : '';
+        $lines[] = '• **' . $name . '**' . $company . ' — ' . (int) ($client['case_count'] ?? 0) . ' case(s)';
+    }
+    $lines[] = '';
+    $lines[] = 'Reply with a **full name** for more details.';
+
+    return implode("\n", $lines);
+}
+
 function chatbotShouldTryEntityLookup(string $message): bool
 {
     if ($message === '' || preg_match('/^(help|hi|hello|hey|thanks|thank you|ok|yes|no)$/', $message)) {
+        return false;
+    }
+
+    if (chatbotIsFollowUpList($message) || chatbotIsContextualFollowUp($message)) {
+        return false;
+    }
+
+    if (chatbotMessageRefersToPortalClient($message)) {
+        return true;
+    }
+
+    if (chatbotIsDraftRequest($message)
+        || chatbotIsDefinitionRequest($message)
+        || chatbotLooksLikeKnowledgeQuery($message)
+        || chatbotIsGeneralKnowledgeQuestion($message)) {
         return false;
     }
 
@@ -2508,8 +2646,15 @@ function chatbotShouldTryEntityLookup(string $message): bool
     }
 
     $term = chatbotNormalizeLookupTerm($message);
+    if ($term === '' || strlen($term) < 2) {
+        return false;
+    }
 
-    return $term !== '' && strlen($term) >= 2 && str_word_count($term) <= 4;
+    if (str_word_count($term) > 4) {
+        return false;
+    }
+
+    return chatbotLooksLikePersonNameSearch($message);
 }
 
 function findClientsForChatbot(string $term, int $limit = 8): array
@@ -2636,6 +2781,9 @@ function formatChatbotClientDetail(array $client): string
 
     $_SESSION['chatbot_last_topic'] = 'client_' . $id;
 
+    $lines[] = '';
+    $lines[] = chatbotAdminLink('pages/client-form.php?id=' . $id, 'Open client');
+
     return implode("\n", $lines);
 }
 
@@ -2660,6 +2808,11 @@ function formatChatbotCaseDetail(array $case): string
     }
 
     $_SESSION['chatbot_last_topic'] = 'case_' . (int) ($case['id'] ?? 0);
+
+    if (!empty($case['id'])) {
+        $lines[] = '';
+        $lines[] = chatbotAdminLink('pages/case-view.php?id=' . (int) $case['id'], 'Open case');
+    }
 
     return implode("\n", $lines);
 }
@@ -2709,6 +2862,10 @@ function chatbotReplyForEntityLookup(string $message): ?string
         return formatChatbotCaseList($cases, '**Cases matching “' . $term . '”:**');
     }
 
+    if (!empty($_SESSION['chatbot_last_topic']) && chatbotIsFollowUpList($message)) {
+        return null;
+    }
+
     return 'I could not find anything matching **“' . $term . '”**. Try a client name (e.g. Emily Chen), a case number, or ask **list clients** / **list active cases**.';
 }
 
@@ -2722,12 +2879,181 @@ function chatbotWantsCount(string $message): bool
     return (bool) preg_match('/\b(how many|number of|count of|total number)\b/', $message);
 }
 
+function chatbotNormalizeFollowUpMessage(string $message): string
+{
+    $normalized = strtolower(trim($message));
+
+    return rtrim($normalized, " \t\n\r\0\x0B?.!");
+}
+
 function chatbotIsFollowUpList(string $message): bool
 {
-    return (bool) preg_match(
-        '/^(list them|show them|list those|show those|name them|what are they|list it|show it|go on|continue|more details|details please|yes list|yes show|who are they|their names|the names|name them all)$/',
-        $message
-    );
+    $normalized = chatbotNormalizeFollowUpMessage($message);
+    if ($normalized === '') {
+        return false;
+    }
+
+    if (preg_match(
+        '/^(list them|show them|list those|show those|name them|what are they|list it|show it|go on|continue|'
+        . 'more details|details please|yes list|yes show|who are they|their names|the names|name them all|'
+        . 'give me the list|show me the list|can you list|could you list|please list|please show|'
+        . 'list all|show all|yes please|sure|go ahead|do it|what about them|and them|the list)$/',
+        $normalized
+    )) {
+        return true;
+    }
+
+    if (preg_match('/\b(list|show)\s+(them|those|it|all)\b/', $normalized)) {
+        return true;
+    }
+
+    if (preg_match('/^(list|show|list\.|show\.)$/', $normalized)) {
+        return true;
+    }
+
+    return (bool) preg_match('/^(yes|ok|okay|please|continue|more|details|expand|elaborate)$/', $normalized);
+}
+
+function chatbotTryFollowUpReply(string $message): ?string
+{
+    $lastTopic = $_SESSION['chatbot_last_topic'] ?? null;
+    if ($lastTopic === null || $lastTopic === '') {
+        return null;
+    }
+
+    if (!chatbotIsFollowUpList($message) && !chatbotIsContextualFollowUp($message)) {
+        return null;
+    }
+
+    if (chatbotIsContextualFollowUp($message) && !chatbotIsFollowUpList($message)) {
+        $contextual = chatbotReplyForContextualFollowUp($message);
+        if ($contextual !== null) {
+            return $contextual;
+        }
+    }
+
+    $reply = chatbotFollowUpListForTopic((string) $lastTopic);
+
+    return $reply !== '' ? $reply : null;
+}
+
+function chatbotFollowUpListForTopic(string $topic): string
+{
+    switch ($topic) {
+        case 'active_cases':
+            $_SESSION['chatbot_last_topic'] = 'active_cases';
+
+            return formatChatbotCaseList(getActiveCasesForChat(), '**Active cases:**');
+        case 'clients':
+            $_SESSION['chatbot_last_topic'] = 'clients';
+            $clients = getAllClients();
+            if ($clients === []) {
+                return 'No clients found in the system.';
+            }
+            $lines = ['Here are your **' . count($clients) . ' clients**:', ''];
+            foreach (array_slice($clients, 0, 15) as $client) {
+                $name = clientFullName($client);
+                $company = $client['company_name'] ? " ({$client['company_name']})" : '';
+                $lines[] = "• {$name}{$company} — {$client['case_count']} case(s)";
+                if (!empty($client['id'])) {
+                    $lines[] = '  ' . chatbotAdminLink('pages/client-form.php?id=' . (int) $client['id'], 'Open client');
+                }
+            }
+            $lines[] = '';
+            $lines[] = chatbotAdminLink('pages/clients.php', 'Open clients');
+
+            return implode("\n", $lines);
+        case 'cases':
+            $_SESSION['chatbot_last_topic'] = 'cases';
+
+            return formatChatbotCaseList(
+                Database::fetchAll(
+                    "SELECT cs.id, cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+                     FROM cases cs
+                     JOIN clients cl ON cl.id = cs.client_id
+                     ORDER BY cs.updated_at DESC
+                     LIMIT 10"
+                ),
+                '**Recent cases:**'
+            );
+        case 'payments':
+        case 'revenue':
+            $_SESSION['chatbot_last_topic'] = 'payments';
+            $payments = getAllPayments();
+            if ($payments === []) {
+                return 'No payments recorded yet. ' . chatbotAdminLink('pages/payments.php', 'Open payments');
+            }
+            $lines = ['**Recent payments:**', ''];
+            foreach (array_slice($payments, 0, 10) as $payment) {
+                $name = clientFullName($payment);
+                $status = ucfirst(paymentStatusValue($payment));
+                $lines[] = '• ' . formatCurrency((float) $payment['amount']) . " from {$name} — {$payment['invoice_number']} (*{$status}*)";
+            }
+            $lines[] = '';
+            $lines[] = chatbotAdminLink('pages/payments.php', 'Open payments');
+
+            return implode("\n", $lines);
+        case 'appointments':
+            $_SESSION['chatbot_last_topic'] = 'appointments';
+            $appointments = getUpcomingAppointments(10);
+            if ($appointments === []) {
+                return 'No upcoming appointments scheduled. ' . chatbotAdminLink('pages/appointments.php', 'Open appointments');
+            }
+            $lines = ['**Upcoming appointments:**', ''];
+            foreach ($appointments as $appointment) {
+                $start = appointmentStart($appointment) ?? $appointment['start_time'] ?? null;
+                $client = clientFullName($appointment);
+                $lines[] = '• **' . ($appointment['title'] ?? 'Appointment') . '** — '
+                    . ($start ? formatDateTime($start) : 'TBD') . " — {$client}";
+            }
+            $lines[] = '';
+            $lines[] = chatbotAdminLink('pages/appointments.php', 'Open appointments');
+
+            return implode("\n", $lines);
+        case 'notifications':
+            $_SESSION['chatbot_last_topic'] = 'notifications';
+            $userId = Auth::id();
+            if ($userId === null) {
+                return 'Please log in to view notifications.';
+            }
+
+            return chatbotFormatNotificationListWithLinks(
+                getRecentNotifications($userId, 10, false),
+                '**Recent notifications:**',
+                getUnreadNotificationCount($userId)
+            );
+        case 'dashboard':
+            $_SESSION['chatbot_last_topic'] = 'dashboard';
+            $stats = getDashboardStats();
+
+            return "**Dashboard overview:**\n\n"
+                . "• Clients: {$stats['total_clients']}\n"
+                . "• Active cases: {$stats['active_cases']}\n"
+                . "• Pending invoices: {$stats['pending_invoices']}\n"
+                . "• Upcoming appointments: {$stats['upcoming_appointments']}\n"
+                . "• Total revenue: " . formatCurrency($stats['total_revenue']);
+        default:
+            if (preg_match('/^client_(\d+)$/', $topic, $matches)) {
+                $client = ClientService::getById((int) $matches[1]);
+                if ($client) {
+                    return formatChatbotClientDetail($client);
+                }
+            }
+            if (preg_match('/^case_(\d+)$/', $topic, $matches)) {
+                $case = Database::fetch(
+                    'SELECT cs.*, cl.first_name, cl.last_name, cl.company_name, cl.email, cl.phone
+                     FROM cases cs
+                     JOIN clients cl ON cl.id = cs.client_id
+                     WHERE cs.id = ?',
+                    [(int) $matches[1]]
+                );
+                if ($case) {
+                    return formatChatbotCaseDetail($case);
+                }
+            }
+
+            return 'Try **list clients**, **list active cases**, **recent payments**, or **upcoming appointments**.';
+    }
 }
 
 function generateChatbotReply(string $message): string
@@ -2743,8 +3069,12 @@ function generateChatbotReply(string $message): string
         return "Hello! I'm your " . $aiTitle . " assistant. I can help with:\n\n"
             . "• **Clients** — ask \"how many clients\" or \"list clients\"\n"
             . "• **Cases** — ask \"how many active cases\" or \"list active cases\"\n"
-            . "• **Payments** — ask \"total revenue\" or \"list recent payments\"\n"
-            . "• **Appointments** — ask \"upcoming appointments\" or \"next appointment\"\n\n"
+            . "• **Payments & invoices** — ask \"total revenue\", \"list recent payments\", or \"overdue invoices\"\n"
+            . "• **Appointments** — ask \"upcoming appointments\" or \"next appointment\"\n"
+            . "• **Notifications** — ask \"unread notifications\"\n"
+            . "• **System how-tos** — e.g. \"how do I create a case?\" or \"where are settings?\"\n"
+            . "• **Definitions & drafts** — notary terms, emails, letters, quotations\n\n"
+            . "After a count, say **list them** for details. Replies include **Open** links where relevant.\n\n"
             . "What would you like to know?";
     }
 
@@ -2752,70 +3082,17 @@ function generateChatbotReply(string $message): string
         return "Hello! I'm your " . $aiTitle . " assistant. I can help with:\n\n"
             . "• **Clients** — ask \"how many clients\" or \"list clients\"\n"
             . "• **Cases** — ask \"how many active cases\" or \"list active cases\"\n"
-            . "• **Payments** — ask \"total revenue\" or \"list recent payments\"\n"
-            . "• **Appointments** — ask \"upcoming appointments\" or \"next appointment\"\n\n"
+            . "• **Payments & invoices** — ask \"total revenue\", \"list recent payments\", or \"overdue invoices\"\n"
+            . "• **Appointments** — ask \"upcoming appointments\" or \"next appointment\"\n"
+            . "• **Notifications** — ask \"unread notifications\"\n"
+            . "• **Definitions** — e.g. \"what is an affidavit?\" or \"explain power of attorney\"\n"
+            . "• **Drafting** — e.g. \"draft a reminder email\" or \"write a client instructions template\"\n\n"
             . "After a count, you can say **list them** to see the items.\n"
             . "You can also search by **client name** (e.g. Emily Chen) or **case number**.";
     }
 
     if (chatbotIsFollowUpList($message) && $lastTopic) {
-        switch ($lastTopic) {
-            case 'active_cases':
-                $_SESSION['chatbot_last_topic'] = 'active_cases';
-                return formatChatbotCaseList(getActiveCasesForChat(), '**Active cases:**');
-            case 'clients':
-                $_SESSION['chatbot_last_topic'] = 'clients';
-                $clients = getAllClients();
-                if ($clients === []) {
-                    return 'No clients found in the system.';
-                }
-                $lines = ['Here are your **' . count($clients) . ' clients**:', ''];
-                foreach (array_slice($clients, 0, 10) as $client) {
-                    $name = clientFullName($client);
-                    $company = $client['company_name'] ? " ({$client['company_name']})" : '';
-                    $lines[] = "• {$name}{$company} — {$client['case_count']} case(s)";
-                }
-                return implode("\n", $lines);
-            case 'cases':
-                $_SESSION['chatbot_last_topic'] = 'cases';
-                return formatChatbotCaseList(
-                    Database::fetchAll(
-                        "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
-                         FROM cases cs
-                         JOIN clients cl ON cl.id = cs.client_id
-                         ORDER BY cs.updated_at DESC
-                         LIMIT 10"
-                    ),
-                    '**Recent cases:**'
-                );
-            case 'payments':
-                $_SESSION['chatbot_last_topic'] = 'payments';
-                $payments = getAllPayments();
-                if ($payments === []) {
-                    return 'No payments recorded yet.';
-                }
-                $lines = ['**Recent payments:**', ''];
-                foreach (array_slice($payments, 0, 8) as $payment) {
-                    $name = clientFullName($payment);
-                    $status = ucfirst(paymentStatusValue($payment));
-                    $lines[] = '• ' . formatCurrency((float) $payment['amount']) . " from {$name} — {$payment['invoice_number']} (*{$status}*)";
-                }
-                return implode("\n", $lines);
-            case 'appointments':
-                $_SESSION['chatbot_last_topic'] = 'appointments';
-                $appointments = getUpcomingAppointments(8);
-                if ($appointments === []) {
-                    return 'No upcoming appointments scheduled.';
-                }
-                $lines = ['**Upcoming appointments:**', ''];
-                foreach ($appointments as $appointment) {
-                    $start = appointmentStart($appointment) ?? $appointment['start_time'] ?? null;
-                    $client = clientFullName($appointment);
-                    $lines[] = '• **' . ($appointment['title'] ?? 'Appointment') . '** — '
-                        . ($start ? formatDateTime($start) : 'TBD') . " — {$client}";
-                }
-                return implode("\n", $lines);
-        }
+        return chatbotFollowUpListForTopic((string) $lastTopic);
     }
 
     $entityReply = chatbotReplyForEntityLookup($message);
@@ -2835,13 +3112,21 @@ function generateChatbotReply(string $message): string
                 $name = clientFullName($client);
                 $company = $client['company_name'] ? " ({$client['company_name']})" : '';
                 $lines[] = "• {$name}{$company} — {$client['case_count']} case(s)";
+                if (!empty($client['id'])) {
+                    $lines[] = '  ' . chatbotAdminLink('pages/client-form.php?id=' . (int) $client['id'], 'Open client');
+                }
             }
+            $lines[] = '';
+            $lines[] = chatbotAdminLink('pages/clients.php', 'Open clients');
+
             return implode("\n", $lines);
         }
 
         if (chatbotWantsCount($message) || preg_match('/how many client|total client|client count|number of client/', $message)) {
             $_SESSION['chatbot_last_topic'] = 'clients';
-            return "You currently have **{$stats['total_clients']} registered clients** in the system.";
+
+            return "You currently have **{$stats['total_clients']} registered clients** in the system.\n\n"
+                . chatbotAdminLink('pages/clients.php', 'Open clients');
         }
     }
 
@@ -2860,7 +3145,7 @@ function generateChatbotReply(string $message): string
             $_SESSION['chatbot_last_topic'] = 'cases';
             return formatChatbotCaseList(
                 Database::fetchAll(
-                    "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+                    "SELECT cs.id, cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
                      FROM cases cs
                      JOIN clients cl ON cl.id = cs.client_id
                      ORDER BY cs.updated_at DESC
@@ -2903,6 +3188,9 @@ function generateChatbotReply(string $message): string
                 $status = ucfirst(paymentStatusValue($payment));
                 $lines[] = '• ' . formatCurrency((float) $payment['amount']) . " from {$name} — {$payment['invoice_number']} (*{$status}*)";
             }
+            $lines[] = '';
+            $lines[] = chatbotAdminLink('pages/payments.php', 'Open payments');
+
             return implode("\n", $lines);
         }
     }
@@ -2929,6 +3217,9 @@ function generateChatbotReply(string $message): string
                 $lines[] = '• **' . ($appointment['title'] ?? 'Appointment') . '** — '
                     . ($start ? formatDateTime($start) : 'TBD') . " — {$client}";
             }
+            $lines[] = '';
+            $lines[] = chatbotAdminLink('pages/appointments.php', 'Open appointments');
+
             return implode("\n", $lines);
         }
 
@@ -2938,7 +3229,17 @@ function generateChatbotReply(string $message): string
             return "**Next appointment:** {$appt['title']} on " . formatDateTime($appt['start_time']) . '.';
         }
 
-        return "You have **{$stats['upcoming_appointments']} upcoming appointments** scheduled. No future appointments found in the calendar.";
+        return "You have **{$stats['upcoming_appointments']} upcoming appointments** scheduled. "
+            . chatbotAdminLink('pages/appointments.php', 'Open appointments');
+    }
+
+    if (preg_match('/\b(notification|notifications)\b/', $message)) {
+        if (function_exists('chatbotReplyForNotificationQueries')) {
+            $notificationReply = chatbotReplyForNotificationQueries($message);
+            if ($notificationReply !== null) {
+                return $notificationReply;
+            }
+        }
     }
 
     if (preg_match('/dashboard|summary|overview|status/', $message)) {
@@ -2949,6 +3250,10 @@ function generateChatbotReply(string $message): string
             . "• Pending invoices: {$stats['pending_invoices']}\n"
             . "• Upcoming appointments: {$stats['upcoming_appointments']}\n"
             . "• Total revenue: " . formatCurrency($stats['total_revenue']);
+    }
+
+    if (chatbotIsPortalSystemQuestion($message) || chatbotIsProceduralQuery($message)) {
+        return chatbotPortalSystemFallback($message);
     }
 
     return "I'm not sure about that. Try a **client name** (e.g. Emily Chen), a **case number**, or ask about **clients**, **cases**, **payments**, or **appointments**. Type **help** for examples.";

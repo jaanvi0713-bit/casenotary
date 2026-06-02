@@ -5,6 +5,7 @@ Auth::requireAdmin();
 
 $pageTitle = 'AI Assistant';
 $pageSubtitle = 'Ask naturally about clients, cases, payments & appointments';
+$pageBodyClass = 'page-chatbot';
 $company = getCompanySettings();
 $quickPrompts = getChatbotDefaultQuickPrompts();
 $userId = (int) (Auth::id() ?? 0);
@@ -56,7 +57,7 @@ require __DIR__ . '/../includes/header.php';
                             <div class="chat-avatar"><i class="bi bi-robot"></i></div>
                             <div class="chat-bubble">
                                 <p>Hello! I'm your AI assistant for <strong><?= e(companyBrandName($company)) ?></strong>.</p>
-                                <p class="mb-0">Ask me anything about your clients, cases, invoices, or appointments. Try typing <strong>&quot;morning briefing&quot;</strong>, <strong>&quot;active cases&quot;</strong>, or ask about a specific client, like <strong>&quot;details of Emily&quot;</strong>.</p>
+                                <p class="mb-0">Ask one question at a time — I answer <strong>only what you ask</strong>. Examples: <em>How do I create a case?</em>, <em>List overdue invoices</em>, <em>What is an apostille?</em> Say <strong>&quot;list them&quot;</strong> after a count for details.</p>
                             </div>
                         </div>
                     </div>
@@ -81,6 +82,9 @@ require __DIR__ . '/../includes/header.php';
                                 <i class="bi bi-send-fill"></i>
                             </button>
                         </form>
+                        <p id="chatEditHint" class="chatbot-edit-hint mb-1 d-none" role="status">
+                            <i class="bi bi-pencil-square me-1"></i> Editing message — change the text below and send to get a new reply.
+                        </p>
                         <p class="chatbot-input-hint mb-0">
                             Attach images or PDFs (up to 10) using the clip button beside the message box.
                         </p>

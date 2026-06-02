@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+function chatbotAdminLink(string $path, string $label): string
+{
+    $href = url(ltrim($path, '/'));
+
+    return '[' . $label . '](' . $href . ')';
+}
+
 function chatbotPageLink(string $path, string $label): string
 {
     return chatbotAdminLink($path, $label);
@@ -15,9 +22,12 @@ function getChatbotDefaultQuickPrompts(): array
         ['icon' => 'bi-people', 'label' => 'Client count', 'prompt' => 'How many clients do we have?'],
         ['icon' => 'bi-briefcase', 'label' => 'Active cases', 'prompt' => 'List active cases'],
         ['icon' => 'bi-cash-stack', 'label' => 'Total revenue', 'prompt' => 'What is our total revenue?'],
-        ['icon' => 'bi-calendar-event', 'label' => 'Upcoming appointments', 'prompt' => 'Show upcoming appointments'],
+        ['icon' => 'bi-calendar-event', 'label' => 'Upcoming appointments', 'prompt' => 'List upcoming appointments'],
         ['icon' => 'bi-credit-card', 'label' => 'Recent payments', 'prompt' => 'List recent payments'],
         ['icon' => 'bi-exclamation-circle', 'label' => 'Overdue invoices', 'prompt' => 'List overdue invoices'],
+        ['icon' => 'bi-bell', 'label' => 'Unread notifications', 'prompt' => 'Show unread notifications'],
+        ['icon' => 'bi-file-earmark-text', 'label' => 'Draft client letter', 'prompt' => 'Draft a client letter about an upcoming appointment'],
+        ['icon' => 'bi-question-circle', 'label' => 'What is an apostille?', 'prompt' => 'What is an apostille?'],
     ];
 }
 
@@ -449,6 +459,7 @@ function chatbotReplyForNotificationQueries(string $message): ?string
     $unread = getUnreadNotificationCount($userId);
 
     if (chatbotWantsCount($normalized) || preg_match('/\bhow many\b/', $normalized)) {
+        $_SESSION['chatbot_last_topic'] = 'notifications';
         $suffix = $unread > 0
             ? chatbotFormatNotificationListWithLinks(getRecentNotifications($userId, 6, false), '**Recent notifications:**', $unread)
             : 'You have **0 unread notifications**. ' . chatbotAdminLink('pages/notifications.php', 'Open notifications');
@@ -461,6 +472,7 @@ function chatbotReplyForNotificationQueries(string $message): ?string
     }
 
     if (preg_match('/\b(unread|new)\b/', $normalized)) {
+        $_SESSION['chatbot_last_topic'] = 'notifications';
         $rows = Database::fetchAll(
             'SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 ORDER BY created_at DESC LIMIT 10',
             [$userId]
@@ -470,12 +482,16 @@ function chatbotReplyForNotificationQueries(string $message): ?string
     }
 
     if (chatbotWantsList($normalized) || preg_match('/\blist|\bshow|\brecent\b/', $normalized)) {
+        $_SESSION['chatbot_last_topic'] = 'notifications';
+
         return chatbotFormatNotificationListWithLinks(
             getRecentNotifications($userId, 10, false),
             '**Recent notifications:**',
             $unread
         );
     }
+
+    $_SESSION['chatbot_last_topic'] = 'notifications';
 
     return 'You have **' . $unread . ' unread notifications**. '
         . chatbotAdminLink('pages/notifications.php', 'Open notifications');
@@ -546,7 +562,11 @@ function chatbotReplyForAdviceAndGeneral(string $message): ?string
         return null;
     }
 
-    if (chatbotIsSystemDataQuestion($message) && chatbotWantsCount(strtolower($message))) {
+    if (chatbotIsPortalSystemQuestion($message) || chatbotIsProceduralQuery($message)) {
+        return chatbotReplyForPortalSystemQuestion($message);
+    }
+
+    if (chatbotIsSystemDataQuestion($message)) {
         return null;
     }
 
@@ -857,12 +877,100 @@ function chatbotEvaluateMathExpression(string $expr): ?string
         : (string) $result;
 }
 
+/**
+ * Live portal metrics for quick prompts and business questions (clients, revenue, appointments).
+ */
+function chatbotReplyForPortalDataQuestion(string $message): ?string
+{
+    if (!chatbotIsSystemDataQuestion($message)) {
+        return null;
+    }
+
+    $normalized = strtolower(trim($message));
+    syncOverdueInvoices();
+    $stats = getDashboardStats();
+
+    if (preg_match('/\b(client|clients)\b/', $normalized)) {
+        if (chatbotWantsList($normalized) || preg_match('/\blist|\bshow|\ball client/', $normalized)) {
+            $_SESSION['chatbot_last_topic'] = 'clients';
+            $clients = getAllClients();
+            if ($clients === []) {
+                return 'No clients found in the system. ' . chatbotAdminLink('pages/clients.php', 'Open clients');
+            }
+            $lines = ['Here are your **' . count($clients) . ' clients**:', ''];
+            foreach (array_slice($clients, 0, 15) as $client) {
+                $name = clientFullName($client);
+                $company = $client['company_name'] ? " ({$client['company_name']})" : '';
+                $lines[] = "• {$name}{$company} — {$client['case_count']} case(s)";
+                if (!empty($client['id'])) {
+                    $lines[] = '  ' . chatbotAdminLink('pages/client-form.php?id=' . (int) $client['id'], 'Open client');
+                }
+            }
+            $lines[] = '';
+            $lines[] = chatbotAdminLink('pages/clients.php', 'Open clients');
+
+            return implode("\n", $lines);
+        }
+
+        if (chatbotWantsCount($normalized) || preg_match('/\bhow many|client count|number of client|total client/', $normalized)) {
+            $_SESSION['chatbot_last_topic'] = 'clients';
+
+            return 'You currently have **' . (int) $stats['total_clients'] . ' registered clients** in the system.'
+                . "\n\n" . chatbotAdminLink('pages/clients.php', 'Open clients');
+        }
+    }
+
+    if (preg_match('/\b(revenue|earnings|income|total payment)\b/', $normalized)) {
+        $_SESSION['chatbot_last_topic'] = 'revenue';
+
+        return "**Revenue summary:**\n\n"
+            . '• **Total revenue:** ' . formatCurrency((float) $stats['total_revenue']) . "\n"
+            . '• **This month:** ' . formatCurrency((float) $stats['monthly_revenue']) . "\n"
+            . '• **Paid invoices:** ' . (int) $stats['paid_invoices'] . "\n\n"
+            . chatbotAdminLink('pages/payments.php', 'Open payments');
+    }
+
+    if (preg_match('/\b(appointment|appointments|schedule|meeting|calendar)\b/', $normalized)) {
+        $appointmentReply = chatbotReplyForAppointmentQueries($message);
+        if ($appointmentReply !== null) {
+            return $appointmentReply;
+        }
+    }
+
+    if (preg_match('/\b(payment|payments)\b/', $normalized)
+        && (chatbotWantsList($normalized) || preg_match('/\blist|\bshow|\brecent\b/', $normalized))) {
+        $payments = getAllPayments();
+        if ($payments === []) {
+            return 'No payments recorded yet. ' . chatbotAdminLink('pages/payments.php', 'Open payments');
+        }
+        $lines = ['**Recent payments:**', ''];
+        foreach (array_slice($payments, 0, 10) as $payment) {
+            $name = clientFullName($payment);
+            $status = ucfirst(paymentStatusValue($payment));
+            $lines[] = '• ' . formatCurrency((float) $payment['amount'])
+                . " from **{$name}** — " . ($payment['invoice_number'] ?? 'Invoice') . " (*{$status}*)";
+        }
+        $lines[] = '';
+        $lines[] = chatbotAdminLink('pages/payments.php', 'Open payments');
+        $_SESSION['chatbot_last_topic'] = 'payments';
+
+        return implode("\n", $lines);
+    }
+
+    return null;
+}
+
 function chatbotReplyForSystemInsights(string $message): ?string
 {
     $normalized = strtolower(trim($message));
     syncOverdueInvoices();
     $stats = getDashboardStats();
     $statusCol = invoiceStatusColumn();
+
+    $portalData = chatbotReplyForPortalDataQuestion($message);
+    if ($portalData !== null) {
+        return $portalData;
+    }
 
     if (preg_match('/\b(notification|notifications)\b/', $normalized)) {
         $notificationReply = chatbotReplyForNotificationQueries($message);
@@ -911,6 +1019,42 @@ function chatbotReplyForSystemInsights(string $message): ?string
         }
 
         $_SESSION['chatbot_last_topic'] = 'payments';
+        $lines[] = '';
+        $lines[] = chatbotAdminLink('pages/payments.php', 'Open payments');
+
+        return implode("\n", $lines);
+    }
+
+    if (preg_match('/\b(invoice|invoices)\b/', $normalized)
+        && (chatbotWantsList($normalized) || preg_match('/\blist|\bshow|\bpending|\bunpaid|\boverdue|\brecent\b/', $normalized))) {
+        $rows = Database::fetchAll(
+            "SELECT i.id, i.invoice_number, i.total, i.due_date, i.{$statusCol} AS invoice_status,
+                    cl.first_name, cl.last_name, cl.company_name, cs.id AS case_id
+             FROM invoices i
+             JOIN clients cl ON cl.id = i.client_id
+             LEFT JOIN cases cs ON cs.id = i.case_id
+             WHERE i.{$statusCol} IN ('pending', 'overdue', 'partially_paid', 'paid')
+             ORDER BY i.created_at DESC
+             LIMIT 12"
+        );
+
+        if ($rows === []) {
+            return 'No invoices found. ' . chatbotAdminLink('pages/payments.php', 'Open payments');
+        }
+
+        $lines = ['**Recent invoices:**', ''];
+        foreach ($rows as $row) {
+            $name = clientFullName($row);
+            $status = ucwords(str_replace('_', ' ', (string) ($row['invoice_status'] ?? 'pending')));
+            $lines[] = '• **' . ($row['invoice_number'] ?? 'Invoice') . '** — '
+                . formatCurrency((float) ($row['total'] ?? 0)) . " — {$name} (*{$status}*)";
+            if (!empty($row['case_id'])) {
+                $lines[] = '  ' . chatbotAdminLink('pages/case-view.php?id=' . (int) $row['case_id'], 'Open case');
+            }
+        }
+        $lines[] = '';
+        $lines[] = chatbotAdminLink('pages/payments.php', 'Open payments');
+        $_SESSION['chatbot_last_topic'] = 'payments';
 
         return implode("\n", $lines);
     }
@@ -931,6 +1075,8 @@ function chatbotReplyForSystemInsights(string $message): ?string
         }
 
         $_SESSION['chatbot_last_topic'] = 'payments';
+        $lines[] = '';
+        $lines[] = chatbotAdminLink('pages/payments.php', 'Open payments');
 
         return implode("\n", $lines);
     }

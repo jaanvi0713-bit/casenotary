@@ -29,24 +29,10 @@ function chatbotIsSystemDataQuestion(string $message): bool
 
 function chatbotIsGeneralQuestion(string $message): bool
 {
-    $normalized = strtolower(trim($message));
-
-    if ($normalized === '' || chatbotIsSystemDataQuestion($normalized)) {
-        return false;
-    }
-
-    if (preg_match('/case[- ]?\d{4}/i', $message)) {
-        return false;
-    }
-
-    if (preg_match('/\b(how many|list clients|list cases|list payments|dashboard|pending invoice)\b/', $normalized)) {
-        return false;
-    }
-
     return (bool) preg_match(
-        '/\b(what is|what are|what\'s|whats|explain|define|meaning of|how does|why do|why is|why are|difference between|compare|tips for|best practice|advice|help me understand|can you explain|describe|overview of|learn about|teach me|pros and cons|when should|who needs|do i need|tell me|give me|recommend|suggest|ideas for|ways to|should i|is it|are there|any tips|what happens|what about|talk about|general info|information about|write me|draft|compose|prepare|curious|thoughts on|opinion on|help with|guide me|walk me through)\b/',
-        $normalized
-    ) || (bool) preg_match('/^(what|why|how|who|when|where|explain|define|describe|is|are|can|should|tell|give|write|draft)\s+/i', $normalized);
+        '/\b(what|why|how|when|where|who|can|could|should|would|does|do|is|are)\b/i',
+        $message
+    ) || str_contains(trim($message), '?');
 }
 
 function chatbotReplyForGeneralKnowledge(string $message): ?string
@@ -441,9 +427,14 @@ function chatbotExtractQuestionSubject(string $message): string
 
 function chatbotReplyForGeneralizedTemplate(string $message): ?string
 {
+    $focused = chatbotReplyForFocusedQuestion($message);
+    if ($focused !== null) {
+        return $focused;
+    }
+
     $normalized = strtolower(trim($message));
 
-    if (chatbotIsSystemDataQuestion($message) && !chatbotIsGeneralQuestion($message)) {
+    if (chatbotIsSystemDataQuestion($message)) {
         return null;
     }
 
@@ -467,6 +458,11 @@ function chatbotReplyForGeneralizedTemplate(string $message): ?string
     }
 
     if (preg_match('/\b(how to|how do i|how can i|how should i|steps to|way to)\b/', $normalized)) {
+        $portal = chatbotReplyForFocusedQuestion($message);
+        if ($portal !== null) {
+            return $portal;
+        }
+
         $expanded = chatbotReplyForExpandedKnowledge($message);
         if ($expanded !== null) {
             return $expanded;
@@ -492,32 +488,27 @@ function chatbotReplyForGeneralizedTemplate(string $message): ?string
 
 function chatbotTemplateWhatIs(string $subject): string
 {
-    return "**About \"{$subject}\":**\n\n"
-        . "Here is a practical overview:\n\n"
-        . "• **Purpose** — Clarify what role this plays in legal, business, or client workflows.\n"
-        . "• **Your practice** — Note requirements on the relevant **case**, verify **ID**, and follow jurisdiction rules.\n"
-        . "• **Client communication** — Set expectations in **client instructions** and confirm documents before the **appointment**.\n\n"
-        . "_For notary-specific terms (affidavit, apostille, POA, etc.), ask directly — e.g. **“what is an affidavit?”**_\n\n"
-        . "If this relates to a **specific client or case**, name them first for tailored next steps.";
+    $known = chatbotReplyForFlexibleKnowledge($subject);
+    if ($known !== null) {
+        return $known;
+    }
+
+    return "**{$subject}:** A term used in legal or notarial work — exact meaning depends on **jurisdiction** and **document type**. "
+        . 'Name a **specific term** (e.g. *apostille*, *affidavit*) for a precise definition.';
 }
 
 function chatbotTemplateHowTo(string $subject, string $message): string
 {
-    if (preg_match('/\b(portal|system|software|app|platform|this system)\b/i', $message)) {
-        return "**How to {$subject} in this portal:**\n\n"
-            . "1. Check the sidebar — **Clients**, **Cases**, **Payments**, **Appointments**, or **Settings**.\n"
-            . "2. Open the relevant record and use **Edit**, **Generate**, or **Schedule** actions.\n"
-            . "3. Email or notify the client from the **case page** when documents or instructions are ready.\n\n"
-            . "Try a specific question like **“how do I create a case?”** or **“how to schedule an appointment?”**";
+    $focused = chatbotReplyForFocusedQuestion($message);
+    if ($focused !== null) {
+        return $focused;
     }
 
-    return "**How to approach \"{$subject}\":**\n\n"
-        . "1. **Define the goal** — What outcome does the client or your office need?\n"
-        . "2. **Check requirements** — Law, lender, embassy, or receiving authority rules.\n"
-        . "3. **Gather documents & ID** — List items in **client instructions**.\n"
-        . "4. **Execute & record** — Appointment, notarial act, **case notes**, and invoicing.\n"
-        . "5. **Follow up** — Status updates, apostille, or delivery as needed.\n\n"
-        . "For portal-specific steps, include words like **“in the portal”** or ask **help**.";
+    if (preg_match('/\b(portal|system|software|app|platform|this system)\b/i', $message)) {
+        return 'Rephrase with the exact task — e.g. *How do I create a case?* or *Where are settings?* — and I will give step-by-step instructions only for that.';
+    }
+
+    return "**How to handle {$subject}:** Confirm requirements with the receiving authority, gather documents and ID, complete the notarial act, and record it on the **case**.";
 }
 
 function chatbotTemplateWhy(string $subject): string
@@ -570,40 +561,510 @@ function chatbotTemplateHowDoes(string $message): string
 
 function chatbotTemplateOpenAnswer(string $subject, string $message): string
 {
-    $company = getCompanySettings();
-    $brand   = $company['company_name'] ?? 'your office';
-    $stats   = getDashboardStats();
+    $focused = chatbotReplyForFocusedQuestion($message);
+    if ($focused !== null) {
+        return $focused;
+    }
 
-    $lines = [
-        "**Regarding {$subject}**",
-        '',
-        "Here is a thoughtful overview for **{$brand}** — no external AI or install needed:",
-        '',
+    if (chatbotIsPortalSystemQuestion($message) || chatbotIsProceduralQuery($message)) {
+        $portal = chatbotReplyForPortalSystemQuestion($message);
+        if ($portal !== null) {
+            return $portal;
+        }
+    }
+
+    return 'I need a bit more specificity to answer that directly. '
+        . 'Try one clear question — e.g. *How do I create a case?*, *What is an apostille?*, or *List overdue invoices*.';
+}
+
+function chatbotIsDraftRequest(string $message): bool
+{
+    $normalized = strtolower(trim($message));
+
+    if ($normalized === '' || chatbotIsSystemDataQuestion($message)) {
+        return false;
+    }
+
+    if (!preg_match('/\b(draft|write|compose|prepare|create|generate|help me write|help me draft)\b/i', $message)) {
+        return false;
+    }
+
+    if (preg_match(
+        '/\b(email|e-mail|letter|message|memo|memorandum|document|doc|contract|agreement|affidavit|'
+        . 'quotation|quote|invoice|receipt|policy|procedure|checklist|certificate|attestation|nda|'
+        . 'will|poa|power of attorney|template|notice|reminder|confirmation|instructions|summary|'
+        . 'report|proposal|statement|sworn|journal|cover letter|client letter|follow.?up|demand|'
+        . 'acknowledgment|acknowledgement|apostille|deed|minutes|script|terms)\b/i',
+        $message
+    )) {
+        return true;
+    }
+
+    return (bool) preg_match('/\b(draft|write|compose|prepare)\s+(me\s+)?(a|an|the)\b/i', $message);
+}
+
+function chatbotExpandShortForms(string $message): string
+{
+    $normalized = strtolower(trim($message));
+    $replacements = [
+        '/\bpoa\b/'           => 'power of attorney',
+        '/\blpa\b/'           => 'lasting power of attorney',
+        '/\bnda\b/'           => 'non disclosure agreement',
+        '/\bappt\b/'          => 'appointment',
+        '/\bappts\b/'         => 'appointments',
+        '/\bauth\b/'          => 'authentication',
+        '/\blegalisation\b/'  => 'legalization apostille',
+        '/\blegalization\b/'  => 'legalization apostille',
     ];
 
-    if (preg_match('/\b(client|customer|service|communication)\b/i', $message)) {
-        $lines[] = '**Client perspective:** Clear instructions, realistic timelines, and professional follow-up build trust. '
-            . 'Use **client instructions** on each case and keep status updated so clients see progress in the portal.';
-        $lines[] = '';
+    foreach ($replacements as $pattern => $replacement) {
+        $normalized = preg_replace($pattern, $replacement, $normalized) ?? $normalized;
     }
 
-    if (preg_match('/\b(money|fee|price|charge|profit|business)\b/i', $message)) {
-        $lines[] = '**Business perspective:** You have **' . formatCurrency((float) $stats['total_revenue']) . '** total revenue '
-            . 'and **' . (int) $stats['pending_invoices'] . '** pending invoice(s). '
-            . 'Transparent **quotations** and timely invoicing protect cash flow.';
-        $lines[] = '';
+    return trim($normalized);
+}
+
+/**
+ * @return list<string>
+ */
+function chatbotKnowledgeSearchTerms(string $message): array
+{
+    $expanded = chatbotExpandShortForms($message);
+    $normalized = strtolower(trim($expanded));
+    $fillers = [
+        'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+        'what', 'whats', 'who', 'when', 'where', 'why', 'how',
+        'please', 'tell', 'me', 'you', 'about', 'for', 'of', 'to', 'in', 'on',
+        'can', 'could', 'would', 'should', 'do', 'does', 'did',
+        'meaning', 'mean', 'means', 'definition', 'definitions', 'define', 'defn',
+        'explain', 'explained', 'describe', 'info', 'information',
+    ];
+    $stop = array_flip($fillers);
+    $terms = [];
+    $seen = [];
+
+    $add = static function (string $term) use (&$terms, &$seen): void {
+        $term = trim($term);
+        if ($term === '' || isset($seen[$term])) {
+            return;
+        }
+        $seen[$term] = true;
+        $terms[] = $term;
+    };
+
+    $add($message);
+    $add($expanded);
+
+    $core = chatbotExtractDefinitionTerm($message);
+    if ($core !== '') {
+        $add($core);
     }
 
-    $lines[] = '**Practical steps you can take now:**';
-    $lines[] = '1. Clarify whether this is about **your live data**, a **portal task**, or **notary/document knowledge**.';
-    $lines[] = '2. For **numbers** — try *dashboard summary*, *list clients*, or *overdue invoices*.';
-    $lines[] = '3. For **how-to** — ask *how do I create a case?* or *how to schedule an appointment?*';
-    $lines[] = '4. For **notary topics** — ask *what is an affidavit?*, *apostille*, or *power of attorney*.';
-    $lines[] = '5. For a **specific person** — ask *details of [client name]* then follow up with *what about her invoices*.';
-    $lines[] = '';
-    $lines[] = 'Ask a follow-up with more detail — I remember our conversation and will build on earlier answers.';
+    $words = preg_split('/\s+/', preg_replace('/[^\w\s-]/', ' ', $normalized)) ?: [];
+    $significant = [];
+    foreach ($words as $word) {
+        if ($word === '' || isset($stop[$word]) || strlen($word) < 2) {
+            continue;
+        }
+        $significant[] = $word;
+        if (strlen($word) >= 3 || in_array($word, ['poa', 'id'], true)) {
+            $add($word);
+        }
+    }
 
-    return implode("\n", $lines);
+    if ($significant !== []) {
+        $add(implode(' ', $significant));
+    }
+
+    return $terms;
+}
+
+function chatbotExtractDefinitionTerm(string $message): string
+{
+    $term = strtolower(trim($message));
+    $term = preg_replace(
+        '/\b(what is|what are|what\'s|whats|whats the|meaning of|definition of|'
+        . 'tell me about|info on|information on|explain|define|describe)\b/i',
+        ' ',
+        $term
+    ) ?? $term;
+    $term = preg_replace('/\b(meaning|definition|definitions|defn|means|mean)\b/i', ' ', $term) ?? $term;
+    $term = preg_replace('/\s+/', ' ', trim($term)) ?? '';
+
+    if ($term !== '') {
+        return $term;
+    }
+
+    $subject = chatbotExtractQuestionSubject($message);
+
+    return $subject !== 'your question' ? $subject : '';
+}
+
+function chatbotLooksLikeKnowledgeQuery(string $message): bool
+{
+    $normalized = strtolower(trim($message));
+
+    if ($normalized === '' || chatbotIsDraftRequest($message)) {
+        return false;
+    }
+
+    if (chatbotWantsCount($normalized) || chatbotWantsList($normalized)) {
+        return false;
+    }
+
+    if (preg_match(
+        '/\b(how many|list|show|dashboard|total revenue|our clients|my clients|pending invoice|'
+        . 'upcoming appointment|unread notification|morning briefing)\b/',
+        $normalized
+    )) {
+        return false;
+    }
+
+    if (preg_match('/\b(meaning|definition|defn|means|define|explain|what is|what are|what\'s|whats)\b/i', $message)) {
+        return !chatbotMessageRefersToPortalClient($message);
+    }
+
+    if (preg_match('/^(define|explain)\s+\S/i', trim($message))) {
+        return true;
+    }
+
+    $wordCount = str_word_count($normalized);
+    if ($wordCount <= 4 && !chatbotIsSystemDataQuestion($message)) {
+        if (preg_match(
+            '/\b(apostille|affidavit|notary|notaris|jurat|acknowledg|legaliz|hague|'
+            . 'attestation|oath|witness|signer|deed|will|probate|immigration|'
+            . 'certif|copy|journal|impartial|fraud|id|identification)\b/i',
+            $normalized
+        )) {
+            return true;
+        }
+    }
+
+    if ($wordCount <= 2 && !preg_match('/\b(clients?|cases?|payments?|appointments?|invoices?|notifications?)\b/', $normalized)) {
+        if (chatbotMessageRefersToPortalClient($message)) {
+            return false;
+        }
+
+        return strlen(preg_replace('/\s+/', '', $normalized)) >= 3;
+    }
+
+    return false;
+}
+
+function chatbotIsDefinitionRequest(string $message): bool
+{
+    return chatbotLooksLikeKnowledgeQuery($message);
+}
+
+/**
+ * Flexible knowledge lookup — does not require exact phrasing ("apostille meaning", "poa", etc.).
+ */
+function chatbotReplyForFlexibleKnowledge(string $message): ?string
+{
+    if (chatbotIsDraftRequest($message)) {
+        return null;
+    }
+
+    if (chatbotMessageRefersToPortalClient($message)) {
+        return null;
+    }
+
+    if (chatbotIsSystemDataQuestion($message) && (chatbotWantsList($message) || chatbotWantsCount($message))) {
+        return null;
+    }
+
+    foreach (chatbotKnowledgeSearchTerms($message) as $term) {
+        if ($term === '' || strlen($term) < 2) {
+            continue;
+        }
+
+        $general = chatbotReplyForGeneralKnowledge($term);
+        if ($general !== null) {
+            return $general;
+        }
+
+        $expanded = chatbotReplyForExpandedKnowledge($term);
+        if ($expanded !== null) {
+            return $expanded;
+        }
+    }
+
+    $fused = chatbotFuseKnowledgeByKeywords($message);
+    if ($fused !== null) {
+        return $fused;
+    }
+
+    return null;
+}
+
+function chatbotIsGeneralKnowledgeQuestion(string $message): bool
+{
+    if (chatbotIsDraftRequest($message)) {
+        return false;
+    }
+
+    // Portal metrics (clients, revenue, appointments, etc.) always use live data — never Wikipedia/templates.
+    if (chatbotIsSystemDataQuestion($message) || chatbotIsPortalSystemQuestion($message)) {
+        return false;
+    }
+
+    if (chatbotMessageRefersToPortalClient($message) || chatbotLooksLikePersonNameSearch($message)) {
+        return false;
+    }
+
+    return chatbotLooksLikeKnowledgeQuery($message)
+        || chatbotIsGeneralQuestion($message)
+        || chatbotIsAdviceOrHowToQuery($message);
+}
+
+function chatbotLooksLikePersonNameSearch(string $message): bool
+{
+    if (preg_match('/case[- ]?\d{4}[- ]?\d+/i', $message)) {
+        return true;
+    }
+
+    if (chatbotMessageRefersToPortalClient($message)) {
+        return true;
+    }
+
+    if (preg_match('/\b(client|customer|profile|who is|details for|information on|info on)\b/i', $message)) {
+        $term = chatbotNormalizeLookupTerm($message);
+        if ($term !== '' && str_word_count($term) <= 4 && !chatbotIsSystemDataQuestion($message)) {
+            return true;
+        }
+    }
+
+    $term = chatbotNormalizeLookupTerm($message);
+    if ($term === '' || str_word_count($term) < 2) {
+        return false;
+    }
+
+    if (chatbotLooksLikeKnowledgeQuery($message) || chatbotIsSystemDataQuestion($message)) {
+        return false;
+    }
+
+    return str_word_count($term) <= 4;
+}
+
+function chatbotWikipediaEnabled(): bool
+{
+    $config = require __DIR__ . '/../config/config.php';
+
+    return !empty($config['chatbot']['wikipedia']['enabled']);
+}
+
+function chatbotFetchWikipediaSummary(string $term): ?string
+{
+    $term = trim($term);
+    if ($term === '' || strlen($term) > 200 || !chatbotWikipediaEnabled()) {
+        return null;
+    }
+
+    $title = chatbotWikipediaResolveTitle($term);
+    if ($title === null) {
+        return null;
+    }
+
+    $url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' . rawurlencode($title);
+    $payload = chatbotHttpGetJson($url);
+    if (!is_array($payload)) {
+        return null;
+    }
+
+    $extract = trim((string) ($payload['extract'] ?? ''));
+    if ($extract === '' || ($payload['type'] ?? '') === 'disambiguation') {
+        return null;
+    }
+
+    $display = (string) ($payload['title'] ?? $title);
+    $link = (string) ($payload['content_urls']['desktop']['page'] ?? 'https://en.wikipedia.org/wiki/' . rawurlencode(str_replace(' ', '_', $title)));
+
+    return "**{$display}** (from Wikipedia)\n\n"
+        . $extract
+        . "\n\n[Read more on Wikipedia]({$link})"
+        . "\n\n_Note: For notary-specific workflow, also check your portal data or ask about a **client** or **case**._";
+}
+
+function chatbotWikipediaResolveTitle(string $term): ?string
+{
+    $direct = chatbotHttpGetJson(
+        'https://en.wikipedia.org/api/rest_v1/page/summary/' . rawurlencode(str_replace(' ', '_', $term))
+    );
+    if (is_array($direct) && !empty($direct['extract']) && ($direct['type'] ?? '') !== 'disambiguation') {
+        return (string) ($direct['title'] ?? $term);
+    }
+
+    $searchUrl = 'https://en.wikipedia.org/w/api.php?'
+        . http_build_query([
+            'action'   => 'query',
+            'list'     => 'search',
+            'srsearch' => $term,
+            'srlimit'  => 1,
+            'format'   => 'json',
+        ]);
+    $search = chatbotHttpGetJson($searchUrl);
+    $title = $search['query']['search'][0]['title'] ?? null;
+
+    return is_string($title) && $title !== '' ? $title : null;
+}
+
+/**
+ * @return array<string, mixed>|null
+ */
+function chatbotHttpGetJson(string $url): ?array
+{
+    $userAgent = 'CaseNotaryAdminBot/1.0 (notary management assistant; +https://localhost)';
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        if ($ch === false) {
+            return null;
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_HTTPHEADER     => [
+                'Accept: application/json',
+                'User-Agent: ' . $userAgent,
+            ],
+            CURLOPT_FOLLOWLOCATION => true,
+        ]);
+
+        $body = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if (!is_string($body) || $body === '' || $code < 200 || $code >= 400) {
+            return null;
+        }
+
+        $decoded = json_decode($body, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 8,
+            'header'  => "Accept: application/json\r\nUser-Agent: {$userAgent}\r\n",
+        ],
+    ]);
+    $body = @file_get_contents($url, false, $context);
+    if (!is_string($body) || $body === '') {
+        return null;
+    }
+
+    $decoded = json_decode($body, true);
+
+    return is_array($decoded) ? $decoded : null;
+}
+
+/**
+ * Local KB + Wikipedia (offline). LLM is added in ChatbotService.
+ */
+function chatbotReplyForUniversalKnowledgeOffline(string $message): ?string
+{
+    if (chatbotIsDraftRequest($message)) {
+        return null;
+    }
+
+    if (chatbotMessageRefersToPortalClient($message)) {
+        return null;
+    }
+
+    if (chatbotIsSystemDataQuestion($message) && (chatbotWantsList($message) || chatbotWantsCount($message))) {
+        return null;
+    }
+
+    $local = chatbotReplyForFlexibleKnowledge($message);
+    if ($local !== null) {
+        return $local;
+    }
+
+    foreach (chatbotKnowledgeSearchTerms($message) as $term) {
+        if ($term === '' || strlen($term) < 2) {
+            continue;
+        }
+
+        $wiki = chatbotFetchWikipediaSummary($term);
+        if ($wiki !== null) {
+            return $wiki;
+        }
+    }
+
+    return null;
+}
+
+function chatbotReplyForDraftRequest(string $message): ?string
+{
+    if (!chatbotIsDraftRequest($message)) {
+        return null;
+    }
+
+    return chatbotTemplateDraftContent($message);
+}
+
+function chatbotReplyForDefinitionRequest(string $message): ?string
+{
+    if (!chatbotLooksLikeKnowledgeQuery($message) && !chatbotIsDefinitionRequest($message)) {
+        return null;
+    }
+
+    return chatbotReplyForUniversalKnowledgeOffline($message);
+}
+
+function chatbotTemplateDefinition(string $subject, string $message): string
+{
+    $known = chatbotReplyForFlexibleKnowledge($message);
+    if ($known !== null) {
+        return $known;
+    }
+
+    $subject = trim($subject) !== '' ? trim($subject) : 'this term';
+
+    return "**{$subject}** — a term used in legal or notarial contexts; meaning varies by **jurisdiction**. "
+        . '_General information only, not legal advice._';
+}
+
+function chatbotDetectDraftDocumentType(string $message): string
+{
+    $m = strtolower($message);
+
+    $map = [
+        'email'              => '/\b(email|e-mail)\b/',
+        'appointment_confirm'=> '/\b(appointment confirmation|confirm appointment|booking confirmation)\b/',
+        'reminder'           => '/\b(reminder|follow.?up|overdue reminder)\b/',
+        'quotation'          => '/\b(quotation|quote|estimate|fee proposal)\b/',
+        'invoice'            => '/\binvoice\b/',
+        'receipt'            => '/\breceipt\b/',
+        'affidavit'          => '/\baffidavit\b/',
+        'power_of_attorney'  => '/\b(power of attorney|poa|lasting power|lpa)\b/',
+        'acknowledgment'     => '/\b(acknowledgment|acknowledgement|jurat|notarial certificate)\b/',
+        'client_instructions'=> '/\b(client instructions|instructions for client)\b/',
+        'checklist'          => '/\bchecklist\b/',
+        'memo'               => '/\b(memo|memorandum)\b/',
+        'nda'                => '/\b(nda|non-disclosure|confidentiality agreement)\b/',
+        'contract'           => '/\b(contract|agreement)\b/',
+        'policy'             => '/\b(policy|procedure|standard operating)\b/',
+        'minutes'            => '/\b(minutes|meeting notes)\b/',
+        'cover_letter'       => '/\bcover letter\b/',
+        'demand_letter'      => '/\b(demand letter|payment demand)\b/',
+        'sworn_statement'    => '/\b(sworn statement|statutory declaration|declaration)\b/',
+        'certificate'        => '/\b(certificate|certification|attestation)\b/',
+        'report'             => '/\b(report|summary)\b/',
+        'proposal'           => '/\bproposal\b/',
+        'letter'             => '/\b(letter|message|reply|response|client letter)\b/',
+    ];
+
+    foreach ($map as $type => $pattern) {
+        if (preg_match($pattern, $m)) {
+            return $type;
+        }
+    }
+
+    return 'general';
 }
 
 function chatbotTemplateDraftContent(string $message): string
@@ -611,56 +1072,273 @@ function chatbotTemplateDraftContent(string $message): string
     $company = getCompanySettings();
     $brand   = companyBrandName($company);
     $subject = chatbotExtractQuestionSubject($message);
+    $type    = chatbotDetectDraftDocumentType($message);
+    $footer  = "\n\n_Not legal advice. Edit all [brackets] before use. For portal PDFs use **Cases → Client Letter** or **Generate Quotation**._";
 
-    if (preg_match('/\b(email|e-mail)\b/i', $message)) {
-        return "**Draft email template** (edit before sending):\n\n"
-            . "**Subject:** Regarding your notary appointment — {$brand}\n\n"
-            . "Dear [Client name],\n\n"
-            . "Thank you for choosing **{$brand}**. Regarding [topic], please note:\n\n"
-            . "• [Key point 1 — e.g. documents to bring]\n"
-            . "• [Key point 2 — e.g. appointment date/time]\n"
-            . "• [Key point 3 — e.g. fee or next steps]\n\n"
-            . "If you have questions, reply to this email or use the client portal.\n\n"
-            . "Kind regards,\n[Your name]\n{$brand}\n\n"
-            . "_Tip: Copy this into your mail client, or use **Client Letter** on the case page to send from the portal._";
+    switch ($type) {
+        case 'email':
+            return "**Draft email** (edit before sending):\n\n"
+                . "**Subject:** [Matter reference] — {$brand}\n\n"
+                . "Dear [Client name],\n\n"
+                . "Thank you for contacting **{$brand}** regarding [brief topic].\n\n"
+                . "[Body — explain status, what you need from the client, or next steps.]\n\n"
+                . "**Please note:**\n"
+                . "• [Document or ID required]\n"
+                . "• [Appointment date/time if applicable]\n"
+                . "• [Fee or payment instructions]\n\n"
+                . "Reply to this email or sign in to the **client portal** for updates.\n\n"
+                . "Kind regards,\n[Your name]\n[Title]\n{$brand}" . $footer;
+
+        case 'appointment_confirm':
+            return "**Draft appointment confirmation:**\n\n"
+                . "Dear [Client name],\n\n"
+                . "This confirms your appointment with **{$brand}**:\n\n"
+                . "• **Date:** [Date]\n"
+                . "• **Time:** [Start time]\n"
+                . "• **Location:** [Office address / video link]\n"
+                . "• **Purpose:** [e.g. document signing / affidavit]\n\n"
+                . "**Please bring:**\n"
+                . "• Valid government-issued photo ID\n"
+                . "• [Unsigned document(s) if applicable]\n"
+                . "• [Witnesses if required]\n\n"
+                . "To reschedule, contact us at [phone/email] at least [X] hours in advance.\n\n"
+                . "Regards,\n{$brand}" . $footer;
+
+        case 'reminder':
+            return "**Draft reminder** (payment / appointment / documents):\n\n"
+                . "Dear [Client name],\n\n"
+                . "Re: [Case / invoice reference]\n\n"
+                . "This is a friendly reminder that [describe item — e.g. invoice #___ due on [date] / documents still required / appointment on [date]].\n\n"
+                . "**Action requested by [deadline]:**\n"
+                . "[Clear single action]\n\n"
+                . "If already completed, please disregard. Contact us with any questions.\n\n"
+                . "Sincerely,\n{$brand}" . $footer;
+
+        case 'quotation':
+            return "**Draft quotation** (fee estimate):\n\n"
+                . "**{$brand}** — Quotation\n"
+                . "**Date:** [Date] · **Valid until:** [Date]\n"
+                . "**Client:** [Name] · **Matter:** [Case / service description]\n\n"
+                . "| Service | Description | Fee |\n"
+                . "|---------|-------------|-----|\n"
+                . "| Notarial act | [e.g. acknowledgment / affidavit] | [Amount] |\n"
+                . "| Travel / extras | [If applicable] | [Amount] |\n"
+                . "| **Total** | | **[Total]** |\n\n"
+                . "**Terms:** Fees exclude third-party costs (apostille, courier). Payment due [before/on completion].\n\n"
+                . "Accepted by: _________________________ Date: _________\n\n"
+                . "_Generate a formal PDF from the **case workspace → Quotation**._" . $footer;
+
+        case 'invoice':
+            return "**Draft invoice** outline:\n\n"
+                . "**Invoice #:** [Number] · **Date:** [Date] · **Due:** [Due date]\n"
+                . "**Bill to:** [Client name & address]\n"
+                . "**Re:** [Case / matter]\n\n"
+                . "| Description | Qty | Rate | Amount |\n"
+                . "|-------------|-----|------|--------|\n"
+                . "| [Service line] | 1 | [Rate] | [Amount] |\n"
+                . "| **Total due** | | | **[Total]** |\n\n"
+                . "**Payment:** [Bank details / link / method]\n\n"
+                . "Thank you for your business.\n{$brand}" . $footer;
+
+        case 'receipt':
+            return "**Draft payment receipt:**\n\n"
+                . "**Receipt #:** [Number] · **Date:** [Date]\n"
+                . "Received from **[Client name]** the sum of **[Amount]** for **[Invoice / matter reference]**.\n"
+                . "Payment method: [Cash / card / transfer].\n\n"
+                . "Issued by: {$brand}\n[Signature]" . $footer;
+
+        case 'affidavit':
+            return "**Draft affidavit** (skeleton — solicitor may need to review substantive facts):\n\n"
+                . "**IN THE [COURT / TRIBUNAL NAME]**\n"
+                . "**Case / matter:** [Reference]\n\n"
+                . "**AFFIDAVIT OF [FULL NAME]**\n\n"
+                . "I, **[Full name]**, of **[Address]**, **[Occupation]**, MAKE OATH and say:\n\n"
+                . "1. [Background — who you are and your connection to the matter.]\n"
+                . "2. [Material fact — what happened, when, where.]\n"
+                . "3. [Further facts as numbered paragraphs.]\n\n"
+                . "SWORN at [Place] this ___ day of _________ 20__.\n\n"
+                . "_________________________\n[Deponent signature]\n\n"
+                . "Before me, a Commissioner for Oaths / Notary Public.\n\n"
+                . "_Notary: verify ID, administer oath, complete notarial certificate._" . $footer;
+
+        case 'power_of_attorney':
+            return "**Draft power of attorney** (outline only — laws vary by jurisdiction):\n\n"
+                . "**GENERAL / SPECIAL POWER OF ATTORNEY**\n\n"
+                . "I, **[Principal full name]**, of **[Address]**, appoint **[Agent name]**, of **[Address]**, as my attorney-in-fact to act on my behalf.\n\n"
+                . "**Powers granted:** [List specific powers — e.g. sign documents, manage property, banking.]\n\n"
+                . "**Effective:** [Date] · **Expires:** [Date or event]\n\n"
+                . "Signed: _________________________ Date: _________\n"
+                . "Witness 1: _________________________\n"
+                . "Witness 2: _________________________\n\n"
+                . "_Confirm witnessing and notarization rules for your jurisdiction before use._" . $footer;
+
+        case 'acknowledgment':
+            return "**Draft acknowledgment certificate** (notarial wording — adjust to local form):\n\n"
+                . "State of [State] · County of [County]\n\n"
+                . "On this ___ day of _________, 20__, before me personally appeared **[Signer name]**, "
+                . "known to me (or proved to me on the basis of satisfactory evidence) to be the person whose name is subscribed to the within instrument, "
+                . "and acknowledged that they executed the same for the purposes therein contained.\n\n"
+                . "In witness whereof I have hereunto set my hand and official seal.\n\n"
+                . "_________________________\nNotary Public\n[Commission expires: ___]" . $footer;
+
+        case 'client_instructions':
+            return "**Draft client instructions** (for case **Instructions for Client** field):\n\n"
+                . "**What you need to do**\n"
+                . "1. [Primary action — e.g. attend appointment with unsigned documents]\n"
+                . "2. [Secondary action]\n\n"
+                . "**Bring to your appointment**\n"
+                . "• Valid photo ID ([acceptable types])\n"
+                . "• [Document names — unsigned]\n"
+                . "• [Witnesses if required]\n\n"
+                . "**Fees & timing**\n"
+                . "• Estimated fee: [Amount]\n"
+                . "• Typical turnaround: [X business days]\n\n"
+                . "**Contact:** [Phone] · [Email]\n{$brand}" . $footer;
+
+        case 'checklist':
+            return "**Draft checklist** — [Matter type]:\n\n"
+                . "☐ Client identity verified (ID type: ______)\n"
+                . "☐ Case opened in portal with correct client & service type\n"
+                . "☐ Client instructions sent\n"
+                . "☐ Documents received and reviewed\n"
+                . "☐ Appointment scheduled: [Date/time]\n"
+                . "☐ Notarial act completed; journal entry made\n"
+                . "☐ Copies/scans uploaded to case\n"
+                . "☐ Invoice issued & payment received\n"
+                . "☐ Apostille / legalization ordered (if needed)\n"
+                . "☐ Case status updated to Completed/Closed\n\n"
+                . "{$brand}" . $footer;
+
+        case 'memo':
+            return "**Draft internal memo:**\n\n"
+                . "**To:** [Team / person] · **From:** [Your name] · **Date:** [Date]\n"
+                . "**Re:** {$subject}\n\n"
+                . "**Summary:** [1-2 sentences]\n\n"
+                . "**Background:** [Context]\n\n"
+                . "**Recommendation / next steps:**\n"
+                . "1. [Action]\n"
+                . "2. [Action]\n\n"
+                . "**Deadline:** [Date]" . $footer;
+
+        case 'nda':
+            return "**Draft confidentiality / NDA** (simplified outline):\n\n"
+                . "This Agreement is between **{$brand}** (“Disclosing Party”) and **[Recipient]** (“Receiving Party”).\n\n"
+                . "1. **Confidential information** means [define scope].\n"
+                . "2. Receiving Party will not disclose except as required by law.\n"
+                . "3. Term: [X] years from [date].\n"
+                . "4. Governing law: [Jurisdiction].\n\n"
+                . "Signed: _________________________ Date: _________\n\n"
+                . "_Have qualified counsel review before execution._" . $footer;
+
+        case 'contract':
+            return "**Draft agreement** (general outline):\n\n"
+                . "**Agreement** between **[Party A]** and **[Party B]** dated [Date].\n\n"
+                . "1. **Services / scope:** [Description]\n"
+                . "2. **Fees & payment:** [Terms]\n"
+                . "3. **Term & termination:** [Dates / notice period]\n"
+                . "4. **Liability:** [Limitations as advised by counsel]\n"
+                . "5. **Signatures:**\n\n"
+                . "Party A: _________________________ Date: _________\n"
+                . "Party B: _________________________ Date: _________" . $footer;
+
+        case 'policy':
+            return "**Draft office policy** — {$subject}:\n\n"
+                . "**Purpose:** [Why this policy exists]\n"
+                . "**Scope:** All staff handling notarial matters at {$brand}\n"
+                . "**Policy:**\n"
+                . "1. [Rule / requirement]\n"
+                . "2. [Rule / requirement]\n"
+                . "**Procedure:** [Step-by-step]\n"
+                . "**Review date:** [Annual review]" . $footer;
+
+        case 'minutes':
+            return "**Draft meeting minutes:**\n\n"
+                . "**Meeting:** [Title] · **Date:** [Date] · **Attendees:** [Names]\n\n"
+                . "**Agenda items discussed:**\n"
+                . "1. [Topic] — [Summary / decision]\n"
+                . "2. [Topic] — [Summary / decision]\n\n"
+                . "**Action items:**\n"
+                . "| Owner | Task | Due |\n"
+                . "|-------|------|-----|\n"
+                . "| [Name] | [Task] | [Date] |" . $footer;
+
+        case 'demand_letter':
+            return "**Draft demand letter:**\n\n"
+                . "[Date]\n\n"
+                . "[Debtor name & address]\n\n"
+                . "Dear [Name],\n\n"
+                . "Re: Outstanding amount of **[Amount]** for **[Invoice / matter]**\n\n"
+                . "Despite our previous [invoice/reminder dated ___], payment remains outstanding. "
+                . "We require payment in full by **[Deadline date]**.\n\n"
+                . "If payment is not received, we may [escalation — e.g. suspend services / refer to collections] without further notice.\n\n"
+                . "Payment details: [Instructions]\n\n"
+                . "Yours sincerely,\n{$brand}" . $footer;
+
+        case 'sworn_statement':
+            return "**Draft sworn statement / declaration:**\n\n"
+                . "I, **[Full name]**, of **[Address]**, solemnly declare:\n\n"
+                . "1. [Fact]\n"
+                . "2. [Fact]\n\n"
+                . "I make this declaration conscientiously believing it to be true.\n\n"
+                . "Declared at [Place] on [Date].\n\n"
+                . "_________________________\n[Declarant]\n\n"
+                . "_Before a commissioner for oaths / notary as required locally._" . $footer;
+
+        case 'certificate':
+            return "**Draft certificate / attestation:**\n\n"
+                . "I certify that **[description — e.g. this is a true copy of the original]** presented to me on [Date] by **[Name]**, "
+                . "whose identity was verified by **[ID type and number]**.\n\n"
+                . "Place: [Location] · Date: [Date]\n\n"
+                . "_________________________\n[Notary / certifier name]\n{$brand}" . $footer;
+
+        case 'proposal':
+            return "**Draft service proposal:**\n\n"
+                . "**Prepared for:** [Client] · **By:** {$brand} · **Date:** [Date]\n\n"
+                . "**Understanding your needs:** [Summary]\n\n"
+                . "**Proposed services:**\n"
+                . "• [Service 1] — [Outcome]\n"
+                . "• [Service 2] — [Outcome]\n\n"
+                . "**Timeline:** [Milestones]\n"
+                . "**Investment:** [Fee range or fixed fee]\n\n"
+                . "**Next step:** [e.g. sign quotation / book appointment]" . $footer;
+
+        case 'letter':
+            return "**Draft letter:**\n\n"
+                . "[Date]\n\n"
+                . "Dear [Recipient name],\n\n"
+                . "Re: [Reference]\n\n"
+                . "[Opening — purpose of letter regarding {$subject}.]\n\n"
+                . "[Body paragraphs.]\n\n"
+                . "[Closing action requested.]\n\n"
+                . "Yours sincerely,\n[Your name]\n{$brand}" . $footer;
+
+        case 'cover_letter':
+            return "**Draft cover letter** (with enclosed documents):\n\n"
+                . "Dear [Recipient],\n\n"
+                . "Please find enclosed [list documents] for [purpose].\n\n"
+                . "[Brief explanation and any instructions for the recipient.]\n\n"
+                . "Contact [phone/email] with questions.\n\n"
+                . "Sincerely,\n{$brand}" . $footer;
+
+        case 'report':
+        default:
+            return "**Draft document** — {$subject}:\n\n"
+                . "**Title:** [Document title]\n"
+                . "**Prepared by:** {$brand} · **Date:** [Date]\n"
+                . "**For:** [Client / authority / recipient]\n\n"
+                . "**Executive summary**\n"
+                . "[2-4 sentences]\n\n"
+                . "**Background**\n"
+                . "[Context and facts]\n\n"
+                . "**Details / analysis**\n"
+                . "• [Point 1]\n"
+                . "• [Point 2]\n"
+                . "• [Point 3]\n\n"
+                . "**Conclusion & recommendations**\n"
+                . "[Clear next steps]\n\n"
+                . "**Signatures**\n"
+                . "_________________________\n[Name, title]" . $footer;
     }
-
-    if (preg_match('/\b(letter|message|reply|response)\b/i', $message)) {
-        return "**Draft client letter** (customise for your case):\n\n"
-            . "[Date]\n\n"
-            . "Dear [Client name],\n\n"
-            . "Re: [Case / matter reference]\n\n"
-            . "We write regarding {$subject}. [Explain situation in plain language.]\n\n"
-            . "Please [action required — e.g. attend appointment / provide documents / review quotation].\n\n"
-            . "Yours sincerely,\n**{$brand}**\n\n"
-            . "_Generate a formal PDF from **Cases → Client Letter** when ready to send._";
-    }
-
-    if (preg_match('/\b(doc|document|agreement|contract|statement|summary)\b/i', $message)) {
-        return "**Draft document template** (edit before use):\n\n"
-            . "**Title:** {$subject}\n\n"
-            . "[Parties]\n"
-            . "- Notary / firm: [Your name + firm]\n"
-            . "- Client(s): [Full client name(s)]\n\n"
-            . "**Purpose / background:**\n"
-            . "[1-3 sentences explaining why this document exists.]\n\n"
-            . "**Key facts:**\n"
-            . "• [Fact 1]\n"
-            . "• [Fact 2]\n"
-            . "• [Fact 3]\n\n"
-            . "**Instructions / next steps:**\n"
-            . "1. [What the client must do]\n"
-            . "2. [What to bring / provide]\n"
-            . "3. [Appointment date/time if applicable]\n\n"
-            . "**Fees (if relevant):**\n"
-            . "- [Fee type + amount or fee range]\n\n"
-            . "**Signature block:**\n"
-            . "____________________\n"
-            . "[Your name]\n{$brand}\n\n"
-            . "_Tip: If you tell me the jurisdiction and who the signer is, I can tailor the wording._";
-    }
-
-    return chatbotTemplateTips($subject);
 }
 
 /**
@@ -674,11 +1352,17 @@ function chatbotReplyForOpenEndedLocal(string $message): ?string
         return null;
     }
 
-    if (preg_match(
-        '/\b(write|draft|compose|prepare)\b.*\b(email|e-mail|letter|message|template|reply|response|doc|document|agreement|contract|statement|summary)\b/i',
-        $message
-    )) {
+    if (chatbotIsDraftRequest($message)) {
         return chatbotTemplateDraftContent($message);
+    }
+
+    if (chatbotIsDefinitionRequest($message)) {
+        return chatbotReplyForDefinitionRequest($message);
+    }
+
+    $flex = chatbotReplyForFlexibleKnowledge($message);
+    if ($flex !== null) {
+        return $flex;
     }
 
     $general = chatbotReplyForGeneralKnowledge($message);
@@ -734,21 +1418,402 @@ function chatbotFuseKnowledgeByKeywords(string $message): ?string
         return $candidates[0];
     }
 
-    return "**Here's what I can share on that topic:**\n\n"
-        . implode("\n\n---\n\n", $candidates)
-        . "\n\n_Ask about a specific client or case name for tailored data from your system._";
+    return implode("\n\n---\n\n", array_slice($candidates, 0, 1));
+}
+
+/**
+ * Questions about this admin portal, its modules, workflows, or live business data.
+ */
+function chatbotIsPortalSystemQuestion(string $message): bool
+{
+    if (chatbotIsSystemDataQuestion($message)) {
+        return true;
+    }
+
+    if (chatbotIsDraftRequest($message) || chatbotMessageRefersToPortalClient($message)) {
+        return false;
+    }
+
+    $normalized = strtolower(trim($message));
+
+    if (chatbotLooksLikeKnowledgeQuery($message)
+        && !preg_match(
+            '/\b(portal|admin|system|dashboard|software|app|module|feature|client|case|invoice|'
+            . 'payment|appointment|notification|settings|document|upload|letter|quotation|receipt|'
+            . 'login|password|smtp|calendar|stripe|workflow|screen|page|tab|button|form)\b/',
+            $normalized
+        )) {
+        return false;
+    }
+
+    if (chatbotIsProceduralQuery($message)) {
+        return (bool) preg_match(
+            '/\b(portal|admin|system|dashboard|software|app|module|feature|client|case|invoice|'
+            . 'payment|appointment|notification|settings|document|upload|letter|quotation|receipt|'
+            . 'login|password|smtp|calendar|stripe|workflow|screen|page|tab|button|form|'
+            . 'where do i|where can i|where is|what page|which page|how do i|how to)\b/',
+            $normalized
+        );
+    }
+
+    return (bool) preg_match(
+        '/\b(portal|admin panel|admin portal|this system|this app|this software|notary management|'
+        . 'dashboard|sidebar|navigation|menu|module|feature|capabilit|'
+        . 'where do i|where can i|where is|what page|which page|how do i use|how does the system|'
+        . 'client portal|case view|case form|client form|record payment|mark paid|'
+        . 'appointment request|requested status|google calendar|office hours|branding|'
+        . 'smtp|stripe|reminder|unread notification|ai assistant|chatbot)\b/i',
+        $normalized
+    );
+}
+
+/**
+ * @return list<array{keywords: list<string>, answer: string, pattern?: string}>
+ */
+function chatbotPortalFaqCatalog(): array
+{
+    $clientsLink = chatbotAdminLink('pages/clients.php', 'Open clients');
+    $casesLink = chatbotAdminLink('pages/cases.php', 'Open cases');
+    $paymentsLink = chatbotAdminLink('pages/payments.php', 'Open payments');
+    $apptsLink = chatbotAdminLink('pages/appointments.php', 'Open appointments');
+    $notifLink = chatbotAdminLink('pages/notifications.php', 'Open notifications');
+    $settingsLink = chatbotAdminLink('pages/settings.php', 'Open settings');
+    $dashLink = chatbotAdminLink('pages/dashboard.php', 'Open dashboard');
+    $aiLink = chatbotAdminLink('pages/chatbot.php', 'Open AI Assistant');
+
+    return [
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|where\s+(?:do|can)\s+i)\b.*\b(?:create|add|new|make)\b.*\bcases?\b|\b(?:create|add|new|make)\b(?:\s+a)?\s+cases?\b/i',
+            'keywords' => ['create case', 'new case', 'add case', 'how to create a case'],
+            'answer'   => "**How to create a case:**\n\n"
+                . "1. Sidebar → **Cases** → **New Case**.\n"
+                . "2. Select the **client**.\n"
+                . "3. Enter title, service type, fees, and deadline.\n"
+                . "4. Add **Instructions for Client**.\n"
+                . "5. Click **Save** (optionally email quotation/letter on save).\n\n"
+                . $casesLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|change|update|set)\b.*\bcase\b.*\bstatus\b|\bcase\b.*\bstatus\b.*\b(change|update|set)\b/i',
+            'keywords' => ['case status', 'update status', 'change status'],
+            'answer'   => "**How to update case status:**\n\n"
+                . "1. Open **Cases** and click the case (or use **Case View**).\n"
+                . "2. Click **Edit**.\n"
+                . "3. Change **Status** (Pending, In Progress, Waiting for Client, Completed, Closed).\n"
+                . "4. Save.\n\n"
+                . $casesLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|where)\b.*\b(?:add|create|register|new)\b.*\bclients?\b|\b(?:add|create|register|new)\b(?:\s+a)?\s+clients?\b/i',
+            'keywords' => ['add client', 'create client', 'new client'],
+            'answer'   => "**How to add a client:**\n\n"
+                . "1. Sidebar → **Clients** → **Add Client**.\n"
+                . "2. Enter name, email, phone, and company (if any).\n"
+                . "3. Save.\n"
+                . "4. Optionally create **portal login** credentials on the client profile.\n\n"
+                . $clientsLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|where)\b.*\b(?:upload|attach|add)\b.*\b(?:document|file|pdf)\b/i',
+            'keywords' => ['upload document', 'attach file', 'add document'],
+            'answer'   => "**How to upload a document:**\n\n"
+                . "1. Open the **case** (**Cases** → click the case).\n"
+                . "2. Go to the documents section on **Case View**.\n"
+                . "3. Upload the file (PDF, image, etc.).\n"
+                . "4. The client will see shared files on their portal case page.\n\n"
+                . $casesLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|generate|create|send)\b.*\b(?:quotation|quote|client letter)\b/i',
+            'keywords' => ['quotation', 'client letter', 'generate quote'],
+            'answer'   => "**How to generate a quotation or client letter:**\n\n"
+                . "1. Open the **case**.\n"
+                . "2. Use **Generate Quotation** or the **Client Letter** tab.\n"
+                . "3. Review the PDF and email or download as needed.\n\n"
+                . $casesLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|schedule|book|create)\b.*\bappointments?\b/i',
+            'keywords' => ['schedule appointment', 'book appointment', 'new appointment'],
+            'answer'   => "**How to schedule an appointment:**\n\n"
+                . "1. Sidebar → **Appointments**.\n"
+                . "2. Create or open an appointment.\n"
+                . "3. Select **client**, date/time, and status (**Scheduled** or **Confirmed**).\n"
+                . "4. Save.\n\n"
+                . $apptsLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|approve)\b.*\b(?:request|requested)\b.*\bappointments?\b|\bappointments?\b.*\brequested\b/i',
+            'keywords' => ['appointment request', 'approve appointment', 'requested appointment'],
+            'answer'   => "**How to approve a client appointment request:**\n\n"
+                . "1. Go to **Appointments**.\n"
+                . "2. Open the appointment with status **Requested**.\n"
+                . "3. Set status to **Scheduled** or **Confirmed** and set the date/time.\n"
+                . "4. Save.\n\n"
+                . $apptsLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|record|mark)\b.*\b(?:payment|paid|receipt)\b/i',
+            'keywords' => ['record payment', 'mark paid'],
+            'answer'   => "**How to record a payment:**\n\n"
+                . "1. Go to **Payments** or the case’s payment section.\n"
+                . "2. Open the invoice.\n"
+                . "3. Record the amount and payment method.\n"
+                . "4. Save — status updates to paid or partially paid.\n\n"
+                . $paymentsLink,
+        ],
+        [
+            'pattern'  => '/\b(where\s+(?:is|are)|how\s+(?:to|do\s+i)\s+(?:find|open|get\s+to))\b.*\bsettings\b/i',
+            'keywords' => ['where are settings', 'find settings', 'open settings'],
+            'answer'   => "**Where to find Settings:** Sidebar → **Settings** (gear icon at the bottom of the menu).\n\n" . $settingsLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|set\s+up|configure)\b.*\b(?:smtp|email)\b/i',
+            'keywords' => ['smtp', 'email settings'],
+            'answer'   => "**How to configure email (SMTP):**\n\n"
+                . "1. Go to **Settings**.\n"
+                . "2. Enter SMTP host, port, username, and password.\n"
+                . "3. Save and send a test email if available.\n\n"
+                . $settingsLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|connect|set\s+up|sync)\b.*\bgoogle\s+calendar\b/i',
+            'keywords' => ['google calendar', 'calendar sync'],
+            'answer'   => "**How to connect Google Calendar:**\n\n"
+                . "1. Go to **Settings**.\n"
+                . "2. Use the Google Calendar integration section.\n"
+                . "3. Connect your account and authorize access.\n"
+                . "4. Save — new appointments can sync to your calendar.\n\n"
+                . $settingsLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|set\s+up|configure)\b.*\bstripe\b/i',
+            'keywords' => ['stripe', 'online payment'],
+            'answer'   => "**How to set up Stripe:**\n\n"
+                . "1. Go to **Settings**.\n"
+                . "2. Enter your Stripe API keys.\n"
+                . "3. Save — clients can then pay invoices online from their portal.\n\n"
+                . $settingsLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|add|set)\b.*\bclient\s+instructions\b/i',
+            'keywords' => ['client instructions', 'instructions for client'],
+            'answer'   => "**How to add client instructions:**\n\n"
+                . "1. When creating or editing a case, fill in **Instructions for Client**.\n"
+                . "2. List what to bring, complete, or prepare.\n"
+                . "3. Save — clients see this highlighted on their case view.\n\n"
+                . $casesLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+(?:to|do\s+i)|open|view|find)\b.*\bcase\b(?!.*\b(?:create|new|add|status)\b)/i',
+            'keywords' => ['case view', 'open case', 'find case'],
+            'answer'   => "**How to open a case:**\n\n"
+                . "1. Go to **Cases**.\n"
+                . "2. Click the case row, or search by case number.\n"
+                . "3. **Case View** shows documents, payments, letters, and status.\n\n"
+                . $casesLink,
+        ],
+        [
+            'pattern'  => '/\b(case|cases)\b.*\b(workflow|overview|in general|explain)\b|\b(workflow|overview)\b.*\bcases?\b/i',
+            'keywords' => ['case workflow', 'cases overview'],
+            'answer'   => "**Case workflow (overview):**\n\n"
+                . "• **New Case** — client, services, fees, instructions.\n"
+                . "• **Case View** — documents, letters, payments, status.\n"
+                . "• **Statuses** — Pending → In Progress → Waiting for Client → Completed/Closed.",
+        ],
+        [
+            'pattern'  => '/\b(where\s+(?:is|are)|what\s+is)\b.*\bdashboard\b/i',
+            'keywords' => ['dashboard', 'where is dashboard'],
+            'answer'   => "**Dashboard** is the first item in the sidebar. It shows clients, active cases, revenue, pending invoices, and upcoming appointments.\n\n" . $dashLink,
+        ],
+        [
+            'pattern'  => '/\b(edit|update)\b.*\bclients?\b/i',
+            'keywords' => ['edit client', 'update client'],
+            'answer'   => "**How to edit a client:** **Clients** → click the client → **Edit** → update details → Save. Portal login can be created or reset from the same profile.\n\n" . $clientsLink,
+        ],
+        [
+            'pattern'  => '/\bdelete\b.*\bclients?\b/i',
+            'keywords' => ['delete client'],
+            'answer'   => "**How to delete a client:** Open the client → **Delete**. This removes their portal user and linked case files and cannot be undone.\n\n" . $clientsLink,
+        ],
+        [
+            'pattern'  => '/\b(how\s+do|what\s+are)\b.*\bnotifications?\b.*\bwork\b/i',
+            'keywords' => ['how notifications work'],
+            'answer'   => "**Notifications:** The bell in the top bar shows recent alerts; the **Notifications** page lists all. You and clients receive notices for cases, appointments, and payments.\n\n" . $notifLink,
+        ],
+        [
+            'pattern'  => '/\bwhat\s+can\s+clients?\b.*\b(?:see|do|access)\b/i',
+            'keywords' => ['client portal', 'what can clients see'],
+            'answer'   => "**Client portal access:** Clients can view their **cases**, **documents**, **invoices**, **appointments**, and **contact** your office. They can request appointments and upload files per case. Create logins from the client profile.\n\n" . $clientsLink,
+        ],
+        [
+            'pattern'  => '/\b(filter|search)\b.*\blists?\b/i',
+            'keywords' => ['filter', 'search list'],
+            'answer'   => "**Search & filters:** Use the search box and status dropdown on list pages (Clients, Cases, Payments, etc.). Filters apply automatically when you change them.",
+        ],
+        [
+            'pattern'  => '/\b(case)\b.*\bpriority\b/i',
+            'keywords' => ['case priority'],
+            'answer'   => "**Case priority** is set on the admin case form only — **clients do not see it** on their portal.",
+        ],
+        [
+            'pattern'  => '/\b(sign\s+out|log\s*out)\b/i',
+            'keywords' => ['sign out', 'logout'],
+            'answer'   => '**Sign out:** Click **Sign Out** at the bottom of the sidebar.',
+        ],
+        [
+            'pattern'  => '/\b(what can (you|the system)|features? of (the )?(system|portal)|help with the system)\b/i',
+            'keywords' => ['what can you do', 'capabilities'],
+            'answer'   => 'I answer **one question at a time** — live data (clients, revenue, invoices…), portal how-tos, definitions, and drafts. Ask exactly what you need, e.g. *How do I create a case?*',
+        ],
+    ];
+}
+
+/**
+ * Direct answer for the exact question asked (pattern-matched FAQ). Skips counts/lists.
+ */
+function chatbotReplyForFocusedQuestion(string $message): ?string
+{
+    if (chatbotWantsCount($message) || chatbotWantsList($message)) {
+        return null;
+    }
+
+    $normalized = strtolower(trim($message));
+    if ($normalized === '') {
+        return null;
+    }
+
+    foreach (chatbotPortalFaqCatalog() as $entry) {
+        if (empty($entry['pattern'])) {
+            continue;
+        }
+        if (preg_match($entry['pattern'], $normalized)) {
+            return $entry['answer'];
+        }
+    }
+
+    return null;
+}
+
+function chatbotReplyFromPortalFaq(string $message): ?string
+{
+    $focused = chatbotReplyForFocusedQuestion($message);
+    if ($focused !== null) {
+        return $focused;
+    }
+
+    $normalized = strtolower(trim($message));
+    if ($normalized === '') {
+        return null;
+    }
+
+    $bestAnswer = null;
+    $bestScore  = 0;
+
+    foreach (chatbotPortalFaqCatalog() as $entry) {
+        if (!empty($entry['pattern']) && preg_match($entry['pattern'], $normalized)) {
+            return $entry['answer'];
+        }
+
+        $score = 0;
+        foreach ($entry['keywords'] as $keyword) {
+            $keyword = strtolower($keyword);
+            if ($keyword === '' || !str_contains($normalized, $keyword)) {
+                continue;
+            }
+            $score += max(3, (int) floor(strlen($keyword) / 2));
+        }
+
+        if ($score > $bestScore) {
+            $bestScore  = $score;
+            $bestAnswer = $entry['answer'];
+        }
+    }
+
+    return $bestScore >= 6 ? $bestAnswer : null;
+}
+
+function chatbotPortalSystemFallback(string $message): string
+{
+    $focused = chatbotReplyForFocusedQuestion($message);
+    if ($focused !== null) {
+        return $focused;
+    }
+
+    $normalized = strtolower(trim($message));
+    if (preg_match('/\b(client|case|payment|invoice|appointment|setting|document)\b/', $normalized)) {
+        return 'Ask one specific question — e.g. *How do I create a case?*, *Where are settings?*, or *List overdue invoices* — and I will answer only that.';
+    }
+
+    return 'Ask a **specific** question about the portal or your data — I answer exactly what you ask, nothing extra.';
+}
+
+/**
+ * Unified handler for portal / system questions (data + workflows + FAQ).
+ */
+function chatbotReplyForPortalSystemQuestion(string $message): ?string
+{
+    if (!chatbotIsPortalSystemQuestion($message) && !chatbotIsProceduralQuery($message)) {
+        return null;
+    }
+
+    syncOverdueInvoices();
+
+    $handlers = [
+        static fn (string $m): ?string => chatbotReplyForFocusedQuestion($m),
+        static fn (string $m): ?string => chatbotReplyForPortalDataQuestion($m),
+        static fn (string $m): ?string => chatbotReplyForSystemInsights($m),
+        static fn (string $m): ?string => chatbotReplyForAppointmentQueries($m),
+        static fn (string $m): ?string => chatbotReplyForCaseQueries($m),
+        static fn (string $m): ?string => chatbotReplyForNotificationQueries($m),
+        static fn (string $m): ?string => chatbotReplyForEntityLookup($m),
+        static fn (string $m): ?string => chatbotReplyFromPortalFaq($m),
+        static fn (string $m): ?string => ChatbotService::replyFromKnowledgeBase($m),
+        static fn (string $m): ?string => ChatbotService::replyForProcedural($m),
+    ];
+
+    foreach ($handlers as $handler) {
+        $reply = $handler($message);
+        if ($reply !== null && trim($reply) !== '') {
+            return $reply;
+        }
+    }
+
+    $generated = generateChatbotReply($message);
+    if (!ChatbotService::isGenericFallback($generated)) {
+        return $generated;
+    }
+
+    if (ChatbotService::hasOptionalLlm()) {
+        $llm = ChatbotService::replyViaLlm($message);
+        if ($llm !== null && trim($llm) !== '') {
+            return $llm;
+        }
+    }
+
+    $faq = chatbotReplyFromPortalFaq($message);
+    if ($faq !== null) {
+        return $faq;
+    }
+
+    return chatbotPortalSystemFallback($message);
 }
 
 function getChatbotSystemSnapshot(): array
 {
     $stats  = getDashboardStats();
-    $userId = Auth::id();
 
     return [
+        'modules'              => [
+            'Dashboard', 'Clients', 'Cases', 'Payments', 'Appointments',
+            'Notifications', 'AI Assistant', 'Settings',
+        ],
         'clients'              => (int) $stats['total_clients'],
         'active_cases'         => (int) $stats['active_cases'],
         'pending_invoices'     => (int) $stats['pending_invoices'],
         'upcoming_appointments'=> (int) $stats['upcoming_appointments'],
         'total_revenue'        => (float) $stats['total_revenue'],
+        'monthly_revenue'      => (float) ($stats['monthly_revenue'] ?? 0),
+        'paid_invoices'        => (int) ($stats['paid_invoices'] ?? 0),
     ];
 }
