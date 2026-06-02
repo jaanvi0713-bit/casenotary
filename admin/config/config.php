@@ -18,7 +18,7 @@ if ($relativeRoot === '' && !empty($_SERVER['SCRIPT_NAME'])
 $baseUrl = $scheme . '://' . $host . $relativeRoot;
 
 return [
-    'app_name'    => 'Notary Management System',
+    'app_name'    => 'Case Notary Platform',
     'app_url'     => $baseUrl . '/admin',
     'client_url'  => $baseUrl . '/client',
     'timezone'    => 'America/New_York',

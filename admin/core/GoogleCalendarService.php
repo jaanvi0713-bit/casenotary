@@ -69,7 +69,7 @@ class GoogleCalendarService
         $lines = [
             'BEGIN:VCALENDAR',
             'VERSION:2.0',
-            'PRODID:-//Notary Management System//EN',
+            'PRODID:-//' . preg_replace('/[^A-Za-z0-9 ]/', '', companyBrandName()) . '//EN',
             'CALSCALE:GREGORIAN',
             'METHOD:PUBLISH',
             'BEGIN:VEVENT',

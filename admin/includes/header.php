@@ -9,7 +9,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($pageTitle ?? 'Dashboard') ?> — <?= e($company['company_name']) ?></title>
+    <title><?= e($pageTitle ?? 'Dashboard') ?> — <?= e(companyBrandName($company)) ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -37,11 +37,18 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                         <i class="bi bi-list"></i>
                     </button>
                     <div class="topbar-title">
+                    <?php if (companyLogoUrl($company)): ?>
+                        <div class="topbar-brand-logo-wrap" aria-hidden="true">
+                            <?= renderCompanyLogo('topbar', $company, 'admin') ?>
+                        </div>
+                    <?php endif; ?>
+                    <div class="topbar-title-text">
                         <div class="topbar-page-title"><?= e($pageTitle ?? 'Dashboard') ?></div>
                         <?php if (!empty($pageSubtitle)): ?>
                             <p class="topbar-page-subtitle"><?= e($pageSubtitle) ?></p>
                         <?php endif; ?>
                     </div>
+                </div>
                 </div>
 
                 <div class="topbar-search d-none d-md-flex">

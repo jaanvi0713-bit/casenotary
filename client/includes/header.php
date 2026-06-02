@@ -9,7 +9,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($pageTitle ?? 'Portal') ?> — <?= e($company['company_name']) ?></title>
+    <title><?= e($pageTitle ?? 'Portal') ?> — <?= e(companyBrandName($company)) ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -37,10 +37,17 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                     <i class="bi bi-list"></i>
                 </button>
                 <div class="topbar-title">
+                    <?php if (companyLogoUrl($company)): ?>
+                        <div class="topbar-brand-logo-wrap" aria-hidden="true">
+                            <?= renderCompanyLogo('topbar', $company, 'client') ?>
+                        </div>
+                    <?php endif; ?>
+                    <div class="topbar-title-text">
                     <div class="topbar-page-title"><?= e($pageTitle ?? 'Portal') ?></div>
                     <?php if (!empty($pageSubtitle)): ?>
                         <p class="topbar-page-subtitle"><?= e($pageSubtitle) ?></p>
                     <?php endif; ?>
+                    </div>
                 </div>
             </div>
 

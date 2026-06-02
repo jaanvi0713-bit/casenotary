@@ -13,7 +13,7 @@ class MailService
 
         $company = getCompanySettings();
         $from    = $company['office_email'] ?? 'noreply@localhost';
-        $fromName = $company['company_name'] ?? 'Notary Management';
+        $fromName = companyBrandName($company);
 
         self::logMail($to, $subject, $htmlBody, $attachments);
 
@@ -154,15 +154,21 @@ class MailService
 
     private static function wrapTemplate(string $title, string $content): string
     {
-        $company = getCompanySettings();
+        $company     = getCompanySettings();
+        $companyName = e(companyBrandName($company));
+        $logoUrl     = companyLogoUrl($company);
+        $logoHtml    = $logoUrl
+            ? '<p style="margin:0 0 12px;"><img src="' . e($logoUrl) . '" alt="' . $companyName . '" style="max-height:48px;max-width:200px;width:auto;height:auto;object-fit:contain;"></p>'
+            : '';
 
         return '<!DOCTYPE html><html><body style="font-family:Montserrat,Arial,sans-serif;color:#1e293b;line-height:1.6;">'
             . '<div style="max-width:560px;margin:0 auto;padding:24px;">'
-            . '<h2 style="color:#00182c;margin:0 0 16px;">' . e($company['company_name']) . '</h2>'
+            . $logoHtml
+            . '<h2 style="color:#00182c;margin:0 0 16px;">' . $companyName . '</h2>'
             . '<h3 style="color:#3aafa9;margin:0 0 12px;">' . e($title) . '</h3>'
             . $content
             . '<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;">'
-            . '<p style="font-size:12px;color:#64748b;">' . e($company['company_name']) . '</p>'
+            . '<p style="font-size:12px;color:#64748b;">' . $companyName . '</p>'
             . '</div></body></html>';
     }
 

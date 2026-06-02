@@ -30,7 +30,7 @@ require __DIR__ . '/../includes/header.php';
                     <div class="chat-message chat-message-bot">
                         <div class="chat-avatar"><i class="bi bi-robot"></i></div>
                         <div class="chat-bubble">
-                            <p>Hello! I'm your admin AI assistant for <strong><?= e($company['company_name']) ?></strong>.</p>
+                            <p>Hello! I'm your admin AI assistant for <strong><?= e(companyBrandName($company)) ?></strong>.</p>
                             <p class="mb-0">Ask me about clients, cases, payments, appointments, or type <strong>help</strong> to see what I can do.</p>
                         </div>
                     </div>

@@ -173,7 +173,7 @@ require __DIR__ . '/../includes/header.php';
                             <div class="contact-info-icon"><i class="bi bi-building"></i></div>
                             <div class="contact-info-content">
                                 <span class="contact-info-term">Company:</span>
-                                <span class="contact-info-text"><?= e($company['company_name'] ?? 'Notary Management Pro') ?></span>
+                                <span class="contact-info-text"><?= e(companyBrandName($company)) ?></span>
                             </div>
                         </div>
 

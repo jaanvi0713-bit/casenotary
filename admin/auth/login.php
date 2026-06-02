@@ -53,7 +53,7 @@ $isClientPortal = $portal === 'client';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($pageTitle) ?> — <?= e($company['company_name']) ?></title>
+    <title><?= e($pageTitle) ?> — <?= e(companyBrandName($company)) ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -73,9 +73,9 @@ $isClientPortal = $portal === 'client';
             <div class="auth-visual-content">
                 <div class="auth-brand">
                     <div class="auth-logo">
-                        <i class="bi <?= $isClientPortal ? 'bi-person-badge' : 'bi-shield-check' ?>"></i>
+                        <?= renderCompanyLogo('auth', $company, $isClientPortal ? 'client' : 'admin') ?>
                     </div>
-                    <h1><?= e($company['company_name']) ?></h1>
+                    <h1><?= e(companyBrandName($company)) ?></h1>
                     <p id="portalDescription">
                         <?= $isClientPortal
                             ? 'Secure client portal to view cases, documents, quotations, and appointments.'
@@ -174,7 +174,7 @@ $isClientPortal = $portal === 'client';
         var portalSubtitle = document.getElementById('portalSubtitle');
         var adminExtras = document.getElementById('adminExtras');
         var portalDescription = document.getElementById('portalDescription');
-        var authLogo = document.querySelector('.auth-logo i');
+        var authLogo = document.querySelector('.auth-logo');
 
         document.querySelectorAll('.portal-option').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -188,13 +188,19 @@ $isClientPortal = $portal === 'client';
                     portalSubtitle.textContent = 'Sign in to your client portal';
                     adminExtras.style.display = 'none';
                     portalDescription.textContent = 'Secure client portal to view cases, documents, quotations, and appointments.';
-                    authLogo.className = 'bi bi-person-badge';
+                    if (authLogo && !authLogo.querySelector('img')) {
+                        var icon = authLogo.querySelector('i');
+                        if (icon) icon.className = 'bi bi-person-badge';
+                    }
                 } else {
                     submitBtn.textContent = 'Sign In to Admin Portal';
                     portalSubtitle.textContent = 'Sign in to your admin account';
                     adminExtras.style.display = '';
                     portalDescription.textContent = 'Secure admin portal for managing notary operations, clients, cases, and documents.';
-                    authLogo.className = 'bi bi-shield-check';
+                    if (authLogo && !authLogo.querySelector('img')) {
+                        var iconAdmin = authLogo.querySelector('i');
+                        if (iconAdmin) iconAdmin.className = 'bi bi-shield-check';
+                    }
                 }
             });
         });

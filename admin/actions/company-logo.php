@@ -2,8 +2,6 @@
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
-
 $settings = getCompanySettings();
 $logo     = $settings['logo'] ?? null;
 

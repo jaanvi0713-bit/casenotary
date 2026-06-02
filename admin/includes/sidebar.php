@@ -17,14 +17,10 @@ $navItems = [
     <div class="sidebar-header">
         <div class="sidebar-brand">
             <div class="brand-icon">
-                <?php if ($logoUrl = SettingsService::logoUrl($company)): ?>
-                    <img src="<?= e($logoUrl) ?>" alt="" class="sidebar-logo">
-                <?php else: ?>
-                    <i class="bi bi-shield-check"></i>
-                <?php endif; ?>
+                <?= renderCompanyLogo('sidebar', $company, 'admin') ?>
             </div>
             <div class="brand-text">
-                <span class="brand-name"><?= e($company['company_name']) ?></span>
+                <span class="brand-name"><?= e(companyBrandName($company)) ?></span>
                 <span class="brand-tag">Admin</span>
             </div>
         </div>

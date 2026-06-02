@@ -13,7 +13,7 @@ class SettingsService
         }
 
         $defaults = [
-            'company_name'    => 'Notary Management',
+            'company_name'    => 'Your Company',
             'primary_color'   => '#3aafa9',
             'secondary_color' => '#00182c',
             'dark_accent'     => '#000000',
@@ -55,8 +55,23 @@ class SettingsService
 
         $logoPath = $settings['logo'] ?? null;
 
-        if ($logoFile && !empty($logoFile['name']) && ($logoFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+        if (
+            $logoFile
+            && !empty($logoFile['name'])
+            && ($logoFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK
+            && Database::columnExists('company_settings', 'logo')
+        ) {
             $logoPath = self::storeLogo($logoFile);
+        } elseif (
+            $logoFile
+            && !empty($logoFile['name'])
+            && ($logoFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK
+            && !Database::columnExists('company_settings', 'logo')
+        ) {
+            self::storeLogo($logoFile);
+            throw new RuntimeException(
+                'Logo uploaded but the database is missing the logo column. Run: php admin/sql/migrate_branding.php'
+            );
         }
 
         $smtpPassword = trim($data['smtp_password'] ?? '');
@@ -69,74 +84,62 @@ class SettingsService
             $stripeSecret = $settings['stripe_secret_key'] ?? null;
         }
 
-        $params = [
-            trim($data['company_name'] ?? 'Notary Management'),
-            $logoPath,
-            self::normalizeColor($data['primary_color'] ?? '#3aafa9'),
-            self::normalizeColor($data['secondary_color'] ?? '#00182c'),
-            self::normalizeColor($data['dark_accent'] ?? '#000000'),
-            trim($data['font_family'] ?? 'Montserrat'),
-            trim($data['description'] ?? '') ?: null,
-            trim($data['office_email'] ?? '') ?: null,
-            trim($data['office_phone'] ?? '') ?: null,
-            trim($data['address'] ?? '') ?: null,
-            trim($data['smtp_host'] ?? '') ?: null,
-            (int) ($data['smtp_port'] ?? 587),
-            trim($data['smtp_username'] ?? '') ?: null,
-            $smtpPassword,
-            in_array($data['smtp_encryption'] ?? 'tls', ['tls', 'ssl', 'none'], true)
-                ? $data['smtp_encryption']
-                : 'tls',
-            trim($data['stripe_public_key'] ?? '') ?: null,
-            $stripeSecret,
-            $id,
-        ];
-
         $businessHours = trim($data['business_hours'] ?? '') ?: null;
 
-        if (Database::columnExists('company_settings', 'business_hours')) {
-            array_splice($params, 9, 0, [$businessHours]);
-            Database::query(
-                'UPDATE company_settings SET
-                    company_name = ?, logo = ?, primary_color = ?, secondary_color = ?, dark_accent = ?,
-                    font_family = ?, description = ?, office_email = ?, office_phone = ?, business_hours = ?, address = ?,
-                    smtp_host = ?, smtp_port = ?, smtp_username = ?, smtp_password = ?, smtp_encryption = ?,
-                    stripe_public_key = ?, stripe_secret_key = ?, updated_at = NOW()
-                 WHERE id = ?',
-                $params
-            );
-        } else {
-            Database::query(
-                'UPDATE company_settings SET
-                    company_name = ?, logo = ?, primary_color = ?, secondary_color = ?, dark_accent = ?,
-                    font_family = ?, description = ?, office_email = ?, office_phone = ?, address = ?,
-                    smtp_host = ?, smtp_port = ?, smtp_username = ?, smtp_password = ?, smtp_encryption = ?,
-                    stripe_public_key = ?, stripe_secret_key = ?, updated_at = NOW()
-                 WHERE id = ?',
-                $params
-            );
+        $row = [
+            'company_name'        => trim($data['company_name'] ?? '') ?: 'Your Company',
+            'primary_color'       => self::normalizeColor($data['primary_color'] ?? '#3aafa9'),
+            'secondary_color'     => self::normalizeColor($data['secondary_color'] ?? '#00182c'),
+            'dark_accent'         => self::normalizeColor($data['dark_accent'] ?? '#000000'),
+            'font_family'         => trim($data['font_family'] ?? 'Montserrat'),
+            'description'         => trim($data['description'] ?? '') ?: null,
+            'office_email'        => trim($data['office_email'] ?? '') ?: null,
+            'office_phone'        => trim($data['office_phone'] ?? '') ?: null,
+            'business_hours'      => $businessHours,
+            'address'             => trim($data['address'] ?? '') ?: null,
+            'smtp_host'           => trim($data['smtp_host'] ?? '') ?: null,
+            'smtp_port'           => (int) ($data['smtp_port'] ?? 587),
+            'smtp_username'       => trim($data['smtp_username'] ?? '') ?: null,
+            'smtp_password'       => $smtpPassword,
+            'smtp_encryption'     => in_array($data['smtp_encryption'] ?? 'tls', ['tls', 'ssl', 'none'], true)
+                ? $data['smtp_encryption']
+                : 'tls',
+            'stripe_public_key'   => trim($data['stripe_public_key'] ?? '') ?: null,
+            'stripe_secret_key'   => $stripeSecret,
+        ];
+
+        if (Database::columnExists('company_settings', 'logo')) {
+            $row['logo'] = $logoPath;
         }
+
+        $setParts = [];
+        $params   = [];
+
+        foreach ($row as $column => $value) {
+            if (Database::columnExists('company_settings', $column)) {
+                $setParts[] = "{$column} = ?";
+                $params[]   = $value;
+            }
+        }
+
+        if ($setParts === []) {
+            throw new RuntimeException('No valid company settings columns to update.');
+        }
+
+        $setParts[] = 'updated_at = NOW()';
+        $params[]   = $id;
+
+        Database::query(
+            'UPDATE company_settings SET ' . implode(', ', $setParts) . ' WHERE id = ?',
+            $params
+        );
 
         self::clearCache();
     }
 
     public static function logoUrl(?array $settings = null): ?string
     {
-        $settings = $settings ?? self::get();
-        $logo     = $settings['logo'] ?? null;
-
-        if (!$logo) {
-            return null;
-        }
-
-        $config = require __DIR__ . '/../config/config.php';
-        $path   = rtrim($config['upload']['path'], '/\\') . '/' . ltrim($logo, '/');
-
-        if (!is_file($path)) {
-            return null;
-        }
-
-        return url('actions/company-logo.php');
+        return companyLogoUrl($settings);
     }
 
     private static function storeLogo(array $file): string

@@ -1070,6 +1070,53 @@ function getCompanySettings(): array
     return SettingsService::get();
 }
 
+function companyBrandName(?array $settings = null): string
+{
+    $settings = $settings ?? getCompanySettings();
+    $name     = trim((string) ($settings['company_name'] ?? ''));
+
+    return $name !== '' ? $name : 'Your Company';
+}
+
+function companyLogoUrl(?array $settings = null): ?string
+{
+    $settings = $settings ?? getCompanySettings();
+    $logo     = trim((string) ($settings['logo'] ?? ''));
+
+    if ($logo === '') {
+        return null;
+    }
+
+    $config = require __DIR__ . '/../config/config.php';
+    $path   = rtrim($config['upload']['path'], '/\\') . '/' . ltrim($logo, '/');
+
+    if (!is_file($path)) {
+        return null;
+    }
+
+    return adminUrl('actions/company-logo.php?v=' . filemtime($path));
+}
+
+/**
+ * Render company logo image or default placeholder icon.
+ */
+function renderCompanyLogo(string $context = 'sidebar', ?array $settings = null, string $portal = 'admin'): string
+{
+    $settings = $settings ?? getCompanySettings();
+    $url      = companyLogoUrl($settings);
+    $name     = companyBrandName($settings);
+    $class    = 'brand-logo-mark brand-logo-mark--' . preg_replace('/[^a-z0-9-]/', '', $context);
+
+    if ($url) {
+        return '<img src="' . e($url) . '" alt="' . e($name) . '" class="' . e($class) . ' brand-logo-mark--image">';
+    }
+
+    $icon = $portal === 'client' ? 'bi-person-badge' : 'bi-shield-check';
+
+    return '<span class="' . e($class) . ' brand-logo-mark--placeholder" aria-hidden="true">'
+        . '<i class="bi ' . $icon . '"></i></span>';
+}
+
 function clearCompanySettingsCache(): void
 {
     SettingsService::clearCache();

@@ -42,7 +42,7 @@ $pageTitle = 'Reset Password';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($pageTitle) ?> — <?= e($company['company_name']) ?></title>
+    <title><?= e($pageTitle) ?> — <?= e(companyBrandName($company)) ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -61,7 +61,7 @@ $pageTitle = 'Reset Password';
             <div class="auth-form-container">
                 <div class="auth-form-header text-center">
                     <div class="auth-logo-sm mx-auto mb-3">
-                        <i class="bi bi-shield-lock"></i>
+                        <?= renderCompanyLogo('auth-sm', $company, 'admin') ?>
                     </div>
                     <h2>Reset Password</h2>
                     <p>Create a new secure password</p>

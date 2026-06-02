@@ -38,7 +38,11 @@ class DocumentTemplate
     public static function clientLetter(array $case, array $client, string $instructions = ''): string
     {
         $company     = getCompanySettings();
-        $companyName = e($company['company_name'] ?? 'Notary Management');
+        $companyName = e(companyBrandName($company));
+        $logoUrl     = companyLogoUrl($company);
+        $brandHtml   = $logoUrl
+            ? '<div class="brand-block"><img src="' . e($logoUrl) . '" alt="' . $companyName . '" class="doc-brand-logo"><div class="brand">' . $companyName . '</div></div>'
+            : '<div class="brand">' . $companyName . '</div>';
         $primary     = e($company['primary_color'] ?? '#3aafa9');
         $secondary   = e($company['secondary_color'] ?? '#00182c');
         $name        = e(clientFullName($client) ?: 'Client');
@@ -72,7 +76,7 @@ class DocumentTemplate
             . self::letterStyles($primary, $secondary)
             . '</head><body>'
             . '<div class="no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>'
-            . '<div class="header"><div><div class="brand">' . $companyName . '</div>' . $address . $email . $phone . '</div>'
+            . '<div class="header"><div>' . $brandHtml . $address . $email . $phone . '</div>'
             . '<div class="doc-meta"><h1>Client Letter</h1><div class="muted">' . $today . '</div></div></div>'
             . '<p class="salutation">Dear ' . $name . ',</p>'
             . '<p>Thank you for choosing ' . $companyName . '. We are pleased to confirm your case '
@@ -99,6 +103,8 @@ class DocumentTemplate
             .no-print button{padding:10px 18px;background:' . $primary . ';color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit}
             .header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e2e8f0}
             .brand{font-size:22px;font-weight:700;color:' . $secondary . ';margin-bottom:6px}
+            .brand-block{margin-bottom:8px}
+            .doc-brand-logo{display:block;max-height:52px;max-width:220px;width:auto;height:auto;object-fit:contain;margin-bottom:8px}
             .doc-meta{text-align:right}
             h1{color:' . $primary . ';margin:0 0 4px;font-size:24px}
             .muted{color:#64748b;font-size:13px}
@@ -185,7 +191,11 @@ class DocumentTemplate
         $primary   = e($company['primary_color'] ?? '#3aafa9');
         $secondary = e($company['secondary_color'] ?? '#00182c');
         $client    = e(clientFullName($case));
-        $companyName = e($company['company_name'] ?? 'Notary Management');
+        $companyName = e(companyBrandName($company));
+        $logoUrl     = companyLogoUrl($company);
+        $brandHtml   = $logoUrl
+            ? '<div class="brand-block"><img src="' . e($logoUrl) . '" alt="' . $companyName . '" class="doc-brand-logo"><div class="brand">' . $companyName . '</div></div>'
+            : '<div class="brand">' . $companyName . '</div>';
 
         $address = !empty($company['address']) ? '<div class="muted">' . nl2br(e($company['address'])) . '</div>' : '';
         $email   = !empty($company['office_email']) ? '<div class="muted">' . e($company['office_email']) . '</div>' : '';
@@ -195,7 +205,7 @@ class DocumentTemplate
             . self::styles($primary, $secondary)
             . '</head><body>'
             . '<div class="no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>'
-            . '<div class="header"><div><div class="brand">' . $companyName . '</div>' . $address . $email . $phone . '</div>'
+            . '<div class="header"><div>' . $brandHtml . $address . $email . $phone . '</div>'
             . '<div class="doc-meta"><h1>' . e($docType) . '</h1><div class="doc-number">' . e($number) . '</div>'
             . '<div class="muted">' . date('F j, Y') . '</div></div></div>'
             . '<div class="parties"><div><strong>Bill to</strong><div>' . $client . '</div>'
@@ -217,6 +227,8 @@ class DocumentTemplate
             .no-print button{padding:10px 18px;background:' . $primary . ';color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit}
             .header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e2e8f0}
             .brand{font-size:22px;font-weight:700;color:' . $secondary . ';margin-bottom:6px}
+            .brand-block{margin-bottom:8px}
+            .doc-brand-logo{display:block;max-height:52px;max-width:220px;width:auto;height:auto;object-fit:contain;margin-bottom:8px}
             .doc-meta{text-align:right}
             h1{color:' . $primary . ';margin:0 0 4px;font-size:28px}
             .doc-number{font-size:16px;font-weight:700;color:' . $secondary . '}

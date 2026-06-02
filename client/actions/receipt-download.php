@@ -45,6 +45,7 @@ header('Content-Disposition: inline; filename="' . ($receipt['receipt_number'] ?
         body { font-family: Montserrat, Arial, sans-serif; color: #0f172a; margin: 40px; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
         .brand { font-size: 22px; font-weight: 700; color: <?= e($company['secondary_color'] ?? '#00182c') ?>; }
+        .receipt-brand-logo { display: block; max-height: 48px; max-width: 200px; width: auto; height: auto; object-fit: contain; margin-bottom: 10px; }
         .meta { text-align: right; color: #475569; font-size: 14px; }
         h1 { color: <?= e($company['primary_color'] ?? '#3aafa9') ?>; margin: 0 0 8px; }
         table { width: 100%; border-collapse: collapse; margin-top: 24px; }
@@ -59,7 +60,10 @@ header('Content-Disposition: inline; filename="' . ($receipt['receipt_number'] ?
     </div>
     <div class="header">
         <div>
-            <div class="brand"><?= e($company['company_name']) ?></div>
+            <?php if ($logoUrl = companyLogoUrl($company)): ?>
+                <img src="<?= e($logoUrl) ?>" alt="<?= e(companyBrandName($company)) ?>" class="receipt-brand-logo">
+            <?php endif; ?>
+            <div class="brand"><?= e(companyBrandName($company)) ?></div>
             <?php if (!empty($company['address'])): ?><div><?= nl2br(e($company['address'])) ?></div><?php endif; ?>
             <?php if (!empty($company['office_email'])): ?><div><?= e($company['office_email']) ?></div><?php endif; ?>
         </div>

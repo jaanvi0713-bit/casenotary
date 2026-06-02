@@ -198,7 +198,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS company_settings (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    company_name    VARCHAR(255) NOT NULL DEFAULT 'Notary Management',
+    company_name    VARCHAR(255) NOT NULL DEFAULT 'Your Company',
     logo            VARCHAR(500) DEFAULT NULL,
     primary_color   VARCHAR(7) NOT NULL DEFAULT '#3aafa9',
     secondary_color VARCHAR(7) NOT NULL DEFAULT '#00182c',
