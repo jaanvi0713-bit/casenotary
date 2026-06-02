@@ -23,7 +23,7 @@ require __DIR__ . '/../includes/header.php';
 <div class="case-workspace">
     <div class="case-workspace-header">
         <div>
-            <a href="<?= clientUrl('pages/cases.php') ?>" class="case-back-link"><i class="bi bi-arrow-left"></i> My Cases</a>
+            <a href="<?= clientUrl('pages/cases.php') ?>" class="btn btn-primary btn-sm case-back-btn"><i class="bi bi-arrow-left"></i> My Cases</a>
             <div class="case-workspace-title-row">
                 <h1 class="case-workspace-title"><?= e($case['case_number']) ?></h1>
                 <?= statusBadge($case['status']) ?>
