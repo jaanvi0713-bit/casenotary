@@ -846,6 +846,14 @@ textarea.case-form-control {
     display: none;
 }
 
+.client-letter-preview-wrap--full {
+    width: 100%;
+}
+
+.client-letter-preview-wrap--full .client-letter-preview-frame-wrap {
+    height: min(75vh, 720px);
+}
+
 @media (max-width: 991.98px) {
     .client-letter-workspace {
         grid-template-columns: 1fr;

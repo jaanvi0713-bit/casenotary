@@ -6,10 +6,41 @@ if (!Auth::check()) {
     exit('Forbidden');
 }
 
-$id   = (int) ($_GET['id'] ?? 0);
-$path = $_GET['path'] ?? '';
+$id        = (int) ($_GET['id'] ?? 0);
+$letterId  = (int) ($_GET['letter_id'] ?? 0);
+$path      = $_GET['path'] ?? '';
+$downloadName = null;
 
-if ($path !== '') {
+if ($letterId > 0) {
+    $letter = ClientLetterService::getById($letterId);
+    if (!$letter) {
+        http_response_code(404);
+        exit('Not found');
+    }
+
+    if (Auth::isClient()) {
+        $clientId = Auth::clientId();
+        if (!$clientId
+            || (int) $letter['client_id'] !== $clientId
+            || empty($letter['published_to_portal'])
+            || empty($letter['saved_to_record'])) {
+            http_response_code(403);
+            exit('Forbidden');
+        }
+    } elseif (!Auth::isAdmin()) {
+        http_response_code(403);
+        exit('Forbidden');
+    }
+
+    $rel = ClientLetterService::getDownloadPath($letter);
+    if (!$rel) {
+        http_response_code(404);
+        exit('File not found');
+    }
+
+    $fullPath = CaseService::documentPath($rel);
+    $downloadName = ($letter['title'] ?? 'client-letter') . (str_ends_with($rel, '.pdf') ? '.pdf' : '.html');
+} elseif ($path !== '') {
     $relative = urldecode($path);
     if (str_contains($relative, '..')) {
         http_response_code(400);
@@ -27,6 +58,18 @@ if ($path !== '') {
         if (!$case) {
             http_response_code(403);
             exit('Forbidden');
+        }
+        if (str_contains($relative, '/letters/') && ClientLetterService::lettersTableExists()) {
+            $published = Database::fetch(
+                'SELECT id FROM case_client_letters
+                 WHERE case_id = ? AND client_id = ? AND published_to_portal = 1
+                   AND (pdf_path = ? OR html_path = ?) LIMIT 1',
+                [(int) $m[1], $clientId, $relative, $relative]
+            );
+            if (!$published) {
+                http_response_code(403);
+                exit('Forbidden');
+            }
         }
     }
 } elseif ($id > 0) {

@@ -317,9 +317,10 @@ class CaseService
             'proposals'   => self::getProposals($caseId),
             'invoices'    => self::getInvoices($caseId),
             'payments'    => self::getPayments($caseId),
-            'receipts'    => self::getReceipts($caseId),
-            'notes'       => self::getNotes($caseId, true),
-            'activity'    => self::getActivity($caseId),
+            'receipts'        => self::getReceipts($caseId),
+            'client_letters'  => ClientLetterService::listForCase($caseId, false),
+            'notes'           => self::getNotes($caseId, true),
+            'activity'        => self::getActivity($caseId),
         ];
     }
 
@@ -812,8 +813,18 @@ class CaseService
         }
 
         $instructions = trim($case['client_instructions'] ?? '');
-        $sections     = ClientLetterService::getSectionsForCase($caseId);
-        $letterPath   = self::generateClientLetter($caseId, $instructions, $sections);
+        $saved = ClientLetterService::getCurrentSavedLetter($caseId);
+        if ($saved) {
+            $rel = ClientLetterService::getDownloadPath($saved);
+            $letterPath = $rel ? self::documentPath($rel) : null;
+        } else {
+            $sections   = ClientLetterService::getSectionsForCase($caseId);
+            $letterPath = self::generateClientLetter($caseId, $instructions, $sections);
+        }
+
+        if (!$letterPath || !is_file($letterPath)) {
+            throw new RuntimeException('No letter file available. Generate and save the letter first.');
+        }
 
         return MailService::sendClientLetterEmail($client, $case, $letterPath);
     }

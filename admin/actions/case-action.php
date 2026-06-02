@@ -173,7 +173,67 @@ try {
             $instructions = trim($_POST['client_instructions'] ?? '');
             $sections     = ClientLetterService::sectionsFromPost($_POST);
             CaseService::generateClientLetter($caseId, $instructions, $sections);
-            flash('success', 'Client letter generated. Open it to print or save as PDF.');
+            $versionMode = $_POST['letter_version_mode'] ?? 'draft';
+            if ($versionMode === 'replace') {
+                ClientLetterService::saveToClientRecord($caseId, (int) (Auth::id() ?? 0), true);
+                flash('success', 'Letter generated and saved as the new current version.');
+            } else {
+                flash('success', 'Client letter generated. Preview it, then save or publish.');
+            }
+            redirectCase($caseId, 'client-letter');
+            break;
+
+        case 'save_client_letter_record':
+            Auth::requireAdmin();
+            if ($caseId <= 0) {
+                throw new RuntimeException('Invalid case.');
+            }
+            $instructions = trim($_POST['client_instructions'] ?? '');
+            $sections     = ClientLetterService::sectionsFromPost($_POST);
+            ClientLetterService::ensureGeneratedDraft($caseId, $instructions, $sections);
+            $replace = ($_POST['letter_version_mode'] ?? '') === 'replace';
+            ClientLetterService::saveToClientRecord($caseId, (int) (Auth::id() ?? 0), $replace);
+            flash('success', 'Letter saved to client record.');
+            redirectCase($caseId, 'client-letter');
+            break;
+
+        case 'publish_client_letter':
+            Auth::requireAdmin();
+            if ($caseId <= 0) {
+                throw new RuntimeException('Invalid case.');
+            }
+            $letterId = (int) ($_POST['letter_id'] ?? 0);
+            if ($letterId <= 0) {
+                $instructions = trim($_POST['client_instructions'] ?? '');
+                $sections     = ClientLetterService::sectionsFromPost($_POST);
+                ClientLetterService::ensureGeneratedDraft($caseId, $instructions, $sections);
+                $letterId = ClientLetterService::saveToClientRecord($caseId, (int) (Auth::id() ?? 0), true);
+            }
+            ClientLetterService::publishToPortal($letterId);
+            flash('success', 'Letter published to the client portal.');
+            redirectCase($caseId, 'client-letter');
+            break;
+
+        case 'unpublish_client_letter':
+            Auth::requireAdmin();
+            $letterId = (int) ($_POST['letter_id'] ?? 0);
+            if ($letterId > 0) {
+                ClientLetterService::unpublishFromPortal($letterId);
+                flash('success', 'Letter removed from client portal.');
+            }
+            redirectCase($caseId, 'client-letter');
+            break;
+
+        case 'delete_client_letter':
+            Auth::requireAdmin();
+            $letterId = (int) ($_POST['letter_id'] ?? 0);
+            if ($letterId > 0) {
+                $letter = ClientLetterService::getById($letterId);
+                if ($letter && (int) $letter['case_id'] === $caseId) {
+                    ClientLetterService::deleteLetter($letterId);
+                    flash('success', 'Letter deleted.');
+                }
+            }
             redirectCase($caseId, 'client-letter');
             break;
 

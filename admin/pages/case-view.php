@@ -17,14 +17,12 @@ $pageSubtitle = $case['title'];
 $allowedStatuses = CaseService::getAllowedStatuses($case['status']);
 $clientLetterPath   = CaseService::getClientLetterRelativePath($caseId);
 $clientLetterPaths  = ClientLetterService::getGeneratedLetterPaths($caseId);
-$letterTemplates    = ClientLetterService::listTemplates();
-$loadTemplateId     = (int) ($_GET['load_template'] ?? 0);
-$letterSections     = $loadTemplateId > 0
-    ? ClientLetterService::getTemplateSections($loadTemplateId)
-    : ClientLetterService::getSectionsForCase($caseId);
-$letterLabels       = ClientLetterService::sectionLabels();
-$letterPlaceholders = ClientLetterService::placeholderHelp();
+$letterSections     = ClientLetterService::getSectionsForCase($caseId);
+$letterLabels       = ClientLetterService::sectionLabels(); // hidden fields for standard template
 $letterIsPdf        = $clientLetterPaths['pdf'] !== null;
+$savedClientLetters = $workspace['client_letters'] ?? [];
+$currentSavedLetter = ClientLetterService::getCurrentSavedLetter($caseId);
+$hasGeneratedDraft  = $clientLetterPaths['html'] !== null || $clientLetterPaths['pdf'] !== null;
 $csrfToken          = CSRF::generateToken();
 $csrfFieldName      = (require __DIR__ . '/../config/config.php')['security']['csrf_token_name'];
 
@@ -525,134 +523,146 @@ require __DIR__ . '/../includes/header.php';
             <div class="case-panel client-letter-panel">
                 <div class="case-panel-header">
                     <h3 class="case-panel-title mb-0">Create Letter</h3>
-                    <div class="d-flex flex-wrap gap-2">
-                        <?php if ($clientLetterPath): ?>
-                            <a href="<?= url('actions/document-download.php?path=' . urlencode($clientLetterPath)) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener">
-                                <i class="bi bi-<?= $letterIsPdf ? 'file-pdf' : 'file-earmark-text' ?>"></i>
-                                <?= $letterIsPdf ? 'Download PDF' : 'Open letter' ?>
-                            </a>
-                            <?php if (!$letterIsPdf): ?>
-                                <a href="<?= url('actions/document-download.php?path=' . urlencode('cases/' . $caseId . '/generated/client_letter.html')) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener">
-                                    <i class="bi bi-printer"></i> Print / Save as PDF
-                                </a>
-                            <?php endif; ?>
-                            <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
-                                <?= CSRF::field() ?>
-                                <input type="hidden" name="action" value="send_client_letter">
-                                <input type="hidden" name="case_id" value="<?= $caseId ?>">
-                                <button type="submit" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-envelope"></i> Email to Client
-                                </button>
-                            </form>
-                        <?php endif; ?>
-                    </div>
                 </div>
 
-                <ol class="client-letter-steps small text-muted mb-3 ps-3">
-                    <li>Edit sections (placeholders fill in automatically)</li>
-                    <li>Update preview to check layout</li>
-                    <li>Generate, then print or email</li>
-                </ol>
-
-                <?php if ($loadTemplateId > 0): ?>
-                    <div class="alert alert-success py-2 small mb-3">Template loaded — save draft to keep it on this case.</div>
-                <?php endif; ?>
+                <p class="case-panel-hint mb-3">
+                    Generate a professional engagement letter, save it to this client’s record, and publish it to their portal when ready.
+                </p>
 
                 <form method="post" action="<?= url('actions/case-action.php') ?>" id="clientLetterForm">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="case_id" value="<?= $caseId ?>">
-
-                    <div class="row g-2 mb-3 align-items-end">
-                        <div class="col-md-7">
-                            <label class="form-label small mb-1">Load template</label>
-                            <div class="input-group input-group-sm">
-                                <select class="form-select" id="letterTemplateSelect">
-                                    <option value="">— Current draft —</option>
-                                    <?php foreach ($letterTemplates as $tpl): ?>
-                                        <option value="<?= (int) $tpl['id'] ?>" <?= $loadTemplateId === (int) $tpl['id'] ? 'selected' : '' ?>>
-                                            <?= e($tpl['name']) ?><?= !empty($tpl['is_default']) ? ' (default)' : '' ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <button type="button" class="btn btn-soft" id="letterTemplateLoadBtn">Load</button>
-                            </div>
-                        </div>
-                        <div class="col-md-5 text-md-end">
-                            <button type="button" class="btn btn-soft btn-sm" data-bs-toggle="modal" data-bs-target="#modalSaveLetterTemplate">
-                                <i class="bi bi-bookmark"></i> Save as template
-                            </button>
-                        </div>
-                    </div>
+                    <?php foreach ($letterLabels as $key => $label): ?>
+                        <textarea name="letter_<?= e($key) ?>" hidden aria-hidden="true"><?= e($letterSections[$key] ?? '') ?></textarea>
+                    <?php endforeach; ?>
 
                     <div class="mb-3">
                         <label class="form-label">Instructions for client</label>
-                        <textarea name="client_instructions" class="form-control form-control-sm" rows="2" placeholder="Optional — appears in additional notes when set"><?= e($case['client_instructions'] ?? '') ?></textarea>
+                        <textarea name="client_instructions" class="form-control form-control-sm" rows="2" placeholder="Optional notes for the client"><?= e($case['client_instructions'] ?? '') ?></textarea>
                     </div>
 
-                    <details class="client-letter-placeholders mb-3">
-                        <summary class="small text-muted">Placeholders (auto-filled on preview / generate)</summary>
-                        <ul class="client-letter-placeholder-list small text-muted mb-0">
-                            <?php foreach ($letterPlaceholders as $token => $desc): ?>
-                                <li><code><?= e($token) ?></code> — <?= e($desc) ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </details>
-
-                    <div class="client-letter-workspace">
-                        <div class="client-letter-editor">
-                            <div class="accordion client-letter-sections" id="clientLetterSections">
-                                <?php foreach ($letterLabels as $key => $label): ?>
-                                    <div class="accordion-item">
-                                        <h2 class="accordion-header">
-                                            <button class="accordion-button <?= $key !== 'introduction' ? 'collapsed' : '' ?>" type="button"
-                                                    data-bs-toggle="collapse" data-bs-target="#letter-<?= e($key) ?>">
-                                                <?= e($label) ?>
-                                            </button>
-                                        </h2>
-                                        <div id="letter-<?= e($key) ?>" class="accordion-collapse collapse <?= $key === 'introduction' ? 'show' : '' ?>"
-                                             data-bs-parent="#clientLetterSections">
-                                            <div class="accordion-body py-2">
-                                                <textarea name="letter_<?= e($key) ?>" class="form-control client-letter-section-input" rows="<?= $key === 'complaints_regulatory' ? 9 : 5 ?>"><?= e($letterSections[$key] ?? '') ?></textarea>
-                                            </div>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">When regenerating a saved letter</label>
+                        <div class="d-flex flex-wrap gap-3 small">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="letter_version_mode" id="letterModeDraft" value="draft" checked>
+                                <label class="form-check-label" for="letterModeDraft">Draft only (keep version history)</label>
                             </div>
-                            <div class="client-letter-actions d-flex flex-wrap gap-2 mt-3">
-                                <button type="submit" name="action" value="save_client_letter_draft" class="btn btn-soft btn-sm">
-                                    <i class="bi bi-save"></i> Save draft
-                                </button>
-                                <button type="button" class="btn btn-soft btn-sm" id="clientLetterPreviewBtn">
-                                    <i class="bi bi-eye"></i> Update preview
-                                </button>
-                                <button type="submit" name="action" value="generate_client_letter" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-file-earmark-check"></i> <?= $clientLetterPath ? 'Regenerate letter' : 'Generate letter' ?>
-                                </button>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="letter_version_mode" id="letterModeReplace" value="replace">
+                                <label class="form-check-label" for="letterModeReplace">Replace current saved version</label>
                             </div>
                         </div>
-                        <div class="client-letter-preview-wrap">
-                            <div class="client-letter-preview-head">
-                                <span class="small fw-semibold">Preview</span>
-                                <a href="#" class="small" id="clientLetterPreviewNewTab" target="_blank" rel="noopener">New tab</a>
-                            </div>
-                            <div class="client-letter-preview-frame-wrap">
-                                <iframe id="clientLetterPreviewFrame" title="Letter preview" class="client-letter-preview-frame"></iframe>
-                                <div id="clientLetterPreviewPlaceholder" class="client-letter-preview-placeholder">
-                                    <span class="text-muted small">Click <strong>Update preview</strong> to see your letter with logo, client details, and fees.</span>
-                                </div>
+                    </div>
+
+                    <div class="client-letter-actions d-flex flex-wrap gap-2 mb-3">
+                        <button type="button" class="btn btn-soft btn-sm" id="clientLetterPreviewBtn" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
+                            <i class="bi bi-eye"></i> Preview letter
+                        </button>
+                        <?php if ($hasGeneratedDraft): ?>
+                            <a href="<?= url('actions/document-download.php?path=' . urlencode($clientLetterPath ?? ('cases/' . $caseId . '/generated/client_letter.html'))) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener">
+                                <i class="bi bi-<?= $letterIsPdf ? 'file-pdf' : 'file-earmark-text' ?>"></i> Download<?= $letterIsPdf ? ' PDF' : '' ?>
+                            </a>
+                        <?php endif; ?>
+                        <button type="submit" name="action" value="generate_client_letter" class="btn btn-primary btn-sm">
+                            <i class="bi bi-file-earmark-plus"></i> <?= $hasGeneratedDraft ? 'Regenerate' : 'Generate letter' ?>
+                        </button>
+                        <button type="submit" name="action" value="save_client_letter_record" class="btn btn-soft btn-sm" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
+                            <i class="bi bi-save"></i> Save to client record
+                        </button>
+                        <button type="submit" name="action" value="publish_client_letter" class="btn btn-soft btn-sm" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
+                            <i class="bi bi-globe"></i> Publish to portal
+                        </button>
+                        <button type="submit" name="action" value="send_client_letter" class="btn btn-primary btn-sm" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
+                            <i class="bi bi-envelope"></i> Email to client
+                        </button>
+                    </div>
+
+                    <div class="client-letter-preview-wrap client-letter-preview-wrap--full mb-4">
+                        <div class="client-letter-preview-head">
+                            <span class="small fw-semibold">Letter preview</span>
+                            <a href="#" class="small" id="clientLetterPreviewNewTab" target="_blank" rel="noopener">Open in new tab</a>
+                        </div>
+                        <div class="client-letter-preview-frame-wrap">
+                            <iframe id="clientLetterPreviewFrame" title="Letter preview" class="client-letter-preview-frame"></iframe>
+                            <div id="clientLetterPreviewPlaceholder" class="client-letter-preview-placeholder">
+                                <span class="text-muted small">Generate a letter, then click <strong>Preview letter</strong>.</span>
                             </div>
                         </div>
                     </div>
                 </form>
 
-                <?php if ($clientLetterPath): ?>
-                    <p class="text-muted small mt-3 mb-0">
-                        <i class="bi bi-check-circle text-success"></i>
-                        Letter ready<?= $letterIsPdf ? ' (PDF)' : '' ?>.
-                        <?php if (!$letterIsPdf): ?>
-                            Use <strong>Print / Save as PDF</strong> in the opened letter, or install wkhtmltopdf for automatic PDFs.
-                        <?php endif; ?>
-                    </p>
+                <h4 class="h6 fw-semibold mb-2">Saved letters for this case</h4>
+                <?php if (empty($savedClientLetters)): ?>
+                    <p class="text-muted small mb-0">No letters saved yet. Generate a letter, then use <strong>Save to client record</strong>.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table saas-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Version</th>
+                                    <th>Created</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($savedClientLetters as $sl): ?>
+                                    <?php
+                                    $slPath = ClientLetterService::getDownloadPath($sl);
+                                    $isPublished = !empty($sl['published_to_portal']);
+                                    $isCurrent = !empty($sl['is_current']);
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?= e($sl['title']) ?></strong>
+                                            <?php if ($isCurrent): ?><span class="badge bg-primary-subtle text-primary ms-1">Current</span><?php endif; ?>
+                                            <div class="small text-muted"><?= e($sl['case_number'] ?? '') ?></div>
+                                        </td>
+                                        <td>v<?= (int) $sl['version'] ?></td>
+                                        <td><?= formatDateTime($sl['created_at']) ?></td>
+                                        <td>
+                                            <?php if ($isPublished): ?>
+                                                <span class="badge bg-success-subtle text-success">On portal</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-secondary-subtle text-secondary">Internal</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end">
+                                            <?php if ($slPath): ?>
+                                                <a href="<?= url('actions/document-download.php?letter_id=' . (int) $sl['id']) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener" title="Download"><i class="bi bi-download"></i></a>
+                                            <?php endif; ?>
+                                            <?php if (!$isPublished): ?>
+                                                <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
+                                                    <?= CSRF::field() ?>
+                                                    <input type="hidden" name="action" value="publish_client_letter">
+                                                    <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                    <input type="hidden" name="letter_id" value="<?= (int) $sl['id'] ?>">
+                                                    <button type="submit" class="btn btn-soft btn-sm" title="Publish to portal"><i class="bi bi-globe"></i></button>
+                                                </form>
+                                            <?php else: ?>
+                                                <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
+                                                    <?= CSRF::field() ?>
+                                                    <input type="hidden" name="action" value="unpublish_client_letter">
+                                                    <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                    <input type="hidden" name="letter_id" value="<?= (int) $sl['id'] ?>">
+                                                    <button type="submit" class="btn btn-soft btn-sm" title="Unpublish"><i class="bi bi-eye-slash"></i></button>
+                                                </form>
+                                            <?php endif; ?>
+                                            <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Delete this letter version?');">
+                                                <?= CSRF::field() ?>
+                                                <input type="hidden" name="action" value="delete_client_letter">
+                                                <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                <input type="hidden" name="letter_id" value="<?= (int) $sl['id'] ?>">
+                                                <button type="submit" class="btn btn-soft btn-sm text-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -660,35 +670,6 @@ require __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modals -->
-<div class="modal fade" id="modalSaveLetterTemplate" tabindex="-1">
-    <div class="modal-dialog"><div class="modal-content">
-        <form method="post" action="<?= url('actions/case-action.php') ?>" id="saveLetterTemplateForm">
-            <?= CSRF::field() ?>
-            <input type="hidden" name="action" value="save_letter_template">
-            <input type="hidden" name="case_id" value="<?= $caseId ?>">
-            <div class="modal-header">
-                <h5 class="modal-title">Save letter template</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="small text-muted">Reuse this wording on other cases. Placeholders stay in the template.</p>
-                <div class="mb-3">
-                    <label class="form-label">Template name</label>
-                    <input type="text" name="template_name" class="form-control" value="Engagement letter" required>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="template_as_default" value="1" id="templateAsDefault">
-                    <label class="form-check-label" for="templateAsDefault">Default for new cases</label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </div>
-        </form>
-    </div></div>
-</div>
-
 <div class="modal fade" id="modalInvoice" tabindex="-1">
     <div class="modal-dialog"><div class="modal-content">
         <form method="post" action="<?= url('actions/case-action.php') ?>">
@@ -797,7 +778,6 @@ document.addEventListener("DOMContentLoaded", function() {
     var letterForm = document.getElementById("clientLetterForm");
     if (letterForm) {
         var previewUrl = "' . e(url('actions/client-letter-preview.php')) . '";
-        var caseBase = "' . e(url('pages/case-view.php?id=' . $caseId)) . '";
         var csrfName = "' . e($csrfFieldName) . '";
         var csrfToken = "' . e($csrfToken) . '";
 
@@ -836,32 +816,18 @@ document.addEventListener("DOMContentLoaded", function() {
         var previewBtn = document.getElementById("clientLetterPreviewBtn");
         if (previewBtn) previewBtn.addEventListener("click", refreshLetterPreview);
 
-        var loadBtn = document.getElementById("letterTemplateLoadBtn");
-        var tplSelect = document.getElementById("letterTemplateSelect");
-        if (loadBtn && tplSelect) {
-            loadBtn.addEventListener("click", function() {
-                if (!tplSelect.value) return;
-                window.location.href = caseBase + "&load_template=" + encodeURIComponent(tplSelect.value) + "#client-letter";
-            });
+        function maybeRefreshLetterPreview() {
+            if (document.querySelector("#client-letter.active, #client-letter.show")) {
+                refreshLetterPreview();
+            }
         }
 
-        var saveTplForm = document.getElementById("saveLetterTemplateForm");
-        if (saveTplForm) {
-            saveTplForm.addEventListener("submit", function() {
-                saveTplForm.querySelectorAll("[data-letter-clone]").forEach(function(el) { el.remove(); });
-                letterForm.querySelectorAll("textarea[name^=\"letter_\"]").forEach(function(el) {
-                    var h = document.createElement("textarea");
-                    h.name = el.name;
-                    h.hidden = true;
-                    h.setAttribute("data-letter-clone", "1");
-                    h.value = el.value;
-                    saveTplForm.appendChild(h);
-                });
-            });
-        }
+        document.querySelectorAll("[data-bs-target=\"#client-letter\"]").forEach(function(tab) {
+            tab.addEventListener("shown.bs.tab", maybeRefreshLetterPreview);
+        });
 
         if (window.location.hash === "#client-letter") {
-            setTimeout(refreshLetterPreview, 500);
+            setTimeout(refreshLetterPreview, 400);
         }
     }
 });

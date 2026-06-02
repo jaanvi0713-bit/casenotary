@@ -9,39 +9,54 @@ class ClientLetterService
 {
     public const SECTION_KEYS = [
         'introduction',
-        'fees_and_charges',
+        'price_fee',
+        'payment_terms',
         'service_information',
-        'terms_and_conditions',
+        'process_stages',
+        'redress',
         'complaints_regulatory',
         'additional_notes',
         'signature',
+    ];
+
+    /** @var list<string> Keys removed from older letter drafts */
+    private const LEGACY_SECTION_KEYS = [
+        'fees_and_charges',
+        'terms_and_conditions',
     ];
 
     public static function sectionLabels(): array
     {
         return [
             'introduction'          => 'Introduction',
-            'fees_and_charges'      => 'Fees and Charges (Price)',
+            'price_fee'             => 'Price / Fee Information',
+            'payment_terms'         => 'Payment Terms',
             'service_information'   => 'Service Information',
-            'terms_and_conditions'  => 'Terms and Conditions',
-            'complaints_regulatory' => 'Complaints & Regulatory',
+            'process_stages'        => 'Process / Key Stages',
+            'redress'               => 'Redress Information',
+            'complaints_regulatory' => 'Complaints and Regulatory Information',
             'additional_notes'      => 'Additional Notes',
-            'signature'             => 'Signature',
+            'signature'             => 'Signature / Closing',
         ];
     }
 
     public static function placeholderHelp(): array
     {
         return [
+            '{{company_name}}'        => 'Company name (Settings)',
+            '{{company_address}}'     => 'Company address',
+            '{{company_email}}'       => 'Office email',
+            '{{company_phone}}'       => 'Office phone',
+            '{{company_website}}'     => 'Website (linked)',
             '{{client_name}}'         => 'Client or company name',
             '{{client_address}}'      => 'Client address',
             '{{case_number}}'         => 'Matter / case reference',
+            '{{matter_reference}}'    => 'Same as case_number',
             '{{date}}'                => 'Letter date (DD/MM/YYYY)',
             '{{fee_amount}}'          => 'Total fee for this case',
             '{{service_description}}' => 'Primary service description',
-            '{{company_name}}'        => 'Your company name',
-            '{{company_website}}'     => 'Website link',
-            '{{additional_notes}}'    => 'Notes from case or instructions',
+            '{{services_list}}'       => 'Itemised services and fees (optional)',
+            '{{additional_notes}}'    => 'Case notes or client instructions',
         ];
     }
 
@@ -49,62 +64,83 @@ class ClientLetterService
     {
         return [
             'introduction' => <<<'HTML'
-<p>As a Notary Public I hold an official seal and am required to keep full records of all notarial acts. Further information about my practice and privacy policy is available at {{company_website}}.</p>
-<p>This letter confirms the basis on which I will act for you in connection with <strong>{{service_description}}</strong> (matter reference <strong>{{case_number}}</strong>).</p>
+<p>The service provided by me is that of a Notary Public carrying out all permitted notarial activities including, where appropriate, arranging legalisation of documents and sending them to their final destination. An essential part of a notary's role is to maintain and keep records. You can view details of how I handle your data on my website {{company_website}}.</p>
 HTML,
-            'fees_and_charges' => <<<'HTML'
-<p><strong>Price:</strong></p>
-<p>The fee for this transaction will be <strong>{{fee_amount}}</strong>. This fee includes standard disbursements (legalisation fees, postage, courier, etc.) unless stated otherwise below.</p>
-{{services_list}}
-<p>Some documents require an apostille from the UK Foreign, Commonwealth and Development Office. I will advise you if this applies and any additional cost.</p>
-<p>My fees are not subject to VAT unless otherwise stated.</p>
-<p>Payment may be made by cash, card, or bank transfer. If unforeseen complications arise, I reserve the right to revise the fee estimate after discussion with you.</p>
+            'price_fee' => <<<'HTML'
+<p class="cl-heading">Price:</p>
+<p>The fee for this transaction will be {{fee_amount}} which includes disbursements/legalisation fees/postage/consular agent fees/courier/travelling fees/translating costs</p>
+<p>Some documents require legalisation before they will be accepted for use in the receiving jurisdiction by obtaining an apostille through the UK Foreign and Commonwealth Office and, for some countries, additional legalisation is required through the relevant embassy or consulate.</p>
+<p>My fees are not subject to VAT.</p>
+HTML,
+            'payment_terms' => <<<'HTML'
+<p>Payment can be made by cash/card/bank transfer. Payment of my fee and disbursements is due when the document has been prepared which I may retain pending payment in full.</p>
+<p>Occasionally unforeseen or unusual issues arise during the course of the matter which may result in a revision of my fee estimate. Examples of this could include where additional documents are required to be notarised, additional translations or legalisations are needed to meet the requirements of the receiving jurisdiction, third party fees are adjusted to reflect external factors such as fuel price changes and so on. I will notify you of any changes in the fee estimate as soon as possible.</p>
 HTML,
             'service_information' => <<<'HTML'
-<p><strong>Service Information</strong></p>
-<p>Timescales and requirements vary depending on the documents and destination country. I will advise you once I have reviewed your papers.</p>
-<ol>
-<li>Receiving and reviewing your documents and confirming requirements.</li>
-<li>Liaising with legal advisers, Companies House, or other bodies as required.</li>
-<li>Checking identity, capacity, and authority of signatories.</li>
-<li>Checking with issuing authorities for certification of documents as required.</li>
-<li>Meeting with the signatory to verify identity and that they understand and execute the document freely.</li>
-<li>Drafting and affixing or endorsing the notarial certificate.</li>
-<li>Arranging legalisation of the document as appropriate.</li>
-<li>Arranging storage of copies in accordance with the Notarial Practice Rules 2019.</li>
+<p class="cl-heading">Service Information</p>
+<p>Each notarial matter is different and the requirements and timescales will vary according to whether the client is a private individual or a company and according to the processing times of third parties such as the Foreign and Commonwealth Office, legalisation agents, translating agencies and couriers, etc. Some of the typical key stages are likely to include:</p>
+HTML,
+            'process_stages' => <<<'HTML'
+<ol class="cl-numbered-list">
+<li>Receiving and reviewing the documents to be notarised together with any instructions you may have received</li>
+<li>Liaising with your legal advisors or other bodies to obtain the necessary documentation to deal with the document (e.g. information from Companies House or foreign registries, powers of attorney etc)</li>
+<li>Checking the identity, capacity and authority of the person who is to sign the document</li>
+<li>If a document is to be certified, checking with the issuing authorities that the document/award is genuine. In the case of academic awards, this would entail checking with the appropriate academic institutions.</li>
+<li>Meeting with the signatory to verify their identity and to ascertain that they understand what they are signing and that they are doing so of their own free will and ensuring that the document is executed correctly</li>
+<li>Drafting and affixing or endorsing a notarial certificate to the document</li>
+<li>Arranging for the legalisation of the document as appropriate</li>
+<li>Arranging for the storage of copies of all notarised documents in accordance with the requirements of the Notarial Practice Rules 2019</li>
 </ol>
 HTML,
-            'terms_and_conditions' => <<<'HTML'
-<p>Our retainer is subject to the following terms:</p>
-<ul>
-<li>You will provide complete and accurate information and cooperate promptly with reasonable requests.</li>
-<li>I will perform services with reasonable skill and care in accordance with professional standards applicable to notaries.</li>
-<li>Documents must be produced in a form suitable for notarisation; I may decline to act if requirements cannot be met.</li>
-<li>This letter, together with any agreed amendments in writing, constitutes the agreement between us.</li>
-</ul>
+            'redress' => <<<'HTML'
+<p class="cl-heading">Redress</p>
+<p>I am insured under a professional indemnity policy for at least £1,000,000.00.</p>
 HTML,
             'complaints_regulatory' => <<<'HTML'
-<p><strong>Redress</strong></p>
-<p>I am insured under a professional indemnity policy for at least £1,000,000.00.</p>
-<p><strong>Complaints and Regulatory Information</strong></p>
-<ol>
-<li>I am regulated through the Faculty Office of the Archbishop of Canterbury.<br>
-The Faculty Office, 1, The Sanctuary, Westminster, London SW1P 3JT</li>
-<li>If you are dissatisfied with my service, please contact me in the first instance.</li>
-<li>If we cannot resolve your complaint, you may use the Notaries Society approved Complaints Procedure.</li>
-<li>Written complaints may be sent to: The Secretary of The Notaries Society, P O Box 7655, Milton Keynes MK11 9NR</li>
-<li>If your complaint remains unresolved after eight weeks, you may refer it to the Legal Ombudsman.<br>
-Legal Ombudsman, P O Box 6806, Wolverhampton WV1 9WJ — legalombudsman.org.uk</li>
+<p class="cl-heading">Complaints and Regulatory Information</p>
+<ol class="cl-numbered-list">
+<li>My notarial practice is regulated through the Faculty Office of the Archbishop of Canterbury:<br>
+<span class="cl-address-block">The Faculty Office<br>
+1, The Sanctuary<br>
+Westminster<br>
+London SW1P 3JT<br>
+Telephone 020 7222 5381<br>
+Email Faculty.office@1thesanctuary.com<br>
+Website www.facultyoffice.org.uk</span></li>
+<li>If you are dissatisfied about the service you have received please do not hesitate to contact me.</li>
+<li>If we are unable to resolve the matter you may then complain to the Notaries Society of which I am a member, who have a Complaints Procedure which is approved by the Faculty Office. This procedure is free to use and is designed to provide a quick resolution to any dispute.</li>
+<li>In that case please write (but do not enclose any original documents) with full details of your complaint to :-<br>
+<span class="cl-address-block">The Secretary of The Notaries Society<br>
+P O Box 7655<br>
+Milton Keynes MK11 9NR<br>
+Email secretary@thenotariessociety.org.uk Tel :01908 803527</span><br>
+If you have any difficulty in making a complaint in writing please do not hesitate to call the Notaries Society/the Faculty Office for assistance.</li>
+<li>Finally, even if you have your complaint considered under the Notaries Society Approved Complaints Procedure, you may at the end of that procedure, or after a period of 8 weeks from the date you first notified me that you were dissatisfied, make your complaint to the Legal Ombudsman, if you are not happy with the result :<br>
+<span class="cl-address-block">Legal Ombudsman<br>
+P O Box 6806<br>
+Wolverhampton WV1 9WJ<br>
+Tel : 0300 555 0333<br>
+Email : enquiries@legalombudsman.org.uk<br>
+Website : www.legalombudsman.org.uk</span></li>
 <li>If you decide to make a complaint to the Legal Ombudsman, you must refer your matter to the Legal Ombudsman within six months from the conclusion of the complaint process.</li>
 </ol>
 HTML,
-            'additional_notes' => '<p>{{additional_notes}}</p>',
-            'signature' => <<<'HTML'
-<p>Yours faithfully,</p>
-<p>&nbsp;</p>
-<p><strong>For and on behalf of {{company_name}}</strong></p>
-HTML,
+            'additional_notes' => '',
+            'signature' => '',
         ];
+    }
+
+    public static function syncDefaultTemplateContent(): void
+    {
+        if (!Database::tableExists('client_letter_templates')) {
+            return;
+        }
+
+        $json = json_encode(self::builtinDefaultSections(), JSON_UNESCAPED_UNICODE);
+        Database::query(
+            'UPDATE client_letter_templates SET sections = ?, updated_at = NOW() WHERE is_default = 1',
+            [$json]
+        );
     }
 
     public static function getDefaultTemplateSections(): array
@@ -206,7 +242,7 @@ HTML,
 
         $decoded = json_decode((string) $row['client_letter_sections'], true);
 
-        return is_array($decoded) ? array_merge($defaults, self::normalizeSections($decoded)) : $defaults;
+        return is_array($decoded) ? self::normalizeSections($decoded) : $defaults;
     }
 
     public static function saveCaseSections(int $caseId, array $sections): void
@@ -232,16 +268,62 @@ HTML,
             }
         }
 
+        foreach (self::LEGACY_SECTION_KEYS as $legacy) {
+            $field = 'letter_' . $legacy;
+            if (array_key_exists($field, $post)) {
+                $sections[$legacy] = trim((string) $post[$field]);
+            }
+        }
+
         return self::normalizeSections($sections);
+    }
+
+    /** @param array<string, string> $sections */
+    private static function migrateLegacySectionKeys(array $sections): array
+    {
+        if (!empty($sections['fees_and_charges'])) {
+            if (empty($sections['price_fee'])) {
+                $sections['price_fee'] = $sections['fees_and_charges'];
+            }
+            if (empty($sections['payment_terms']) && str_contains($sections['fees_and_charges'], 'Payment')) {
+                $sections['payment_terms'] = $sections['fees_and_charges'];
+            }
+        }
+
+        if (!empty($sections['terms_and_conditions']) && empty($sections['payment_terms'])) {
+            $sections['payment_terms'] = $sections['terms_and_conditions'];
+        }
+
+        if (!empty($sections['complaints_regulatory']) && empty($sections['redress'])
+            && stripos($sections['complaints_regulatory'], 'Redress') !== false) {
+            if (preg_match('/<p[^>]*>\s*<strong>\s*Redress\s*<\/strong>.*?<\/p>\s*<p>.*?<\/p>/is', $sections['complaints_regulatory'], $m)) {
+                $sections['redress'] = $m[0];
+            }
+        }
+
+        if (!empty($sections['service_information']) && empty($sections['process_stages'])
+            && str_contains($sections['service_information'], '<ol')) {
+            if (preg_match('/<ol[^>]*>.*?<\/ol>/is', $sections['service_information'], $m)) {
+                $sections['process_stages'] = $m[0];
+                $sections['service_information'] = preg_replace('/<ol[^>]*>.*?<\/ol>/is', '', $sections['service_information']) ?? $sections['service_information'];
+            }
+        }
+
+        return $sections;
     }
 
     public static function normalizeSections(array $sections): array
     {
+        $sections = self::migrateLegacySectionKeys($sections);
         $defaults = self::builtinDefaultSections();
         $out      = [];
 
         foreach (self::SECTION_KEYS as $key) {
-            $out[$key] = trim((string) ($sections[$key] ?? $defaults[$key] ?? ''));
+            if (array_key_exists($key, $sections)) {
+                $out[$key] = trim((string) $sections[$key]);
+            } else {
+                $out[$key] = $defaults[$key] ?? '';
+            }
         }
 
         return $out;
@@ -266,8 +348,9 @@ HTML,
         if ($website !== '' && !preg_match('#^https?://#i', $website)) {
             $website = 'https://' . $website;
         }
-        $websiteHtml = $website !== ''
-            ? '<a href="' . e($website) . '" class="cl-link">' . e(preg_replace('#^https?://#i', '', $website)) . '</a>'
+        $websiteDisplay = $website !== '' ? preg_replace('#^https?://#i', '', $website) : '';
+        $websiteHtml    = $websiteDisplay !== ''
+            ? '<a href="' . e($website) . '" class="cl-link">' . e($websiteDisplay) . '</a>'
             : e(companyBrandName($company));
 
         $recipient = trim((string) ($client['company_name'] ?? ''));
@@ -275,30 +358,52 @@ HTML,
             $recipient = clientFullName($client) ?: 'Client';
         }
 
-        $feeAmount = formatCurrency((float) ($case['service_fee'] ?? 0));
+        $feeAmount          = formatCurrency((float) ($case['service_fee'] ?? 0));
         $serviceDescription = trim((string) ($case['service_type'] ?? $case['title'] ?? 'Notary services'));
-        $instructions = trim((string) ($case['client_instructions'] ?? ''));
-        $additionalNotes = trim((string) ($case['description'] ?? ''));
+        $instructions       = trim((string) ($case['client_instructions'] ?? ''));
+        $additionalNotes    = trim((string) ($case['description'] ?? ''));
         if ($additionalNotes === '' && $instructions !== '') {
             $additionalNotes = $instructions;
         }
 
+        $caseNumber = (string) ($case['case_number'] ?? '');
+        $caseTitle  = (string) ($case['title'] ?? '');
+
+        $legalName = trim((string) ($company['company_legal_name'] ?? ''));
+        if ($legalName === '') {
+            $brand = companyBrandName($company);
+            $legalName = strtoupper($brand);
+            if ($legalName !== '' && !preg_match('/\b(LTD|LIMITED|LLC|PLC)\b/i', $legalName)) {
+                $legalName .= ' LTD';
+            }
+        }
+
+        $contactParts = array_filter([
+            trim((string) ($company['office_email'] ?? '')) !== '' ? 'Email: ' . e($company['office_email']) : '',
+            trim((string) ($company['office_phone'] ?? '')) !== '' ? 'Tel: ' . e($company['office_phone']) : '',
+            trim((string) ($company['registration_number'] ?? '')) !== '' ? 'Reg: ' . e($company['registration_number']) : '',
+        ]);
+
         return [
-            'company_name'          => companyBrandName($company),
-            'company_address'       => nl2br(e(trim((string) ($company['address'] ?? '')))),
-            'company_email'         => trim((string) ($company['office_email'] ?? '')),
-            'company_phone'         => trim((string) ($company['office_phone'] ?? '')),
-            'company_website'       => $websiteHtml,
-            'client_name'           => $recipient,
-            'client_address'        => nl2br(e(implode("\n", clientAddressLines($client)))),
-            'case_number'           => (string) ($case['case_number'] ?? ''),
-            'case_title'            => (string) ($case['title'] ?? ''),
-            'date'                  => date('d/m/Y'),
-            'fee_amount'            => $feeAmount,
-            'total_fee'             => $feeAmount,
-            'service_description'   => e($serviceDescription),
-            'services_list'         => '<ul class="cl-services-list">' . implode('', $serviceLines) . '</ul>',
-            'additional_notes'      => $additionalNotes !== '' ? nl2br(e($additionalNotes)) : '',
+            'company_name'        => companyBrandName($company),
+            'company_legal_name'  => $legalName,
+            'company_address'     => nl2br(e(trim((string) ($company['address'] ?? '')))),
+            'company_contact'     => implode('<br>', $contactParts),
+            'company_email'       => trim((string) ($company['office_email'] ?? '')),
+            'company_phone'       => trim((string) ($company['office_phone'] ?? '')),
+            'company_website'     => $websiteHtml,
+            'client_name'         => $recipient,
+            'client_address'      => nl2br(e(implode("\n", clientAddressLines($client)))),
+            'case_number'         => e($caseNumber),
+            'case_title'          => e($caseTitle),
+            'matter_reference'    => e($caseNumber),
+            'case_reference'      => e($caseNumber),
+            'date'                => date('d/m/Y'),
+            'fee_amount'          => $feeAmount,
+            'total_fee'           => $feeAmount,
+            'service_description' => e($serviceDescription),
+            'services_list'       => '<ul class="cl-services-list">' . implode('', $serviceLines) . '</ul>',
+            'additional_notes'    => $additionalNotes !== '' ? nl2br(e($additionalNotes)) : '',
         ];
     }
 
@@ -306,7 +411,7 @@ HTML,
     {
         $replacements = [];
         foreach ($context as $key => $value) {
-            $replacements['{{' . $key . '}}'] = $value;
+            $replacements['{{' . $key . '}}'] = (string) $value;
         }
 
         return str_replace(array_keys($replacements), array_values($replacements), $content);
@@ -387,6 +492,19 @@ HTML,
         return $code === 0 && is_file($pdfPath);
     }
 
+    private static function sectionIsEmpty(string $key, string $content): bool
+    {
+        if ($content === '') {
+            return true;
+        }
+
+        if (in_array($key, ['additional_notes', 'signature'], true) && strip_tags($content) === '') {
+            return true;
+        }
+
+        return false;
+    }
+
     private static function wrapDocument(
         array $company,
         array $case,
@@ -399,23 +517,41 @@ HTML,
         $secondary   = e($company['secondary_color'] ?? '#00182c');
         $brandSans   = companyFontInlineStack($company);
         $companyName = e($context['company_name']);
+        $legalName   = e($context['company_legal_name']);
         $logoUrl     = companyLogoUrl($company);
 
         $logoBlock = $logoUrl
             ? '<img src="' . e($logoUrl) . '" alt="' . $companyName . '" class="cl-logo">'
             : '<div class="cl-logo-text">' . $companyName . '</div>';
 
+        $contactBlock = ($context['company_contact'] ?? '') !== ''
+            ? '<div class="cl-from-contact">' . $context['company_contact'] . '</div>'
+            : '';
+
+        $matterLine = ($context['case_number'] ?? '') !== ''
+            ? '<div class="cl-matter-ref"><span class="cl-matter-label">Matter ref:</span> ' . $context['case_number']
+                . ($context['case_title'] !== '' ? ' — <em>' . $context['case_title'] . '</em>' : '')
+                . '</div>'
+            : '';
+
         $bodyHtml = '';
         foreach (self::SECTION_KEYS as $key) {
             $content = trim($sections[$key] ?? '');
-            if ($content === '' || ($key === 'additional_notes' && strip_tags($content) === '')) {
+            if (self::sectionIsEmpty($key, $content)) {
                 continue;
             }
-            $bodyHtml .= '<div class="cl-body-section">' . $content . '</div>';
+            $bodyHtml .= '<section class="cl-body-section" data-section="' . e($key) . '">' . $content . '</section>';
         }
 
-        $footerAddress = trim(strip_tags(str_replace(['<br />', '<br>', '<br/>'], "\n", $context['company_address'])));
-        $footerLines   = array_filter(array_map('trim', explode("\n", $footerAddress)));
+        $runningFooter = '<div class="cl-running-footer">'
+            . '<table class="cl-running-footer-table" width="100%"><tr>'
+            . '<td class="cl-running-footer-left">'
+            . ($logoUrl ? '<img src="' . e($logoUrl) . '" alt="" class="cl-running-footer-logo">' : '')
+            . '<div class="cl-running-footer-legal">' . $legalName . '</div>'
+            . '<div class="cl-running-footer-address">' . $context['company_address'] . '</div>'
+            . '</td>'
+            . '<td class="cl-running-footer-page"><span class="cl-page-num"></span></td>'
+            . '</tr></table></div>';
 
         return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
             . '<title>Client Letter — ' . e($case['case_number'] ?? '') . '</title>'
@@ -432,6 +568,7 @@ HTML,
             . '<div class="cl-from">'
             . '<div class="cl-from-name">' . $companyName . '</div>'
             . '<div class="cl-from-address">' . $context['company_address'] . '</div>'
+            . $contactBlock
             . '</div>'
             . '<div class="cl-to">'
             . '<div class="cl-to-label">To:</div>'
@@ -440,19 +577,17 @@ HTML,
             . '</div>'
             . '</div>'
             . '<div class="cl-date-row"><span class="cl-date-label">Date:</span> <span class="cl-date-value">' . e($context['date']) . '</span></div>'
+            . $matterLine
             . '</header>'
-            . '<main class="cl-main">' . $bodyHtml . '</main>'
+            . '<main class="cl-main">' . $bodyHtml
+            . '<div class="cl-end-branding">'
+            . ($logoUrl ? '<img src="' . e($logoUrl) . '" alt="" class="cl-end-logo">' : '')
+            . '<div class="cl-end-legal-name">' . $legalName . '</div>'
+            . '<div class="cl-end-address">' . $context['company_address'] . '</div>'
             . '</div>'
-            . '<footer class="cl-page-footer">'
-            . '<div class="cl-page-footer-inner">'
-            . ($logoUrl ? '<img src="' . e($logoUrl) . '" alt="" class="cl-footer-logo">' : '')
-            . '<div class="cl-footer-brand">'
-            . '<div class="cl-footer-name">' . $companyName . '</div>'
-            . '<div class="cl-footer-address">' . implode('<br>', array_map(static fn(string $l): string => e($l), $footerLines)) . '</div>'
+            . '</main>'
             . '</div>'
-            . '<div class="cl-page-num"></div>'
-            . '</div>'
-            . '</footer>'
+            . $runningFooter
             . '</body></html>';
     }
 
@@ -461,7 +596,10 @@ HTML,
         $bodyBg = $embed ? '#fff' : '#e5e7eb';
 
         return '<style>
-            @page { size: A4; margin: 18mm 16mm 22mm 16mm; }
+            @page {
+                size: A4;
+                margin: 18mm 16mm 28mm 16mm;
+            }
             * { box-sizing: border-box; }
             html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body {
@@ -492,41 +630,41 @@ HTML,
                 max-width: 210mm;
                 margin: 0 auto;
                 background: #fff;
-                padding: 14mm 16mm 28mm;
+                padding: 12mm 14mm 32mm;
                 min-height: 297mm;
             }
-            .cl-letterhead { margin-bottom: 6mm; }
+            .cl-letterhead { margin-bottom: 5mm; }
             .cl-letterhead-top {
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
                 gap: 16px;
-                margin-bottom: 10mm;
+                margin-bottom: 8mm;
             }
             .cl-logo {
                 display: block;
-                max-height: 70px;
+                max-height: 72px;
                 max-width: 220px;
                 width: auto;
                 object-fit: contain;
             }
             .cl-logo-text {
                 font-family: ' . $brandSans . ';
-                font-size: 14pt;
+                font-size: 13pt;
                 font-weight: 700;
                 color: ' . $secondary . ';
                 text-transform: uppercase;
-                letter-spacing: 0.04em;
+                letter-spacing: 0.05em;
             }
             .cl-title {
                 margin: 0;
                 font-family: Georgia, "Times New Roman", Times, serif;
-                font-size: 26pt;
+                font-size: 28pt;
                 font-weight: 700;
                 color: ' . $primary . ';
                 text-transform: uppercase;
-                letter-spacing: 0.05em;
-                line-height: 1.05;
+                letter-spacing: 0.06em;
+                line-height: 1;
                 text-align: right;
                 flex-shrink: 0;
             }
@@ -534,69 +672,109 @@ HTML,
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
-                gap: 24px;
-                margin-bottom: 8mm;
+                gap: 20px;
+                margin-bottom: 6mm;
             }
-            .cl-from { flex: 1; max-width: 48%; font-size: 10.5pt; line-height: 1.5; }
-            .cl-from-name { font-weight: 700; margin-bottom: 4px; }
-            .cl-to { flex: 1; max-width: 48%; text-align: right; font-size: 10.5pt; line-height: 1.5; }
+            .cl-from { flex: 1; max-width: 50%; font-size: 10.5pt; line-height: 1.5; }
+            .cl-from-name { font-weight: 700; margin-bottom: 3px; }
+            .cl-from-address, .cl-from-contact { margin-top: 2px; }
+            .cl-from-contact { font-size: 9.5pt; color: #333; margin-top: 6px; line-height: 1.4; }
+            .cl-to { flex: 1; max-width: 50%; text-align: right; font-size: 10.5pt; line-height: 1.5; }
             .cl-to-label { font-weight: 700; margin-bottom: 4px; }
-            .cl-to-name { margin-bottom: 2px; }
-            .cl-date-row { font-size: 10.5pt; margin-bottom: 6mm; }
+            .cl-date-row { font-size: 10.5pt; margin-bottom: 3mm; }
             .cl-date-label { font-weight: 700; }
             .cl-date-value { text-decoration: underline; font-weight: 600; }
+            .cl-matter-ref { font-size: 10pt; color: #333; margin-bottom: 5mm; }
+            .cl-matter-label { font-weight: 700; }
             .cl-main { text-align: justify; }
-            .cl-body-section { margin-bottom: 4mm; }
-            .cl-body-section p { margin: 0 0 10px; }
-            .cl-body-section p:last-child { margin-bottom: 0; }
-            .cl-body-section strong { font-weight: 700; }
-            .cl-body-section ol, .cl-body-section ul {
-                margin: 0 0 10px;
-                padding-left: 22px;
+            .cl-body-section {
+                margin-bottom: 5mm;
+                page-break-inside: avoid;
             }
-            .cl-body-section li { margin-bottom: 6px; }
-            .cl-link { color: #2563eb; text-decoration: underline; }
-            .cl-services-list { margin: 8px 0 12px; }
-            .cl-page-footer {
+            .cl-body-section p { margin: 0 0 10px; }
+            .cl-heading {
+                font-weight: 700;
+                margin: 12px 0 8px !important;
+                page-break-after: avoid;
+            }
+            .cl-numbered-list {
+                margin: 0 0 12px;
+                padding-left: 26px;
+                list-style-type: decimal;
+            }
+            .cl-numbered-list li {
+                margin-bottom: 8px;
+                padding-left: 4px;
+            }
+            .cl-address-block {
+                display: block;
+                margin: 6px 0 4px 0;
+                line-height: 1.45;
+            }
+            .cl-link { color: #1d4ed8; text-decoration: underline; }
+            .cl-services-list { margin: 8px 0 12px; padding-left: 24px; }
+            .cl-end-branding {
+                margin-top: 16mm;
+                padding-top: 6mm;
+                page-break-inside: avoid;
+            }
+            .cl-end-logo {
+                display: block;
+                max-height: 58px;
+                max-width: 190px;
+                object-fit: contain;
+                margin-bottom: 8px;
+            }
+            .cl-end-legal-name {
+                font-family: ' . $brandSans . ';
+                font-weight: 700;
+                font-size: 11pt;
+                color: ' . $primary . ';
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                margin-bottom: 6px;
+            }
+            .cl-end-address { font-size: 10.5pt; line-height: 1.45; }
+            .cl-running-footer {
                 position: fixed;
                 left: 0;
                 right: 0;
                 bottom: 0;
-                height: 22mm;
+                height: 24mm;
                 background: #fff;
-                border-top: 1px solid #c5c5c5;
-                padding: 0 16mm;
-                font-family: ' . $brandSans . ';
-                font-size: 8.5pt;
-                color: #333;
-                z-index: 50;
+                border-top: 1px solid #b8b8b8;
+                padding: 3mm 16mm 0;
+                font-size: 8pt;
+                z-index: 100;
             }
-            .cl-page-footer-inner {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                max-width: 210mm;
-                margin: 0 auto;
-                height: 100%;
-            }
-            .cl-footer-logo {
-                max-height: 36px;
-                max-width: 100px;
+            .cl-running-footer-table { width: 100%; border-collapse: collapse; }
+            .cl-running-footer-left { vertical-align: middle; width: 85%; }
+            .cl-running-footer-page { vertical-align: middle; text-align: right; width: 15%; color: #555; }
+            .cl-running-footer-logo {
+                display: inline-block;
+                vertical-align: middle;
+                max-height: 32px;
+                max-width: 90px;
+                margin-right: 10px;
                 object-fit: contain;
-                flex-shrink: 0;
             }
-            .cl-footer-name {
+            .cl-running-footer-legal {
+                display: inline-block;
+                vertical-align: middle;
+                font-family: ' . $brandSans . ';
                 font-weight: 700;
                 color: ' . $primary . ';
                 text-transform: uppercase;
-                letter-spacing: 0.03em;
-                margin-bottom: 2px;
+                font-size: 8.5pt;
+                margin-right: 8px;
             }
-            .cl-footer-address {
-                font-family: Georgia, "Times New Roman", Times, serif;
-                font-size: 9pt;
-                line-height: 1.35;
-                color: #111;
+            .cl-running-footer-address {
+                display: inline-block;
+                vertical-align: middle;
+                font-family: Georgia, serif;
+                font-size: 7.5pt;
+                line-height: 1.3;
+                color: #333;
             }
             .cl-page-num::after { content: counter(page); }
             @media print {
@@ -605,13 +783,279 @@ HTML,
                 .cl-document {
                     max-width: none;
                     margin: 0;
-                    padding: 0 0 24mm;
+                    padding: 0 0 28mm;
                     min-height: auto;
-                    box-shadow: none;
                 }
-                .cl-page-footer { position: fixed; bottom: 0; }
+                .cl-running-footer {
+                    position: fixed;
+                    bottom: 0;
+                }
                 .cl-body-section { page-break-inside: avoid; }
+                .cl-heading { page-break-after: avoid; }
             }
         </style>';
+    }
+
+    public static function lettersTableExists(): bool
+    {
+        return Database::tableExists('case_client_letters');
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function listForCase(int $caseId, bool $publishedOnly = false): array
+    {
+        if (!self::lettersTableExists()) {
+            return [];
+        }
+
+        $sql = 'SELECT l.*, u.first_name AS creator_first, u.last_name AS creator_last,
+                       cs.case_number, cs.title AS case_title
+                FROM case_client_letters l
+                JOIN cases cs ON cs.id = l.case_id
+                LEFT JOIN users u ON u.id = l.created_by
+                WHERE l.case_id = ?';
+        $params = [$caseId];
+
+        if ($publishedOnly) {
+            $sql .= ' AND l.published_to_portal = 1 AND l.saved_to_record = 1';
+        }
+
+        $sql .= ' ORDER BY l.created_at DESC, l.version DESC';
+
+        return Database::fetchAll($sql, $params);
+    }
+
+    public static function getById(int $letterId): ?array
+    {
+        if ($letterId <= 0 || !self::lettersTableExists()) {
+            return null;
+        }
+
+        return Database::fetch(
+            'SELECT l.*, cs.case_number, cs.title AS case_title
+             FROM case_client_letters l
+             JOIN cases cs ON cs.id = l.case_id
+             WHERE l.id = ?',
+            [$letterId]
+        ) ?: null;
+    }
+
+    public static function getPublishedForClientCase(int $caseId, int $clientId): array
+    {
+        if (!self::lettersTableExists()) {
+            return [];
+        }
+
+        return Database::fetchAll(
+            'SELECT l.*, cs.case_number, cs.title AS case_title
+             FROM case_client_letters l
+             JOIN cases cs ON cs.id = l.case_id
+             WHERE l.case_id = ? AND l.client_id = ? AND l.published_to_portal = 1 AND l.saved_to_record = 1
+             ORDER BY l.created_at DESC',
+            [$caseId, $clientId]
+        );
+    }
+
+    public static function ensureGeneratedDraft(int $caseId, string $instructions = '', ?array $sections = null): void
+    {
+        $paths = self::getGeneratedLetterPaths($caseId);
+        if ($paths['html'] || $paths['pdf']) {
+            return;
+        }
+
+        if ($instructions !== '' && Database::columnExists('cases', 'client_instructions')) {
+            Database::query(
+                'UPDATE cases SET client_instructions = ?, updated_at = NOW() WHERE id = ?',
+                [$instructions, $caseId]
+            );
+        }
+
+        $sections = $sections ?? self::getSectionsForCase($caseId);
+        self::generateFile($caseId, $sections);
+    }
+
+    /**
+     * Copy current generated draft into a saved client letter record.
+     */
+    public static function saveToClientRecord(
+        int $caseId,
+        int $adminId,
+        bool $replaceCurrent = false
+    ): int {
+        if (!self::lettersTableExists()) {
+            throw new RuntimeException('Run: php admin/sql/migrate_case_client_letters.php');
+        }
+
+        $case = CaseService::getCaseById($caseId);
+        if (!$case) {
+            throw new RuntimeException('Case not found.');
+        }
+
+        $paths = self::getGeneratedLetterPaths($caseId);
+        if (!$paths['html'] && !$paths['pdf']) {
+            throw new RuntimeException('Generate the letter first.');
+        }
+
+        $clientId = (int) ($case['client_id'] ?? 0);
+        $title    = 'Client Letter — ' . ($case['case_number'] ?? 'Case');
+
+        if ($replaceCurrent) {
+            Database::query(
+                'UPDATE case_client_letters SET is_current = 0 WHERE case_id = ? AND is_current = 1',
+                [$caseId]
+            );
+        }
+
+        $prev = Database::fetch(
+            'SELECT id, version, version_group_id FROM case_client_letters
+             WHERE case_id = ? ORDER BY version DESC, id DESC LIMIT 1',
+            [$caseId]
+        );
+
+        $version      = $prev ? ((int) $prev['version'] + 1) : 1;
+        $versionGroup = $prev ? (int) ($prev['version_group_id'] ?: $prev['id']) : null;
+
+        $letterId = insertTableRow('case_client_letters', [
+            'case_id'             => $caseId,
+            'client_id'           => $clientId,
+            'title'               => $title,
+            'version'             => $version,
+            'version_group_id'    => $versionGroup,
+            'is_current'          => 1,
+            'saved_to_record'     => 1,
+            'published_to_portal' => 0,
+            'created_by'          => $adminId,
+        ], false);
+
+        if ($versionGroup === null) {
+            Database::query(
+                'UPDATE case_client_letters SET version_group_id = ? WHERE id = ?',
+                [$letterId, $letterId]
+            );
+        }
+
+        [$pdfRel, $htmlRel] = self::copyGeneratedToLetterStorage($caseId, $letterId, $paths);
+
+        Database::query(
+            'UPDATE case_client_letters SET pdf_path = ?, html_path = ? WHERE id = ?',
+            [$pdfRel, $htmlRel, $letterId]
+        );
+
+        return $letterId;
+    }
+
+    /** @param array{html: ?string, pdf: ?string} $paths */
+    private static function copyGeneratedToLetterStorage(int $caseId, int $letterId, array $paths): array
+    {
+        $config = require __DIR__ . '/../config/config.php';
+        $base   = rtrim($config['upload']['path'], '/\\');
+        $destDir = $base . '/cases/' . $caseId . '/letters';
+        if (!is_dir($destDir)) {
+            mkdir($destDir, 0755, true);
+        }
+
+        $pdfRel  = null;
+        $htmlRel = null;
+        $prefix  = 'letter_' . $letterId;
+
+        if ($paths['pdf'] && is_file($paths['pdf'])) {
+            $dest = $destDir . '/' . $prefix . '.pdf';
+            copy($paths['pdf'], $dest);
+            $pdfRel = 'cases/' . $caseId . '/letters/' . $prefix . '.pdf';
+        }
+
+        if ($paths['html'] && is_file($paths['html'])) {
+            $dest = $destDir . '/' . $prefix . '.html';
+            copy($paths['html'], $dest);
+            $htmlRel = 'cases/' . $caseId . '/letters/' . $prefix . '.html';
+        }
+
+        return [$pdfRel, $htmlRel];
+    }
+
+    public static function publishToPortal(int $letterId): void
+    {
+        if (!self::lettersTableExists()) {
+            throw new RuntimeException('Run: php admin/sql/migrate_case_client_letters.php');
+        }
+
+        $letter = self::getById($letterId);
+        if (!$letter || empty($letter['saved_to_record'])) {
+            throw new RuntimeException('Save the letter to the client record before publishing.');
+        }
+
+        if (empty($letter['pdf_path']) && empty($letter['html_path'])) {
+            throw new RuntimeException('Letter file not found.');
+        }
+
+        Database::query(
+            'UPDATE case_client_letters SET published_to_portal = 1 WHERE id = ?',
+            [$letterId]
+        );
+    }
+
+    public static function unpublishFromPortal(int $letterId): void
+    {
+        if (!self::lettersTableExists()) {
+            return;
+        }
+
+        Database::query(
+            'UPDATE case_client_letters SET published_to_portal = 0 WHERE id = ?',
+            [$letterId]
+        );
+    }
+
+    public static function deleteLetter(int $letterId): void
+    {
+        if (!self::lettersTableExists()) {
+            return;
+        }
+
+        $letter = self::getById($letterId);
+        if (!$letter) {
+            return;
+        }
+
+        $config = require __DIR__ . '/../config/config.php';
+        $base   = rtrim($config['upload']['path'], '/\\');
+
+        foreach (['pdf_path', 'html_path'] as $col) {
+            if (!empty($letter[$col])) {
+                $path = $base . '/' . ltrim((string) $letter[$col], '/');
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+        }
+
+        Database::query('DELETE FROM case_client_letters WHERE id = ?', [$letterId]);
+    }
+
+    public static function getDownloadPath(array $letter): ?string
+    {
+        if (!empty($letter['pdf_path'])) {
+            return (string) $letter['pdf_path'];
+        }
+
+        if (!empty($letter['html_path'])) {
+            return (string) $letter['html_path'];
+        }
+
+        return null;
+    }
+
+    public static function getCurrentSavedLetter(int $caseId): ?array
+    {
+        if (!self::lettersTableExists()) {
+            return null;
+        }
+
+        return Database::fetch(
+            'SELECT * FROM case_client_letters
+             WHERE case_id = ? AND saved_to_record = 1 AND is_current = 1
+             ORDER BY id DESC LIMIT 1',
+            [$caseId]
+        ) ?: null;
     }
 }

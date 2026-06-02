@@ -14,6 +14,7 @@ if (!$case) {
 }
 
 $workspace = CaseService::getWorkspace($caseId);
+$publishedLetters = ClientLetterService::getPublishedForClientCase($caseId, $clientId);
 $pageTitle = $case['case_number'];
 
 require __DIR__ . '/../includes/header.php';
@@ -37,6 +38,7 @@ require __DIR__ . '/../includes/header.php';
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#quotations" type="button">Quotations</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoices" type="button">Invoices</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#receipts" type="button">Receipts</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#letters" type="button">Letters</button></li>
     </ul>
 
     <div class="tab-content case-tab-content">
@@ -194,14 +196,64 @@ require __DIR__ . '/../includes/header.php';
         <div class="tab-pane fade" id="receipts">
             <div class="case-panel">
                 <h3 class="case-panel-title">Receipts</h3>
-                <ul class="case-doc-list">
-                    <?php foreach ($workspace['receipts'] as $r): ?>
-                        <li>
-                            <div><strong><?= e($r['receipt_number']) ?></strong><small><?= formatCurrency((float) $r['amount']) ?></small></div>
-                            <a href="<?= clientUrl('actions/receipt-download.php?id=' . (int) $r['id']) ?>" class="btn btn-soft btn-sm" target="_blank">Download</a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
+                <?php if (empty($workspace['receipts'])): ?>
+                    <p class="text-muted small mb-0">No receipts yet.</p>
+                <?php else: ?>
+                    <ul class="case-doc-list">
+                        <?php foreach ($workspace['receipts'] as $r): ?>
+                            <li>
+                                <div><strong><?= e($r['receipt_number']) ?></strong><small><?= formatCurrency((float) $r['amount']) ?></small></div>
+                                <a href="<?= clientUrl('actions/receipt-download.php?id=' . (int) $r['id']) ?>" class="btn btn-soft btn-sm" target="_blank">Download</a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="letters">
+            <div class="case-panel">
+                <h3 class="case-panel-title mb-0">Client Letters</h3>
+                <p class="case-panel-hint small text-muted">Engagement and correspondence letters shared with you for this matter.</p>
+                <?php if (empty($publishedLetters)): ?>
+                    <div class="empty-state py-4">
+                        <i class="bi bi-envelope-paper"></i>
+                        <p class="mb-0">No letters have been published for this case yet.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table saas-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Matter ref</th>
+                                    <th>Date</th>
+                                    <th class="text-end"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($publishedLetters as $letter): ?>
+                                    <?php $letterDl = ClientLetterService::getDownloadPath($letter); ?>
+                                    <tr>
+                                        <td><strong><?= e($letter['title']) ?></strong></td>
+                                        <td><?= e($letter['case_number'] ?? $case['case_number']) ?></td>
+                                        <td><?= formatDateTime($letter['created_at']) ?></td>
+                                        <td class="text-end">
+                                            <?php if ($letterDl): ?>
+                                                <a href="<?= adminUrl('actions/document-download.php?letter_id=' . (int) $letter['id']) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener">
+                                                    <i class="bi bi-eye"></i> View
+                                                </a>
+                                                <a href="<?= adminUrl('actions/document-download.php?letter_id=' . (int) $letter['id']) ?>" class="btn btn-primary btn-sm" download>
+                                                    <i class="bi bi-download"></i> Download
+                                                </a>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

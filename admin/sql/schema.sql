@@ -93,6 +93,28 @@ CREATE TABLE IF NOT EXISTS documents (
 ) ENGINE=InnoDB;
 
 -- ============================================================
+-- CASE CLIENT LETTERS (saved / published engagement letters)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS case_client_letters (
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    case_id             INT UNSIGNED NOT NULL,
+    client_id           INT UNSIGNED NOT NULL,
+    title               VARCHAR(255) NOT NULL,
+    pdf_path            VARCHAR(500) DEFAULT NULL,
+    html_path           VARCHAR(500) DEFAULT NULL,
+    version             INT UNSIGNED NOT NULL DEFAULT 1,
+    version_group_id    INT UNSIGNED DEFAULT NULL,
+    is_current          TINYINT(1) NOT NULL DEFAULT 1,
+    saved_to_record     TINYINT(1) NOT NULL DEFAULT 0,
+    published_to_portal TINYINT(1) NOT NULL DEFAULT 0,
+    created_by          INT UNSIGNED NOT NULL,
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ccl_case (case_id),
+    INDEX idx_ccl_client (client_id),
+    INDEX idx_ccl_published (case_id, published_to_portal)
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- INVOICES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS invoices (

@@ -66,4 +66,7 @@ if ($count === 0) {
     echo "[OK] client_letter_templates already has data\n";
 }
 
+ClientLetterService::syncDefaultTemplateContent();
+echo "[OK] Default template synced (no matter_reference in standard letter)\n";
+
 echo "\nClient letter migration complete.\n";
