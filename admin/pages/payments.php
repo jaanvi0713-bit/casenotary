@@ -115,14 +115,14 @@ require __DIR__ . '/../includes/header.php';
             <i class="bi bi-search"></i>
             <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search by service...">
         </div>
-        <select class="form-select form-select-sm table-filter" id="statusFilter" name="status">
+        <select class="form-select form-select-sm table-filter" id="statusFilter" name="status" onchange="this.form.requestSubmit()">
             <option value="">All statuses</option>
             <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
             <option value="pending" <?= $statusFilter === 'pending' ? 'selected' : '' ?>>Pending</option>
             <option value="failed" <?= $statusFilter === 'failed' ? 'selected' : '' ?>>Failed</option>
             <option value="refunded" <?= $statusFilter === 'refunded' ? 'selected' : '' ?>>Refunded</option>
         </select>
-        <select class="form-select form-select-sm table-filter" id="methodFilter" name="method">
+        <select class="form-select form-select-sm table-filter" id="methodFilter" name="method" onchange="this.form.requestSubmit()">
             <option value="">All methods</option>
             <option value="stripe" <?= $methodFilter === 'stripe' ? 'selected' : '' ?>>Stripe</option>
             <option value="bank_transfer" <?= $methodFilter === 'bank_transfer' ? 'selected' : '' ?>>Bank Transfer</option>
@@ -130,14 +130,12 @@ require __DIR__ . '/../includes/header.php';
             <option value="check" <?= $methodFilter === 'check' ? 'selected' : '' ?>>Check</option>
             <option value="other" <?= $methodFilter === 'other' ? 'selected' : '' ?>>Other</option>
         </select>
-        <select class="form-select form-select-sm table-filter table-filter-month" id="monthFilter" name="month">
+        <select class="form-select form-select-sm table-filter table-filter-month" id="monthFilter" name="month" onchange="this.form.requestSubmit()">
             <option value="">All months</option>
             <?php foreach ($paymentMonths as $monthKey => $monthLabel): ?>
                 <option value="<?= e($monthKey) ?>" <?= $monthFilter === (string) $monthKey ? 'selected' : '' ?>><?= e($monthLabel) ?></option>
             <?php endforeach; ?>
         </select>
-        <button type="submit" class="btn btn-light btn-sm">Apply</button>
-        <a href="<?= url('pages/payments.php') ?>" class="btn btn-soft btn-sm">Reset</a>
     </form>
     <div class="card-body p-0">
         <?php if (empty($payments)): ?>

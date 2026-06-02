@@ -172,7 +172,7 @@ require __DIR__ . '/../includes/header.php';
             <i class="bi bi-search"></i>
             <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search by service...">
         </div>
-        <select class="form-select form-select-sm table-filter" id="statusFilter" name="status">
+        <select class="form-select form-select-sm table-filter" id="statusFilter" name="status" onchange="this.form.requestSubmit()">
             <option value="">All statuses</option>
             <option value="requested" <?= $statusFilter === 'requested' ? 'selected' : '' ?>>Requested</option>
             <option value="scheduled" <?= $statusFilter === 'scheduled' ? 'selected' : '' ?>>Scheduled</option>
@@ -180,8 +180,6 @@ require __DIR__ . '/../includes/header.php';
             <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
             <option value="cancelled" <?= $statusFilter === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
         </select>
-        <button type="submit" class="btn btn-light btn-sm">Apply</button>
-        <a href="<?= url('pages/appointments.php') ?>" class="btn btn-soft btn-sm">Reset</a>
     </form>
     <div class="card-body p-0">
         <?php if (empty($appointments)): ?>

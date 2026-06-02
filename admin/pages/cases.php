@@ -35,7 +35,7 @@ require __DIR__ . '/../includes/header.php';
             <i class="bi bi-search"></i>
             <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search cases...">
         </div>
-        <select class="form-select form-select-sm table-filter" id="statusFilter" name="status">
+        <select class="form-select form-select-sm table-filter" id="statusFilter" name="status" onchange="this.form.requestSubmit()">
             <option value="">All statuses</option>
             <option value="pending" <?= $statusFilter === 'pending' ? 'selected' : '' ?>>Pending</option>
             <option value="in_progress" <?= $statusFilter === 'in_progress' ? 'selected' : '' ?>>In Progress</option>
@@ -43,15 +43,13 @@ require __DIR__ . '/../includes/header.php';
             <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
             <option value="closed" <?= $statusFilter === 'closed' ? 'selected' : '' ?>>Closed</option>
         </select>
-        <select class="form-select form-select-sm table-filter" id="priorityFilter" name="priority">
+        <select class="form-select form-select-sm table-filter" id="priorityFilter" name="priority" onchange="this.form.requestSubmit()">
             <option value="">All priorities</option>
             <option value="low" <?= $priorityFilter === 'low' ? 'selected' : '' ?>>Low</option>
             <option value="medium" <?= $priorityFilter === 'medium' ? 'selected' : '' ?>>Medium</option>
             <option value="high" <?= $priorityFilter === 'high' ? 'selected' : '' ?>>High</option>
             <option value="urgent" <?= $priorityFilter === 'urgent' ? 'selected' : '' ?>>Urgent</option>
         </select>
-        <button type="submit" class="btn btn-light btn-sm">Apply</button>
-        <a href="<?= url('pages/cases.php') ?>" class="btn btn-soft btn-sm">Reset</a>
     </form>
     <div class="card-body p-0">
         <?php if (empty($cases)): ?>

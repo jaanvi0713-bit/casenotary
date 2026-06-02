@@ -31,8 +31,6 @@ require __DIR__ . '/../includes/header.php';
             <i class="bi bi-search"></i>
             <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search clients...">
         </div>
-        <button type="submit" class="btn btn-light btn-sm">Apply</button>
-        <a href="<?= url('pages/clients.php') ?>" class="btn btn-soft btn-sm">Reset</a>
     </form>
     <div class="card-body p-0">
         <?php if (empty($clients)): ?>

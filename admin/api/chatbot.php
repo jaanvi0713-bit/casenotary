@@ -1,7 +1,20 @@
 <?php
 
 require_once __DIR__ . '/../core/bootstrap.php';
+$input = json_decode(file_get_contents('php://input'), true) ?: [];
+$message = trim($input['message'] ?? $_POST['message'] ?? '');
+if ($message === '') {
+    echo json_encode(['success' => false, 'message' => 'Please enter a message.']);
+    exit;
+}
+$reply = generateChatbotReply($message);
+echo json_encode([
+    'success' => true,
+    'reply'   => $reply,
+]);
+the apply and reset should be removed in the admin portal for the following; clients, cases, payments and appointments
 
+Sear
 Auth::requireAdmin();
 
 header('Content-Type: application/json');
