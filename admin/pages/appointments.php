@@ -375,7 +375,7 @@ $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/ma
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     var casesByClient = ' . json_encode($casesByClient) . ';
-    var calendarEvents = ' . json_encode($calendarEvents) . ';
+    var calendarEvents = ' . json_encode($calendarEvents, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) . ';
     var clientSelect = document.getElementById("appt_client_id");
     var caseSelect = document.getElementById("appt_case_id");
     var scheduleModalEl = document.getElementById("scheduleModal");
@@ -601,7 +601,7 @@ document.addEventListener("DOMContentLoaded", function() {
         var calendar = new FullCalendar.Calendar(calendarEl, Object.assign({
             timeZone: "local",
             initialView: "dayGridMonth",
-            initialDate: "' . $calendarInitialDate . '",
+            initialDate: ' . json_encode($calendarInitialDate) . ',
             height: "auto",
             headerToolbar: {
                 left: "prev,next today",

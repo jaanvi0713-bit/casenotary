@@ -194,7 +194,7 @@ window.AppointmentCalendar = {
             };
         }
 
-        return true;
+        // FullCalendar v5: omit a return value to use default rendering (return true only works in v6.1+).
     },
 
     eventOrder: function (a, b) {
