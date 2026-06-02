@@ -24,6 +24,7 @@ require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/CaseService.php';
 require_once __DIR__ . '/DocumentTemplate.php';
+require_once __DIR__ . '/ClientLetterService.php';
 require_once __DIR__ . '/StripeService.php';
 require_once __DIR__ . '/ClientService.php';
 require_once __DIR__ . '/MailService.php';

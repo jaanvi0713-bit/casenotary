@@ -134,7 +134,7 @@ try {
             redirectCase($caseId, 'quotations');
             break;
 
-        case 'generate_client_letter':
+        case 'save_client_letter_draft':
             Auth::requireAdmin();
             if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
@@ -146,8 +146,34 @@ try {
                     [$instructions, $caseId]
                 );
             }
-            CaseService::generateClientLetter($caseId, $instructions);
-            flash('success', 'Client letter generated.');
+            ClientLetterService::saveCaseSections($caseId, ClientLetterService::sectionsFromPost($_POST));
+            flash('success', 'Letter draft saved.');
+            redirectCase($caseId, 'client-letter');
+            break;
+
+        case 'save_letter_template':
+            Auth::requireAdmin();
+            if ($caseId <= 0) {
+                throw new RuntimeException('Invalid case.');
+            }
+            ClientLetterService::saveNamedTemplate(
+                trim($_POST['template_name'] ?? 'Engagement letter'),
+                ClientLetterService::sectionsFromPost($_POST),
+                !empty($_POST['template_as_default'])
+            );
+            flash('success', 'Letter template saved.');
+            redirectCase($caseId, 'client-letter');
+            break;
+
+        case 'generate_client_letter':
+            Auth::requireAdmin();
+            if ($caseId <= 0) {
+                throw new RuntimeException('Invalid case.');
+            }
+            $instructions = trim($_POST['client_instructions'] ?? '');
+            $sections     = ClientLetterService::sectionsFromPost($_POST);
+            CaseService::generateClientLetter($caseId, $instructions, $sections);
+            flash('success', 'Client letter generated. Open it to print or save as PDF.');
             redirectCase($caseId, 'client-letter');
             break;
 

@@ -765,38 +765,38 @@ class CaseService
         return $id;
     }
 
-    public static function generateClientLetter(int $caseId, string $instructions = ''): string
+    public static function generateClientLetter(int $caseId, string $instructions = '', ?array $sections = null): string
     {
         $case = self::getCaseById($caseId);
         if (!$case) {
             throw new RuntimeException('Case not found.');
         }
 
-        $client = ClientService::getById((int) ($case['client_id'] ?? 0));
-        if (!$client) {
-            throw new RuntimeException('Client not found.');
+        if ($instructions !== '' && Database::columnExists('cases', 'client_instructions')) {
+            Database::query(
+                'UPDATE cases SET client_instructions = ?, updated_at = NOW() WHERE id = ?',
+                [$instructions, $caseId]
+            );
         }
 
-        $html = DocumentTemplate::clientLetter($case, $client, $instructions);
+        $sections = $sections ?? ClientLetterService::getSectionsForCase($caseId);
 
-        $config = require __DIR__ . '/../config/config.php';
-        $dir    = rtrim($config['upload']['path'], '/\\') . '/cases/' . $caseId . '/generated';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-
-        $filename = 'client_letter.html';
-        file_put_contents($dir . '/' . $filename, $html);
-
-        return $dir . '/' . $filename;
+        return ClientLetterService::generateFile($caseId, $sections);
     }
 
     public static function getClientLetterRelativePath(int $caseId): ?string
     {
-        $relative = 'cases/' . $caseId . '/generated/client_letter.html';
-        $path     = self::documentPath($relative);
+        $paths = ClientLetterService::getGeneratedLetterPaths($caseId);
 
-        return is_file($path) ? $relative : null;
+        if ($paths['pdf']) {
+            return 'cases/' . $caseId . '/generated/client_letter.pdf';
+        }
+
+        if ($paths['html']) {
+            return 'cases/' . $caseId . '/generated/client_letter.html';
+        }
+
+        return null;
     }
 
     public static function sendClientLetterToClient(int $caseId): bool
@@ -812,7 +812,8 @@ class CaseService
         }
 
         $instructions = trim($case['client_instructions'] ?? '');
-        $letterPath   = self::generateClientLetter($caseId, $instructions);
+        $sections     = ClientLetterService::getSectionsForCase($caseId);
+        $letterPath   = self::generateClientLetter($caseId, $instructions, $sections);
 
         return MailService::sendClientLetterEmail($client, $case, $letterPath);
     }

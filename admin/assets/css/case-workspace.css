@@ -761,6 +761,106 @@ textarea.case-form-control {
 
 .cases-table-link:hover { color: var(--primary); }
 
+.client-letter-panel .client-letter-sections .accordion-button {
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.65rem 1rem;
+}
+
+.client-letter-section-input {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.client-letter-placeholders summary {
+    cursor: pointer;
+    user-select: none;
+}
+
+.client-letter-placeholder-list {
+    columns: 2;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    padding-left: 1.1rem;
+}
+
+.client-letter-actions {
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.client-letter-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 42%);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.client-letter-preview-wrap {
+    position: sticky;
+    top: 1rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: #f1f5f9;
+    overflow: hidden;
+}
+
+.client-letter-preview-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: #fff;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.client-letter-preview-frame-wrap {
+    position: relative;
+    height: min(70vh, 600px);
+    background: #e8ecef;
+}
+
+.client-letter-preview-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: none;
+    background: #fff;
+}
+
+.client-letter-preview-frame.is-loaded {
+    display: block;
+}
+
+.client-letter-preview-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    text-align: center;
+}
+
+.client-letter-preview-placeholder.is-hidden {
+    display: none;
+}
+
+@media (max-width: 991.98px) {
+    .client-letter-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .client-letter-preview-wrap {
+        position: static;
+        order: -1;
+    }
+
+    .client-letter-placeholder-list {
+        columns: 1;
+    }
+}
+
 @media (max-width: 767.98px) {
     .case-workspace-actions { width: 100%; }
     .case-upload-form { flex-wrap: wrap; }
