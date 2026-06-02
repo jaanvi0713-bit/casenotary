@@ -174,7 +174,6 @@ require __DIR__ . '/../includes/header.php';
         </div>
         <select class="form-select form-select-sm table-filter" id="statusFilter" name="status" onchange="this.form.requestSubmit()">
             <option value="">All statuses</option>
-            <option value="requested" <?= $statusFilter === 'requested' ? 'selected' : '' ?>>Requested</option>
             <option value="scheduled" <?= $statusFilter === 'scheduled' ? 'selected' : '' ?>>Scheduled</option>
             <option value="confirmed" <?= $statusFilter === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
             <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
@@ -386,7 +385,6 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="form-label">Status</label>
                         <select name="status" id="appt_status" class="form-select">
-                            <option value="requested">Requested</option>
                             <option value="scheduled">Scheduled</option>
                             <option value="confirmed">Confirmed</option>
                             <option value="completed">Completed</option>
@@ -681,15 +679,6 @@ document.addEventListener("DOMContentLoaded", function() {
         calendar.render();
     }
 
-    var filterRequestedBtn = document.getElementById("filterRequestedBtn");
-    var statusFilter = document.getElementById("statusFilter");
-    if (filterRequestedBtn && statusFilter) {
-        filterRequestedBtn.addEventListener("click", function() {
-            statusFilter.value = "requested";
-            statusFilter.dispatchEvent(new Event("change"));
-            document.getElementById("dataTable")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-    }
 });
 </script>';
 require __DIR__ . '/../includes/footer.php';
