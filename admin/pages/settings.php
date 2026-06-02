@@ -6,7 +6,8 @@ Auth::requireAdmin();
 $pageTitle = 'Settings';
 $settings  = getCompanySettings();
 $tab       = $_GET['tab'] ?? 'branding';
-$logoUrl   = companyLogoUrl($settings);
+$logoUrl    = companyLogoUrl($settings);
+$faviconUrl = companyFaviconUrl($settings);
 
 if ($tab === 'branding') {
     $pageStyles = '<link href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" rel="stylesheet">';
@@ -91,6 +92,9 @@ require __DIR__ . '/../includes/header.php';
                                     <button type="button" class="btn btn-soft btn-sm" id="logoEditCurrentBtn">
                                         <i class="bi bi-crop"></i> Edit logo
                                     </button>
+                                    <button type="submit" name="remove_logo" value="1" class="btn btn-outline-danger btn-sm" onclick="return confirm('Remove the company logo?');">
+                                        <i class="bi bi-trash"></i> Remove logo
+                                    </button>
                                 <?php endif; ?>
                             </div>
                             <div class="logo-placement-preview">
@@ -131,6 +135,33 @@ require __DIR__ . '/../includes/header.php';
                                 </div>
                                 <?php if (!$logoUrl): ?>
                                     <p class="logo-placement-footnote mb-0">Until you upload a logo, the sidebar shows a default icon.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Favicon</label>
+                        <p class="text-muted small mb-3">Icon shown in the browser tab. Use a square PNG or ICO (32×32 px recommended).</p>
+                        <div class="logo-branding-panel favicon-branding-panel">
+                            <div class="logo-upload-toolbar">
+                                <input type="file" name="favicon" class="form-control" accept=".ico,.png,image/x-icon,image/png">
+                                <?php if ($faviconUrl): ?>
+                                    <button type="submit" name="remove_favicon" value="1" class="btn btn-outline-danger btn-sm" onclick="return confirm('Remove the favicon?');">
+                                        <i class="bi bi-trash"></i> Remove favicon
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                            <div class="favicon-preview-wrap">
+                                <?php if ($faviconUrl): ?>
+                                    <div class="favicon-tab-mock" aria-hidden="true">
+                                        <span class="favicon-tab-mock-icon">
+                                            <img src="<?= e($faviconUrl) ?>" alt="">
+                                        </span>
+                                        <span class="favicon-tab-mock-title"><?= e(companyBrandName($settings)) ?></span>
+                                    </div>
+                                    <img src="<?= e($faviconUrl) ?>" alt="Favicon preview" class="favicon-preview-img" width="32" height="32">
+                                <?php else: ?>
+                                    <p class="favicon-preview-empty mb-0">No favicon uploaded — the browser uses its default tab icon.</p>
                                 <?php endif; ?>
                             </div>
                         </div>

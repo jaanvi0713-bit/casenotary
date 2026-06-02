@@ -15,7 +15,11 @@ try {
     if ($tab === 'calendar') {
         SettingsService::updateCalendar($_POST);
     } else {
-        SettingsService::update($_POST, $_FILES['logo'] ?? null);
+        SettingsService::update(
+            $_POST,
+            $_FILES['logo'] ?? null,
+            $_FILES['favicon'] ?? null
+        );
     }
     flash('success', 'Settings saved successfully.');
     redirect('pages/settings.php?tab=' . urlencode($tab));

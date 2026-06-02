@@ -42,6 +42,7 @@ if ($pdo->query("SHOW TABLES LIKE 'company_settings'")->rowCount() === 0) {
 }
 
 addColumn($pdo, 'company_settings', 'logo', 'VARCHAR(500) DEFAULT NULL AFTER company_name');
+addColumn($pdo, 'company_settings', 'favicon', 'VARCHAR(500) DEFAULT NULL AFTER logo');
 addColumn($pdo, 'company_settings', 'dark_accent', "VARCHAR(7) NOT NULL DEFAULT '#000000' AFTER secondary_color");
 addColumn($pdo, 'company_settings', 'font_family', "VARCHAR(100) NOT NULL DEFAULT 'Montserrat' AFTER dark_accent");
 addColumn($pdo, 'company_settings', 'description', 'TEXT DEFAULT NULL AFTER font_family');

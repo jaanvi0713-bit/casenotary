@@ -1099,6 +1099,44 @@ function companyLogoUrl(?array $settings = null): ?string
     return adminUrl('actions/company-logo.php?v=' . filemtime($path));
 }
 
+function companyFaviconUrl(?array $settings = null): ?string
+{
+    $settings = $settings ?? getCompanySettings();
+    $favicon  = trim((string) ($settings['favicon'] ?? ''));
+
+    if ($favicon === '') {
+        return null;
+    }
+
+    $config = require __DIR__ . '/../config/config.php';
+    $path   = rtrim($config['upload']['path'], '/\\') . '/' . ltrim($favicon, '/');
+
+    if (!is_file($path)) {
+        return null;
+    }
+
+    return adminUrl('actions/company-favicon.php?v=' . filemtime($path));
+}
+
+/**
+ * Favicon link tags for HTML document heads.
+ */
+function renderFaviconTags(?array $settings = null): string
+{
+    $url = companyFaviconUrl($settings);
+
+    if ($url === null) {
+        return '';
+    }
+
+    $settings = $settings ?? getCompanySettings();
+    $ext      = strtolower(pathinfo((string) ($settings['favicon'] ?? ''), PATHINFO_EXTENSION));
+    $type     = $ext === 'ico' ? 'image/x-icon' : 'image/png';
+
+    return '<link rel="icon" href="' . e($url) . '" type="' . e($type) . '">' . "\n"
+        . '    <link rel="shortcut icon" href="' . e($url) . '">';
+}
+
 /**
  * Render company logo image or default placeholder icon.
  */
