@@ -11,13 +11,41 @@ if (!$clientId) {
 }
 
 $pageTitle = 'Appointments';
-$appointments = getClientAppointments($clientId);
+$allAppointments = getClientAppointments($clientId);
+$q = trim((string) ($_GET['q'] ?? ''));
+$statusFilter = trim((string) ($_GET['status'] ?? ''));
+$filteredAppointments = array_values(array_filter($allAppointments, static function (array $appt) use ($q, $statusFilter): bool {
+    if ($statusFilter !== '' && ($appt['status'] ?? '') !== $statusFilter) {
+        return false;
+    }
+
+    if ($q === '') {
+        return true;
+    }
+
+    $searchBlob = caseRowSearchBlob($appt, [
+        $appt['title'] ?? '',
+        appointmentCaseLabel($appt),
+        $appt['location'] ?? '',
+        $appt['description'] ?? '',
+    ]);
+
+    return stripos($searchBlob, $q) !== false;
+}));
+$perPage = 10;
+$page = requestPageNumber();
+$totalAppointments = count($filteredAppointments);
+$totalPages = max(1, (int) ceil($totalAppointments / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$appointments = array_slice($filteredAppointments, paginationOffset($page, $perPage), $perPage);
 $client = ClientService::getById($clientId) ?? ['id' => $clientId];
 $upcomingCount = (int) (getClientDashboardStats($clientId)['upcoming_appointments'] ?? 0);
 $pageSubtitle = $upcomingCount . ' upcoming';
 
 $calendarEvents = [];
-foreach ($appointments as $appt) {
+foreach ($allAppointments as $appt) {
     $start = appointmentEffectiveStart($appt);
     if (!$start) {
         continue;
@@ -84,9 +112,22 @@ require __DIR__ . '/../includes/header.php';
             <div class="saas-card-header appointment-list-header">
                 <div>
                     <h2 class="saas-card-title">All Appointments</h2>
-                    <p class="saas-card-subtitle mb-0"><?= count($appointments) ?> total</p>
+                    <p class="saas-card-subtitle mb-0"><?= $totalAppointments ?> total</p>
                 </div>
             </div>
+            <form method="get" class="table-toolbar">
+                <div class="table-search">
+                    <i class="bi bi-search"></i>
+                    <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search appointments...">
+                </div>
+                <select class="form-select form-select-sm table-filter" id="statusFilter" name="status" onchange="this.form.requestSubmit()">
+                    <option value="">All statuses</option>
+                    <option value="scheduled" <?= $statusFilter === 'scheduled' ? 'selected' : '' ?>>Scheduled</option>
+                    <option value="confirmed" <?= $statusFilter === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
+                    <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
+                    <option value="cancelled" <?= $statusFilter === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                </select>
+            </form>
             <div class="card-body p-0">
                 <?php if (empty($appointments)): ?>
                     <div class="empty-state py-5">
@@ -95,7 +136,7 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                 <?php else: ?>
                     <div class="table-responsive">
-                        <table class="table saas-table appointment-list-table mb-0">
+                        <table class="table saas-table appointment-list-table mb-0" id="dataTable">
                             <thead>
                                 <tr>
                                     <th>Title</th>
@@ -113,8 +154,14 @@ require __DIR__ . '/../includes/header.php';
                                         ? GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $client, true)
                                         : null;
                                     $showCalendar = $links && in_array($appt['status'] ?? '', ['scheduled', 'confirmed'], true);
+                                    $searchBlob = caseRowSearchBlob($appt, [
+                                        $appt['title'] ?? '',
+                                        appointmentCaseLabel($appt),
+                                        $appt['location'] ?? '',
+                                        $appt['description'] ?? '',
+                                    ]);
                                     ?>
-                                    <tr>
+                                    <tr data-status="<?= e($appt['status']) ?>" data-search="<?= e($searchBlob) ?>"<?= ($appt['status'] ?? '') === 'requested' ? ' class="table-row-requested"' : '' ?>>
                                         <td>
                                             <span class="table-primary"><?= e($appt['title']) ?></span>
                                             <?php if (!empty($appt['description'])): ?>
@@ -145,6 +192,12 @@ require __DIR__ . '/../includes/header.php';
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                        <small class="text-muted">
+                            Showing <?= count($appointments) ?> of <?= $totalAppointments ?> appointments
+                        </small>
+                        <?= renderPaginationNav($page, $totalPages) ?>
                     </div>
                 <?php endif; ?>
             </div>

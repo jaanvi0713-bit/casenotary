@@ -12,7 +12,16 @@ if (!$clientId) {
 
 $pageTitle = 'Notifications';
 $userId = Auth::id();
-$notifications = getAllNotifications($userId, 100);
+$q = trim((string) ($_GET['q'] ?? ''));
+$readFilter = trim((string) ($_GET['read'] ?? ''));
+$perPage = 10;
+$page = requestPageNumber();
+$totalNotifications = countNotifications($userId, $q, $readFilter);
+$totalPages = max(1, (int) ceil($totalNotifications / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$notifications = getNotificationsPaginated($userId, $page, $perPage, $q, $readFilter);
 $unreadCount = getUnreadNotificationCount($userId);
 $pageSubtitle = $unreadCount . ' unread';
 
@@ -23,7 +32,7 @@ require __DIR__ . '/../includes/header.php';
     <div class="saas-card-header appointment-list-header">
         <div>
             <h2 class="saas-card-title">Notifications</h2>
-            <p class="saas-card-subtitle mb-0"><?= count($notifications) ?> total · <?= $unreadCount ?> unread</p>
+            <p class="saas-card-subtitle mb-0"><?= $totalNotifications ?> total · <?= $unreadCount ?> unread</p>
         </div>
         <?php if ($unreadCount > 0): ?>
             <form method="post" action="<?= clientUrl('actions/notification-action.php') ?>" class="m-0">
@@ -33,6 +42,17 @@ require __DIR__ . '/../includes/header.php';
             </form>
         <?php endif; ?>
     </div>
+    <form method="get" class="table-toolbar">
+        <div class="table-search">
+            <i class="bi bi-search"></i>
+            <input type="search" class="form-control form-control-sm" name="q" value="<?= e($q) ?>" placeholder="Search notifications...">
+        </div>
+        <select class="form-select form-select-sm table-filter" name="read" onchange="this.form.requestSubmit()">
+            <option value="">All</option>
+            <option value="unread" <?= $readFilter === 'unread' ? 'selected' : '' ?>>Unread</option>
+            <option value="read" <?= $readFilter === 'read' ? 'selected' : '' ?>>Read</option>
+        </select>
+    </form>
     <div class="card-body p-0">
         <?php if (empty($notifications)): ?>
             <div class="empty-state py-5">
@@ -62,6 +82,12 @@ require __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                 <?php endforeach; ?>
+            </div>
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                <small class="text-muted">
+                    Showing <?= count($notifications) ?> of <?= $totalNotifications ?> notifications
+                </small>
+                <?= renderPaginationNav($page, $totalPages) ?>
             </div>
         <?php endif; ?>
     </div>
