@@ -41,11 +41,27 @@ class MailService
     public static function sendQuoteEmail(array $client, array $case, string $quotationNumber, ?string $documentPath = null): bool
     {
         $name     = clientFullName($client) ?: 'Client';
-        $services = CaseService::getCaseServices($case);
+        $billing = CaseService::getCaseBilling($case);
         $serviceHtml = '';
 
-        foreach ($services as $service) {
-            $serviceHtml .= e($service['type']) . ' — ' . formatCurrency((float) $service['fee']) . '<br>';
+        $nonVatRate = (float) ($billing['non_vat_rate'] ?? 0);
+        foreach ($billing['non_vat'] ?? [] as $row) {
+            $net   = (float) $row['net'];
+            $rate  = round($net * $nonVatRate / 100, 2);
+            $line  = $net + $rate;
+            $serviceHtml .= e($row['type']) . ' (Non-VAT) — ' . formatCurrency($net);
+            if ($rate > 0) {
+                $serviceHtml .= ' + rate ' . formatCurrency($rate);
+            }
+            $serviceHtml .= ' = ' . formatCurrency($line) . '<br>';
+        }
+        foreach ($billing['vat'] ?? [] as $row) {
+            $net = (float) $row['net'];
+            $vat = round($net * (float) $billing['vat_rate'] / 100, 2);
+            $serviceHtml .= e($row['type']) . ' (VAT) — ' . formatCurrency($net) . ' + VAT ' . formatCurrency($vat) . '<br>';
+        }
+        if ((float) ($billing['totals']['vat_amount'] ?? 0) > 0) {
+            $serviceHtml .= '<strong>VAT total:</strong> ' . formatCurrency((float) $billing['totals']['vat_amount']) . '<br>';
         }
 
         $body = self::wrapTemplate(
@@ -54,7 +70,7 @@ class MailService
             . '<p>Please find your quotation <strong>' . e($quotationNumber) . '</strong> for case '
             . '<strong>' . e($case['case_number']) . '</strong>.</p>'
             . '<p><strong>Services:</strong><br>' . $serviceHtml
-            . '<strong>Total:</strong> ' . formatCurrency((float) $case['service_fee']) . '</p>'
+            . '<strong>Total fee:</strong> ' . formatCurrency((float) $billing['totals']['grand_total']) . '</p>'
             . '<p>Log in to your client portal to review documents and next steps.</p>'
             . '<p><a href="' . e(clientUrl('auth/login.php')) . '" style="color:#3aafa9;">Open Client Portal</a></p>'
         );

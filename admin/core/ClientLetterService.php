@@ -332,16 +332,28 @@ HTML,
     public static function buildContext(array $case, array $client, ?array $company = null): array
     {
         $company = $company ?? getCompanySettings();
-        $services = CaseService::getCaseServices($case);
+        $billing = CaseService::getCaseBilling($case);
         $serviceLines = [];
 
-        foreach ($services as $service) {
-            $serviceLines[] = '<li>' . e($service['type']) . ' — ' . formatCurrency((float) $service['fee']) . '</li>';
+        $nonVatRate = (float) ($billing['non_vat_rate'] ?? 0);
+        foreach ($billing['non_vat'] ?? [] as $row) {
+            $net  = (float) $row['net'];
+            $rate = round($net * $nonVatRate / 100, 2);
+            $line = '<li>' . e($row['type']) . ' (Non-VAT) — ' . formatCurrency($net);
+            if ($rate > 0) {
+                $line .= ' + rate ' . formatCurrency($rate);
+            }
+            $serviceLines[] = $line . ' = ' . formatCurrency($net + $rate) . '</li>';
+        }
+        foreach ($billing['vat'] ?? [] as $row) {
+            $net = (float) $row['net'];
+            $vat = round($net * (float) $billing['vat_rate'] / 100, 2);
+            $serviceLines[] = '<li>' . e($row['type']) . ' (VAT) — ' . formatCurrency($net) . ' + VAT ' . formatCurrency($vat) . '</li>';
         }
 
         if ($serviceLines === []) {
             $serviceLines[] = '<li>' . e($case['service_type'] ?? 'Notary services') . ' — '
-                . formatCurrency((float) ($case['service_fee'] ?? 0)) . '</li>';
+                . formatCurrency((float) ($billing['totals']['grand_total'] ?? $case['service_fee'] ?? 0)) . '</li>';
         }
 
         $website = trim((string) ($company['company_website'] ?? ''));
@@ -358,7 +370,7 @@ HTML,
             $recipient = clientFullName($client) ?: 'Client';
         }
 
-        $feeAmount          = formatCurrency((float) ($case['service_fee'] ?? 0));
+        $feeAmount          = formatCurrency((float) (CaseService::getCaseBilling($case)['totals']['grand_total'] ?? $case['service_fee'] ?? 0));
         $serviceDescription = trim((string) ($case['service_type'] ?? $case['title'] ?? 'Notary services'));
         $instructions       = trim((string) ($case['client_instructions'] ?? ''));
         $additionalNotes    = trim((string) ($case['description'] ?? ''));

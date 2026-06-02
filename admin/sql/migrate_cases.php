@@ -61,6 +61,25 @@ if (tableExists($pdo, 'cases') && !columnExists($pdo, 'cases', 'services')) {
     echo "[OK] cases.services already exists\n";
 }
 
+if (tableExists($pdo, 'cases')) {
+    foreach ([
+        'fee_non_vat'    => 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER service_fee',
+        'fee_vat_net'    => 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER fee_non_vat',
+        'fee_vat_amount' => 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER fee_vat_net',
+    ] as $column => $definition) {
+        if (!columnExists($pdo, 'cases', $column)) {
+            try {
+                $pdo->exec("ALTER TABLE cases ADD COLUMN {$column} {$definition}");
+                echo "[OK] Added cases.{$column}\n";
+            } catch (PDOException $e) {
+                echo "[SKIP] cases.{$column}: " . $e->getMessage() . "\n";
+            }
+        } else {
+            echo "[OK] cases.{$column} already exists\n";
+        }
+    }
+}
+
 if (tableExists($pdo, 'quotations') && !columnExists($pdo, 'quotations', 'line_items')) {
     try {
         $pdo->exec("ALTER TABLE quotations ADD COLUMN line_items JSON DEFAULT NULL AFTER title");

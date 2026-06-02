@@ -11,7 +11,20 @@ if (!$workspace) {
     redirect('pages/cases.php');
 }
 
-$case       = $workspace['case'];
+$case         = $workspace['case'];
+$caseBilling  = CaseService::getCaseBilling($case);
+$billingTotals = $caseBilling['totals'];
+$invNet          = (float) ($billingTotals['non_vat_net_subtotal'] ?? $billingTotals['non_vat_subtotal'])
+    + (float) $billingTotals['vat_net_subtotal'];
+$invoicePrefillItems = CaseService::billingToInvoiceLineItems($caseBilling);
+if ($invoicePrefillItems === []) {
+    $invoicePrefillItems = [[
+        'description' => $case['service_type'] ?? 'Notary service',
+        'quantity'    => 1,
+        'unit_price'  => (float) $case['service_fee'],
+        'line_total'  => (float) $case['service_fee'],
+    ]];
+}
 $pageTitle  = $case['case_number'];
 $pageSubtitle = $case['title'];
 $allowedStatuses = CaseService::getAllowedStatuses($case['status']);
@@ -122,35 +135,36 @@ require __DIR__ . '/../includes/header.php';
                 <div class="col-lg-8">
                     <div class="case-panel">
                         <h3 class="case-panel-title">Case Details</h3>
-                        <div class="case-detail-grid">
-                            <div><span class="case-detail-label">Client</span><strong><?= e(clientFullName($case)) ?></strong><?php if ($case['company_name']): ?><small class="d-block text-muted"><?= e($case['company_name']) ?></small><?php endif; ?></div>
-                            <div><span class="case-detail-label">Email</span><strong><?= e($case['email'] ?? '—') ?></strong></div>
-                            <div class="case-detail-span-2">
-                                <span class="case-detail-label">Services</span>
-                                <div class="case-services-table-wrap mt-1">
-                                    <table class="table table-sm case-services-table mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Service</th>
-                                                <th class="text-end">Fee</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?= CaseService::formatCaseServicesHtml($case) ?>
-                                        </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                <th>Total</th>
-                                                <th class="text-end"><?= formatCurrency((float) $case['service_fee']) ?></th>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
+                        <div class="case-detail-grid case-detail-grid--overview">
+                            <div class="case-detail-item">
+                                <span class="case-detail-label">Client</span>
+                                <strong><?= e(clientFullName($case)) ?></strong>
+                                <?php if ($case['company_name']): ?><small class="d-block text-muted"><?= e($case['company_name']) ?></small><?php endif; ?>
                             </div>
-                            <div><span class="case-detail-label">Assigned Admin</span><strong><?= e($case['admin_name'] ?? 'Unassigned') ?></strong></div>
-                            <div><span class="case-detail-label">Deadline</span><strong><?= formatDate($case['deadline']) ?></strong></div>
-                            <div><span class="case-detail-label">Created</span><strong><?= formatDateTime($case['created_at']) ?></strong></div>
-                            <div><span class="case-detail-label">Last Updated</span><strong><?= formatDateTime($case['updated_at']) ?></strong></div>
+                            <div class="case-detail-item">
+                                <span class="case-detail-label">Email</span>
+                                <strong><?= e($case['email'] ?? '—') ?></strong>
+                            </div>
+                            <div class="case-detail-item">
+                                <span class="case-detail-label">Assigned admin</span>
+                                <strong><?= e($case['admin_name'] ?? 'Unassigned') ?></strong>
+                            </div>
+                            <div class="case-detail-item">
+                                <span class="case-detail-label">Deadline</span>
+                                <strong><?= formatDate($case['deadline']) ?></strong>
+                            </div>
+                            <div class="case-detail-item case-detail-item--billing">
+                                <span class="case-detail-label">Services &amp; fees</span>
+                                <?= CaseService::formatCaseBillingOverviewHtml($case) ?>
+                            </div>
+                            <div class="case-detail-item">
+                                <span class="case-detail-label">Created</span>
+                                <strong><?= formatDateTime($case['created_at']) ?></strong>
+                            </div>
+                            <div class="case-detail-item">
+                                <span class="case-detail-label">Last updated</span>
+                                <strong><?= formatDateTime($case['updated_at']) ?></strong>
+                            </div>
                         </div>
                         <?php if (!empty($case['description'])): ?>
                             <div class="case-description mt-3">
@@ -681,26 +695,29 @@ require __DIR__ . '/../includes/header.php';
                 <div class="mb-3">
                     <label class="form-label">Line items</label>
                     <div id="invoiceItems">
-                        <div class="row g-2 mb-2 invoice-item-row">
-                            <div class="col-2"><input type="number" step="0.01" min="0" name="item_qty[]" class="form-control form-control-sm invoice-item-qty" value="1" placeholder="Qty"></div>
-                            <div class="col-6"><input type="text" name="item_description[]" class="form-control form-control-sm" value="<?= e($case['service_type'] ?? 'Notary service') ?>" placeholder="Description"></div>
-                            <div class="col-4"><input type="number" step="0.01" min="0" name="item_amount[]" class="form-control form-control-sm invoice-item-amount" value="<?= e((string) $case['service_fee']) ?>" placeholder="Unit amount"></div>
-                        </div>
+                        <?php foreach ($invoicePrefillItems as $item): ?>
+                            <?php $isVatLine = str_contains((string) ($item['description'] ?? ''), '(VAT net)'); ?>
+                            <div class="row g-2 mb-2 invoice-item-row" data-vat-line="<?= $isVatLine ? '1' : '0' ?>">
+                                <div class="col-2"><input type="number" step="0.01" min="0" name="item_qty[]" class="form-control form-control-sm invoice-item-qty" value="<?= e((string) ($item['quantity'] ?? 1)) ?>" placeholder="Qty"></div>
+                                <div class="col-6"><input type="text" name="item_description[]" class="form-control form-control-sm" value="<?= e($item['description']) ?>" placeholder="Description"></div>
+                                <div class="col-4"><input type="number" step="0.01" min="0" name="item_amount[]" class="form-control form-control-sm invoice-item-amount" value="<?= e((string) ($item['unit_price'] ?? 0)) ?>" placeholder="Unit amount"></div>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
                     <button type="button" class="btn btn-soft btn-sm mt-1" id="addInvoiceItemBtn"><i class="bi bi-plus-lg"></i> Add item</button>
                 </div>
                 <div class="row g-2 mb-3 small">
                     <div class="col-md-6">
                         <div class="p-2 border rounded-2">
-                            <div><strong>Subtotal:</strong> <span id="invoiceSubtotalPreview"><?= formatCurrency((float) $case['service_fee']) ?></span></div>
-                            <div><strong>VAT (20%):</strong> <span id="invoiceVatPreview"><?= formatCurrency((float) $case['service_fee'] * 0.2) ?></span></div>
-                            <div><strong>Total:</strong> <span id="invoiceTotalPreview"><?= formatCurrency((float) $case['service_fee'] * 1.2) ?></span></div>
+                            <div><strong>Net subtotal:</strong> <span id="invoiceSubtotalPreview"><?= formatCurrency($invNet) ?></span></div>
+                            <div><strong>VAT:</strong> <span id="invoiceVatPreview"><?= formatCurrency((float) $billingTotals['vat_amount']) ?></span></div>
+                            <div><strong>Total:</strong> <span id="invoiceTotalPreview"><?= formatCurrency((float) $billingTotals['grand_total']) ?></span></div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-check mt-1">
-                            <input class="form-check-input" type="checkbox" id="invoiceIncludeVat" name="include_vat" value="1" checked>
-                            <label class="form-check-label" for="invoiceIncludeVat">Include VAT (20%)</label>
+                            <input class="form-check-input" type="checkbox" id="invoiceIncludeVat" name="include_vat" value="1"<?= (float) ($billingTotals['vat_amount'] ?? 0) > 0 ? ' checked' : '' ?>>
+                            <label class="form-check-label" for="invoiceIncludeVat">Include VAT</label>
                         </div>
                     </div>
                 </div>
@@ -723,8 +740,8 @@ require __DIR__ . '/../includes/header.php';
             <div class="modal-header"><h5 class="modal-title">Generate Quotation</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <div class="mb-3"><label class="form-label">Title</label><input type="text" name="title" class="form-control" value="Quotation — <?= e($case['title']) ?>"></div>
-                <div class="mb-3"><label class="form-label">Amount</label><input type="number" step="0.01" name="amount" class="form-control" value="<?= e((string) $case['service_fee']) ?>"></div>
-                <div class="mb-3"><label class="form-label">Tax Rate (%)</label><input type="number" step="0.01" name="tax_rate" class="form-control" value="0"></div>
+                <div class="mb-3"><label class="form-label">Amount (total incl. VAT)</label><input type="number" step="0.01" name="amount" class="form-control" value="<?= e((string) $billingTotals['grand_total']) ?>"></div>
+                <div class="mb-3"><label class="form-label">Tax Rate (%)</label><input type="number" step="0.01" name="tax_rate" class="form-control" value="<?= (float) $billingTotals['vat_amount'] > 0 && $invNet > 0 ? e((string) round($billingTotals['vat_amount'] / $invNet * 100, 2)) : '0' ?>"></div>
                 <div class="mb-3"><label class="form-label">Valid Until</label><input type="date" name="valid_until" class="form-control" value="<?= date('Y-m-d', strtotime('+30 days')) ?>"></div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Generate</button></div>
@@ -741,8 +758,8 @@ require __DIR__ . '/../includes/header.php';
             <div class="modal-header"><h5 class="modal-title">Generate Proposal</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <div class="mb-3"><label class="form-label">Title</label><input type="text" name="title" class="form-control" value="Proposal — <?= e($case['title']) ?>"></div>
-                <div class="mb-3"><label class="form-label">Amount</label><input type="number" step="0.01" name="amount" class="form-control" value="<?= e((string) $case['service_fee']) ?>"></div>
-                <div class="mb-3"><label class="form-label">Proposal Content</label><textarea name="content" class="form-control" rows="6">We propose to provide notary services for <?= e($case['title']) ?> as outlined in this case workspace. Total estimated fee: <?= formatCurrency((float) $case['service_fee']) ?>.</textarea></div>
+                <div class="mb-3"><label class="form-label">Amount (total fee)</label><input type="number" step="0.01" name="amount" class="form-control" value="<?= e((string) $billingTotals['grand_total']) ?>"></div>
+                <div class="mb-3"><label class="form-label">Proposal Content</label><textarea name="content" class="form-control" rows="6">We propose to provide notary services for <?= e($case['title']) ?> as outlined in this case workspace. Total estimated fee: <?= formatCurrency((float) $billingTotals['grand_total']) ?>.</textarea></div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Generate PDF</button></div>
         </form>
@@ -868,16 +885,23 @@ document.addEventListener("DOMContentLoaded", function() {
         return "£" + (Math.round((num || 0) * 100) / 100).toFixed(2);
     }
 
+    var invoiceVatRate = ' . json_encode((float) $caseBilling['vat_rate']) . ';
+
     function recalcInvoicePreview() {
         if (!itemsWrap || !subtotalEl || !vatEl || !totalEl) return;
         var subtotal = 0;
+        var vatBase = 0;
         itemsWrap.querySelectorAll(".invoice-item-row").forEach(function(row) {
             var qty = parseFloat((row.querySelector(".invoice-item-qty") || {}).value || "0") || 0;
             var unit = parseFloat((row.querySelector(".invoice-item-amount") || {}).value || "0") || 0;
             if (qty <= 0) qty = 1;
-            subtotal += qty * unit;
+            var line = qty * unit;
+            subtotal += line;
+            if (row.getAttribute("data-vat-line") === "1") {
+                vatBase += line;
+            }
         });
-        var vat = (includeVat && includeVat.checked) ? subtotal * 0.2 : 0;
+        var vat = (includeVat && includeVat.checked) ? Math.round(vatBase * invoiceVatRate) / 100 : 0;
         var total = subtotal + vat;
         subtotalEl.textContent = formatMoney(subtotal);
         vatEl.textContent = formatMoney(vat);
@@ -888,6 +912,7 @@ document.addEventListener("DOMContentLoaded", function() {
         addItemBtn.addEventListener("click", function() {
             var row = document.createElement("div");
             row.className = "row g-2 mb-2 invoice-item-row";
+            row.setAttribute("data-vat-line", "0");
             row.innerHTML =
                 "<div class=\"col-2\"><input type=\"number\" step=\"0.01\" min=\"0\" name=\"item_qty[]\" class=\"form-control form-control-sm invoice-item-qty\" value=\"1\" placeholder=\"Qty\"></div>" +
                 "<div class=\"col-5\"><input type=\"text\" name=\"item_description[]\" class=\"form-control form-control-sm\" placeholder=\"Description\"></div>" +

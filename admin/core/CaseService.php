@@ -64,36 +64,154 @@ class CaseService
             );
         }
     }
-    public static function parseServicesFromRequest(array $data): array
+    public const DEFAULT_VAT_RATE = 20.0;
+
+    public static function vatRate(): float
+    {
+        return self::DEFAULT_VAT_RATE;
+    }
+
+    /**
+     * @return array{version:int, vat_rate:float, non_vat:list<array{type:string, net:float}>, vat:list<array{type:string, net:float}>, totals:array<string, float>}
+     */
+    public static function emptyCaseBilling(): array
+    {
+        return self::buildCaseBilling([], [], self::vatRate(), self::vatRate());
+    }
+
+    /**
+     * @return list<array{type:string, net:float}>
+     */
+    private static function parseServiceRowsFromRequest(?array $types, ?array $fees): array
+    {
+        if (!is_array($types) || !is_array($fees)) {
+            return [];
+        }
+
+        $rows = [];
+        $unnamed = 0;
+        foreach ($types as $index => $type) {
+            $type = trim((string) $type);
+            $net  = max(0, (float) ($fees[$index] ?? 0));
+            if ($type === '' && $net <= 0) {
+                continue;
+            }
+            if ($type === '') {
+                $unnamed++;
+                $type = 'Service ' . $unnamed;
+            }
+
+            $rows[] = [
+                'type' => $type,
+                'net'  => $net,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param list<array{type:string, net:float}> $nonVat
+     * @param list<array{type:string, net:float}> $vatNet
+     * @return array{version:int, vat_rate:float, non_vat:list<array{type:string, net:float}>, vat:list<array{type:string, net:float}>, totals:array<string, float>}
+     */
+    public static function buildCaseBilling(
+        array $nonVat,
+        array $vatNet,
+        ?float $vatRate = null,
+        ?float $nonVatRate = null
+    ): array {
+        $vatRate    = $vatRate ?? self::vatRate();
+        $nonVatRate = $nonVatRate ?? $vatRate;
+
+        $nonVatNetSub = 0.0;
+        foreach ($nonVat as $row) {
+            $nonVatNetSub += (float) ($row['net'] ?? 0);
+        }
+
+        $vatNetSub = 0.0;
+        foreach ($vatNet as $row) {
+            $vatNetSub += (float) ($row['net'] ?? 0);
+        }
+
+        $nonVatRateAmount = round($nonVatNetSub * $nonVatRate / 100, 2);
+        $nonVatGross      = round($nonVatNetSub + $nonVatRateAmount, 2);
+        $vatAmount        = round($vatNetSub * $vatRate / 100, 2);
+        $grand            = round($nonVatGross + $vatNetSub + $vatAmount, 2);
+
+        return [
+            'version'      => 2,
+            'vat_rate'     => $vatRate,
+            'non_vat_rate' => $nonVatRate,
+            'non_vat'      => $nonVat,
+            'vat'          => $vatNet,
+            'totals'       => [
+                'non_vat_net_subtotal' => round($nonVatNetSub, 2),
+                'non_vat_rate_amount'  => $nonVatRateAmount,
+                'non_vat_subtotal'     => $nonVatGross,
+                'vat_net_subtotal'     => round($vatNetSub, 2),
+                'vat_amount'           => $vatAmount,
+                'vat_gross_subtotal'   => round($vatNetSub + $vatAmount, 2),
+                'grand_total'          => $grand,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{version:int, vat_rate:float, non_vat:list, vat:list, totals:array<string, float>}
+     */
+    public static function parseCaseBillingFromRequest(array $data): array
+    {
+        $nonVat = self::parseServiceRowsFromRequest(
+            $data['services_non_vat']['type'] ?? null,
+            $data['services_non_vat']['fee'] ?? null
+        );
+        $vatNet = self::parseServiceRowsFromRequest(
+            $data['services_vat']['type'] ?? null,
+            $data['services_vat']['fee'] ?? null
+        );
+
+        if ($nonVat === [] && $vatNet === []) {
+            $legacy = self::parseLegacyServicesFromRequest($data);
+
+            return self::billingFromLegacyFlatList($legacy);
+        }
+
+        $vatRate    = self::vatRate();
+        $nonVatRate = self::vatRate();
+        if (isset($data['vat_rate']) && $data['vat_rate'] !== '') {
+            $vatRate = max(0.0, min(100.0, (float) $data['vat_rate']));
+        }
+        if (isset($data['non_vat_rate']) && $data['non_vat_rate'] !== '') {
+            $nonVatRate = max(0.0, min(100.0, (float) $data['non_vat_rate']));
+        }
+
+        return self::buildCaseBilling($nonVat, $vatNet, $vatRate, $nonVatRate);
+    }
+
+    /**
+     * @return list<array{type:string, fee:float}>
+     */
+    private static function parseLegacyServicesFromRequest(array $data): array
     {
         $types = $data['services']['type'] ?? null;
         $fees  = $data['services']['fee'] ?? null;
 
         if (is_array($types) && is_array($fees)) {
             $services = [];
-
             foreach ($types as $index => $type) {
                 $type = trim((string) $type);
                 if ($type === '') {
                     continue;
                 }
-
-                $services[] = [
-                    'type' => $type,
-                    'fee'  => (float) ($fees[$index] ?? 0),
-                ];
+                $services[] = ['type' => $type, 'fee' => (float) ($fees[$index] ?? 0)];
             }
-
             if ($services !== []) {
                 return $services;
             }
         }
 
-        $type = $data['service_type'] ?? '';
-        if (is_array($type)) {
-            $type = (string) ($type[0] ?? '');
-        }
-        $type = trim((string) $type);
+        $type = trim((string) (is_array($data['service_type'] ?? null) ? ($data['service_type'][0] ?? '') : ($data['service_type'] ?? '')));
         if ($type === '') {
             throw new RuntimeException('At least one service is required.');
         }
@@ -103,62 +221,167 @@ class CaseService
             $fee = $fee[0] ?? 0;
         }
 
-        return [[
-            'type' => $type,
-            'fee'  => (float) $fee,
-        ]];
+        return [['type' => $type, 'fee' => (float) $fee]];
     }
 
-    public static function getCaseServices(array $case): array
+    /**
+     * @param list<array{type:string, fee:float}> $legacy
+     */
+    private static function billingFromLegacyFlatList(array $legacy): array
+    {
+        $nonVat = [];
+        foreach ($legacy as $item) {
+            $nonVat[] = [
+                'type' => (string) ($item['type'] ?? ''),
+                'net'  => (float) ($item['fee'] ?? 0),
+            ];
+        }
+
+        return self::buildCaseBilling($nonVat, [], self::vatRate(), self::vatRate());
+    }
+
+    /**
+     * @return array{version:int, vat_rate:float, non_vat:list, vat:list, totals:array<string, float>}
+     */
+    public static function getCaseBilling(array $case): array
     {
         if (!empty($case['services'])) {
             $decoded = is_string($case['services']) ? json_decode($case['services'], true) : $case['services'];
 
-            if (is_array($decoded) && $decoded !== []) {
-                $services = [];
+            if (is_array($decoded) && isset($decoded['version']) && (int) $decoded['version'] === 2) {
+                $nonVat = is_array($decoded['non_vat'] ?? null) ? $decoded['non_vat'] : [];
+                $vat    = is_array($decoded['vat'] ?? null) ? $decoded['vat'] : [];
+                $rate       = (float) ($decoded['vat_rate'] ?? self::vatRate());
+                $nonVatRate = array_key_exists('non_vat_rate', $decoded)
+                    ? (float) $decoded['non_vat_rate']
+                    : 0.0;
 
+                return self::buildCaseBilling($nonVat, $vat, $rate, $nonVatRate);
+            }
+
+            if (is_array($decoded) && $decoded !== []) {
+                $legacy = [];
                 foreach ($decoded as $item) {
                     if (!is_array($item)) {
                         continue;
                     }
-
                     $type = trim((string) ($item['type'] ?? $item['description'] ?? ''));
                     if ($type === '') {
                         continue;
                     }
-
-                    $services[] = [
+                    $legacy[] = [
                         'type' => $type,
-                        'fee'  => (float) ($item['fee'] ?? $item['amount'] ?? 0),
+                        'fee'  => (float) ($item['fee'] ?? $item['amount'] ?? $item['net'] ?? 0),
                     ];
                 }
-
-                if ($services !== []) {
-                    return $services;
+                if ($legacy !== []) {
+                    return self::billingFromLegacyFlatList($legacy);
                 }
             }
         }
 
-        $type = trim($case['service_type'] ?? '');
-        if ($type === '') {
-            return [['type' => '', 'fee' => 0.0]];
+        $grand = (float) ($case['service_fee'] ?? 0);
+        $nonVatSub = (float) ($case['fee_non_vat'] ?? $grand);
+        $vatNet    = (float) ($case['fee_vat_net'] ?? 0);
+        $vatAmt    = (float) ($case['fee_vat_amount'] ?? 0);
+
+        if ($vatNet > 0 || $vatAmt > 0) {
+            return [
+                'version'  => 2,
+                'vat_rate' => self::vatRate(),
+                'non_vat'  => $nonVatSub > 0 ? [['type' => trim($case['service_type'] ?? 'Service'), 'net' => $nonVatSub]] : [],
+                'vat'      => $vatNet > 0 ? [['type' => 'VAT services', 'net' => $vatNet]] : [],
+                'totals'   => [
+                    'non_vat_subtotal'   => round($nonVatSub, 2),
+                    'vat_net_subtotal'   => round($vatNet, 2),
+                    'vat_amount'         => round($vatAmt, 2),
+                    'vat_gross_subtotal' => round($vatNet + $vatAmt, 2),
+                    'grand_total'        => round($grand, 2),
+                ],
+            ];
         }
 
-        return [[
-            'type' => $type,
-            'fee'  => (float) ($case['service_fee'] ?? 0),
-        ]];
+        $type = trim($case['service_type'] ?? '');
+        $nonVat = $type !== '' ? [['type' => $type, 'net' => $grand]] : [];
+
+        return self::buildCaseBilling($nonVat, [], self::vatRate(), self::vatRate());
     }
 
-    public static function caseServicesTotal(array $services): float
+    public static function parseServicesFromRequest(array $data): array
     {
-        $total = 0.0;
+        $billing = self::parseCaseBillingFromRequest($data);
 
-        foreach ($services as $service) {
-            $total += (float) ($service['fee'] ?? 0);
+        return self::billingToDisplayServices($billing);
+    }
+
+    /**
+     * @return list<array{type:string, fee:float, category:string, net:float, vat_amount?:float, gross?:float}>
+     */
+    public static function billingToDisplayServices(array $billing): array
+    {
+        $vatRate    = (float) ($billing['vat_rate'] ?? self::vatRate());
+        $nonVatRate = (float) ($billing['non_vat_rate'] ?? 0);
+        $out        = [];
+
+        foreach ($billing['non_vat'] ?? [] as $row) {
+            $net  = (float) ($row['net'] ?? 0);
+            $rate = round($net * $nonVatRate / 100, 2);
+            $out[] = [
+                'type'        => (string) ($row['type'] ?? ''),
+                'net'         => $net,
+                'rate_amount' => $rate,
+                'gross'       => round($net + $rate, 2),
+                'fee'         => round($net + $rate, 2),
+                'category'    => 'non_vat',
+            ];
         }
 
-        return $total;
+        foreach ($billing['vat'] ?? [] as $row) {
+            $net = (float) ($row['net'] ?? 0);
+            $vat = round($net * $vatRate / 100, 2);
+            $out[] = [
+                'type'        => (string) ($row['type'] ?? ''),
+                'net'         => $net,
+                'vat_amount'  => $vat,
+                'gross'       => round($net + $vat, 2),
+                'fee'         => round($net + $vat, 2),
+                'category'    => 'vat',
+            ];
+        }
+
+        return $out;
+    }
+
+    public static function getCaseServices(array $case): array
+    {
+        $display = self::billingToDisplayServices(self::getCaseBilling($case));
+
+        if ($display === []) {
+            return [['type' => '', 'fee' => 0.0, 'category' => 'non_vat', 'net' => 0.0]];
+        }
+
+        return $display;
+    }
+
+    public static function caseServicesTotal(array $servicesOrBilling): float
+    {
+        if (isset($servicesOrBilling['totals']['grand_total'])) {
+            return (float) $servicesOrBilling['totals']['grand_total'];
+        }
+
+        $total = 0.0;
+        foreach ($servicesOrBilling as $service) {
+            if (!is_array($service)) {
+                continue;
+            }
+            if (isset($service['gross'])) {
+                $total += (float) $service['gross'];
+            } else {
+                $total += (float) ($service['fee'] ?? $service['net'] ?? 0);
+            }
+        }
+
+        return round($total, 2);
     }
 
     public static function formatCaseServicesLabel(array $services, int $maxLength = 150): string
@@ -167,30 +390,127 @@ class CaseService
             return '';
         }
 
-        $labels = array_map(static fn(array $service): string => $service['type'], $services);
-        $joined = implode(', ', $labels);
+        if (isset($services['non_vat']) || isset($services['totals'])) {
+            $labels = [];
+            foreach ($services['non_vat'] ?? [] as $row) {
+                $labels[] = (string) ($row['type'] ?? '');
+            }
+            foreach ($services['vat'] ?? [] as $row) {
+                $labels[] = (string) ($row['type'] ?? '');
+            }
+            $joined = implode(', ', array_filter($labels));
+        } else {
+            $labels = array_map(static fn(array $service): string => (string) ($service['type'] ?? ''), $services);
+            $joined = implode(', ', array_filter($labels));
+        }
+
+        if ($joined === '') {
+            return '';
+        }
 
         if (strlen($joined) <= $maxLength) {
             return $joined;
         }
 
-        $extra = count($services) - 1;
+        $parts = explode(', ', $joined);
 
-        return $extra > 0
-            ? $services[0]['type'] . ' +' . $extra . ' more'
-            : substr($services[0]['type'], 0, $maxLength - 3) . '...';
+        return count($parts) > 1
+            ? $parts[0] . ' +' . (count($parts) - 1) . ' more'
+            : substr($joined, 0, $maxLength - 3) . '...';
     }
 
-    public static function formatCaseServicesHtml(array $case): string
+    public static function formatCaseBillingOverviewHtml(array $case): string
     {
-        $services = self::getCaseServices($case);
-        $rows     = '';
+        $billing = self::getCaseBilling($case);
+        $t       = $billing['totals'];
+        $hasNon  = ($billing['non_vat'] ?? []) !== [];
+        $hasVat  = ($billing['vat'] ?? []) !== [];
 
-        foreach ($services as $service) {
-            $rows .= '<tr><td>' . e($service['type']) . '</td><td class="num">' . formatCurrency((float) $service['fee']) . '</td></tr>';
+        if (!$hasNon && !$hasVat) {
+            return '<p class="text-muted small mb-0">No services listed.</p>';
         }
 
-        return $rows;
+        $html = '<div class="case-billing-overview">';
+
+        if ($hasNon) {
+            $html .= self::formatBillingOverviewSection(
+                'Non-VAT services',
+                (float) ($billing['non_vat_rate'] ?? 0),
+                $billing['non_vat'],
+                false,
+                (float) ($t['non_vat_subtotal'] ?? 0)
+            );
+        }
+
+        if ($hasVat) {
+            $html .= self::formatBillingOverviewSection(
+                'VAT services',
+                (float) ($billing['vat_rate'] ?? self::vatRate()),
+                $billing['vat'],
+                true,
+                (float) ($t['vat_gross_subtotal'] ?? 0)
+            );
+        }
+
+        $html .= '<div class="case-billing-overview-grand">'
+            . '<span>Total fee</span>'
+            . '<strong>' . formatCurrency((float) ($t['grand_total'] ?? 0)) . '</strong>'
+            . '</div></div>';
+
+        return $html;
+    }
+
+    /**
+     * @param list<array{type:string, net:float}> $lines
+     */
+    private static function formatBillingOverviewSection(
+        string $title,
+        float $rate,
+        array $lines,
+        bool $isVatSection,
+        float $sectionTotal
+    ): string {
+        $rateLabel = e(rtrim(rtrim(number_format($rate, 2), '0'), '.'));
+        $addonName = $isVatSection ? 'VAT' : 'Rate';
+
+        $html = '<div class="case-billing-overview-section">';
+        $html .= '<div class="case-billing-overview-section-head">';
+        $html .= '<span class="case-billing-overview-section-title">' . e($title) . '</span>';
+        if ($rate > 0) {
+            $html .= '<span class="case-billing-overview-section-rate">' . $addonName . ' ' . $rateLabel . '%</span>';
+        }
+        $html .= '</div>';
+        $html .= '<table class="case-billing-overview-table"><thead><tr>';
+        $html .= '<th>Service</th><th class="text-end">Net</th><th class="text-end">Total</th>';
+        $html .= '</tr></thead><tbody>';
+
+        foreach ($lines as $row) {
+            $net   = (float) ($row['net'] ?? 0);
+            $addon = round($net * $rate / 100, 2);
+            $gross = round($net + $addon, 2);
+            $html .= '<tr><td>' . e((string) ($row['type'] ?? 'Service')) . '</td>';
+            $html .= '<td class="text-end text-muted">' . formatCurrency($net) . '</td>';
+            $html .= '<td class="text-end fw-semibold">' . formatCurrency($gross) . '</td></tr>';
+        }
+
+        $html .= '</tbody><tfoot><tr>';
+        $html .= '<td colspan="2">Subtotal</td>';
+        $html .= '<td class="text-end">' . formatCurrency($sectionTotal) . '</td>';
+        $html .= '</tr></tfoot></table></div>';
+
+        return $html;
+    }
+
+    /** @deprecated Use formatCaseBillingOverviewHtml */
+    public static function formatCaseServicesHtml(array $case): string
+    {
+        return '';
+    }
+
+    /** @deprecated Use formatCaseBillingOverviewHtml */
+    public static function formatCaseServicesTotalsFooter(array $case): string
+    {
+        return '';
     }
 
     private static function ensureCasesSchema(): void
@@ -210,18 +530,68 @@ class CaseService
         } catch (Throwable $e) {
             // Migration may need to be run manually on restricted hosts.
         }
+
+        foreach ([
+            'fee_non_vat'    => 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER service_fee',
+            'fee_vat_net'    => 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER fee_non_vat',
+            'fee_vat_amount' => 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER fee_vat_net',
+        ] as $column => $definition) {
+            if (!Database::columnExists('cases', $column)) {
+                try {
+                    Database::query("ALTER TABLE cases ADD COLUMN {$column} {$definition}");
+                } catch (Throwable $e) {
+                    // Optional columns — totals still stored in service_fee + JSON.
+                }
+            }
+        }
     }
 
     private static function resolveCaseServices(array $data): array
     {
-        $services = self::parseServicesFromRequest($data);
+        $billing = self::parseCaseBillingFromRequest($data);
+        $totals  = $billing['totals'];
 
         return [
-            'services'      => $services,
-            'service_type'  => self::formatCaseServicesLabel($services),
-            'service_fee'   => self::caseServicesTotal($services),
-            'services_json' => json_encode($services, JSON_UNESCAPED_UNICODE),
+            'billing'         => $billing,
+            'service_type'    => self::formatCaseServicesLabel($billing),
+            'service_fee'     => (float) $totals['grand_total'],
+            'fee_non_vat'     => (float) $totals['non_vat_subtotal'],
+            'fee_vat_net'     => (float) $totals['vat_net_subtotal'],
+            'fee_vat_amount'  => (float) $totals['vat_amount'],
+            'services_json'   => json_encode($billing, JSON_UNESCAPED_UNICODE),
         ];
+    }
+
+    /**
+     * @return list<array{description:string, quantity:float, unit_price:float, line_total:float}>
+     */
+    public static function billingToInvoiceLineItems(array $billing): array
+    {
+        $items = [];
+
+        $nonVatRate = (float) ($billing['non_vat_rate'] ?? 0);
+        foreach ($billing['non_vat'] ?? [] as $row) {
+            $net   = (float) ($row['net'] ?? 0);
+            $gross = round($net + round($net * $nonVatRate / 100, 2), 2);
+            $items[] = [
+                'description' => (string) ($row['type'] ?? 'Service') . ' (Non-VAT)',
+                'quantity'    => 1.0,
+                'unit_price'  => $gross,
+                'line_total'  => $gross,
+            ];
+        }
+
+        foreach ($billing['vat'] ?? [] as $row) {
+            $net = (float) ($row['net'] ?? 0);
+            $items[] = [
+                'description' => (string) ($row['type'] ?? 'Service') . ' (VAT net)',
+                'quantity'    => 1.0,
+                'unit_price'  => $net,
+                'line_total'  => $net,
+            ];
+        }
+
+        return $items;
     }
 
     private static function insertCaseRow(array $row): int
@@ -383,6 +753,12 @@ class CaseService
             $row['services'] = $resolved['services_json'];
         }
 
+        foreach (['fee_non_vat', 'fee_vat_net', 'fee_vat_amount'] as $feeCol) {
+            if (Database::columnExists('cases', $feeCol)) {
+                $row[$feeCol] = $resolved[$feeCol];
+            }
+        }
+
         $id = self::insertCaseRow($row);
 
         if ($instructions && !Database::columnExists('cases', 'client_instructions') && Database::tableExists('case_notes')) {
@@ -524,6 +900,12 @@ class CaseService
 
         if (Database::columnExists('cases', 'services')) {
             $row['services'] = $resolved['services_json'];
+        }
+
+        foreach (['fee_non_vat', 'fee_vat_net', 'fee_vat_amount'] as $feeCol) {
+            if (Database::columnExists('cases', $feeCol)) {
+                $row[$feeCol] = $resolved[$feeCol];
+            }
         }
 
         self::updateCaseRow($id, $row);
@@ -753,22 +1135,31 @@ class CaseService
     {
         $case     = self::getCaseById($caseId);
         $number   = self::generateNumber('QUO');
-        $services = self::getCaseServices($case ?: []);
-        $fee      = (float) ($data['amount'] ?? self::caseServicesTotal($services));
-        $tax      = (float) ($data['tax_rate'] ?? 0);
-        $total    = $fee + ($fee * $tax / 100);
+        $billing  = self::getCaseBilling($case ?: []);
+        $totals   = $billing['totals'];
+        $subtotal = (float) (($totals['non_vat_net_subtotal'] ?? $totals['non_vat_subtotal']) + $totals['vat_net_subtotal']);
+        $taxAmt   = (float) $totals['vat_amount'];
+        $total    = (float) ($data['amount'] ?? $totals['grand_total']);
+        if ($total <= 0) {
+            $total = (float) $totals['grand_total'];
+        }
+        $taxRate = $subtotal > 0 && $taxAmt > 0 ? round($taxAmt / $subtotal * 100, 2) : (float) ($data['tax_rate'] ?? 0);
 
-        $lineItems = array_map(static fn(array $service): array => [
-            'description' => $service['type'],
-            'amount'      => (float) $service['fee'],
-        ], $services);
+        $lineItems = [];
+        foreach ($billing['non_vat'] ?? [] as $row) {
+            $lineItems[] = ['description' => $row['type'] . ' (Non-VAT)', 'amount' => (float) $row['net']];
+        }
+        foreach ($billing['vat'] ?? [] as $row) {
+            $lineItems[] = ['description' => $row['type'] . ' (VAT net)', 'amount' => (float) $row['net']];
+        }
 
         if ($lineItems === []) {
-            $lineItems = [['description' => $case['service_type'] ?? 'Service', 'amount' => $fee]];
+            $lineItems = [['description' => $case['service_type'] ?? 'Service', 'amount' => $total]];
+            $subtotal = $total;
+            $taxAmt   = 0;
         }
 
         $lineItemsJson = json_encode($lineItems, JSON_UNESCAPED_UNICODE);
-        $taxAmt        = $fee * $tax / 100;
 
         $id = insertTableRow('quotations', [
             'case_id'          => $caseId,
@@ -776,8 +1167,8 @@ class CaseService
             'title'            => $data['title'] ?? 'Quotation for ' . ($case['title'] ?? 'Case'),
             'line_items'       => $lineItemsJson,
             'notes'            => $lineItemsJson,
-            'subtotal'         => $fee,
-            'tax_rate'         => $tax,
+            'subtotal'         => $subtotal,
+            'tax_rate'         => $taxRate,
             'tax_amount'       => $taxAmt,
             'total'            => $total,
             'status'           => 'sent',
@@ -882,16 +1273,31 @@ class CaseService
     {
         $case   = self::getCaseById($caseId);
         $number = self::generateNumber('INV');
+        $billing = self::getCaseBilling($case ?: []);
         $lineItems = self::parseInvoiceLineItems($data, $case ?: []);
         $subtotal  = array_reduce($lineItems, static fn(float $sum, array $row): float => $sum + (float) ($row['line_total'] ?? 0), 0.0);
+
+        if ($subtotal <= 0) {
+            $lineItems = self::billingToInvoiceLineItems($billing);
+            $bt        = $billing['totals'];
+            $subtotal  = (float) (($bt['non_vat_net_subtotal'] ?? $bt['non_vat_subtotal']) + $bt['vat_net_subtotal']);
+        }
+
         if ($subtotal <= 0) {
             $subtotal = (float) ($data['amount'] ?? $case['service_fee'] ?? 0);
         }
 
-        $vatEnabled = !empty($data['include_vat']) ? 1 : 0;
-        $tax        = $vatEnabled ? 20.0 : 0.0;
-        $taxAmt     = round($subtotal * $tax / 100, 2);
-        $total      = round($subtotal + $taxAmt, 2);
+        $caseVatAmount = (float) ($billing['totals']['vat_amount'] ?? 0);
+        $vatEnabled    = !empty($data['include_vat']) ? 1 : ($caseVatAmount > 0 ? 1 : 0);
+        if ($caseVatAmount > 0 && empty($data['item_description'])) {
+            $taxAmt = $caseVatAmount;
+            $total  = (float) ($billing['totals']['grand_total'] ?? ($subtotal + $taxAmt));
+            $tax    = $subtotal > 0 ? round($taxAmt / $subtotal * 100, 2) : self::vatRate();
+        } else {
+            $tax    = $vatEnabled ? self::vatRate() : 0.0;
+            $taxAmt = round($subtotal * $tax / 100, 2);
+            $total  = round($subtotal + $taxAmt, 2);
+        }
         $due    = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
 
         $id = insertTableRow('invoices', [
@@ -929,6 +1335,12 @@ class CaseService
         $prices       = $data['item_amount'] ?? [];
 
         if (!is_array($descriptions) || !is_array($qtys) || !is_array($prices)) {
+            $billing = self::getCaseBilling($case);
+            $items   = self::billingToInvoiceLineItems($billing);
+            if ($items !== []) {
+                return $items;
+            }
+
             return [[
                 'description' => (string) ($case['service_type'] ?? 'Notary Service'),
                 'quantity'    => 1.0,
