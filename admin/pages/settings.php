@@ -69,6 +69,21 @@ require __DIR__ . '/../includes/header.php';
                         <label class="form-label">Accent Color</label>
                         <input type="color" name="dark_accent" class="form-control form-control-color w-100" value="<?= e($settings['dark_accent'] ?? '#000000') ?>">
                     </div>
+                    <div class="col-12">
+                        <h3 class="settings-section-title">Company Information</h3>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Company Website</label>
+                        <input type="url" name="company_website" class="form-control" value="<?= e($settings['company_website'] ?? '') ?>" placeholder="https://www.example.com">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Company Registration Number</label>
+                        <input type="text" name="registration_number" class="form-control" value="<?= e($settings['registration_number'] ?? '') ?>" placeholder="e.g. 12345678">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tax / VAT Number</label>
+                        <input type="text" name="tax_vat_number" class="form-control" value="<?= e($settings['tax_vat_number'] ?? '') ?>" placeholder="e.g. GB123456789">
+                    </div>
                     <div class="col-md-6">
                         <label class="form-label">Office Email</label>
                         <input type="email" name="office_email" class="form-control" value="<?= e($settings['office_email'] ?? '') ?>">
@@ -76,6 +91,21 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="form-label">Office Phone</label>
                         <input type="text" name="office_phone" class="form-control" value="<?= e($settings['office_phone'] ?? '') ?>" placeholder="+1 (555) 123-4567">
+                    </div>
+                    <div class="col-12">
+                        <h3 class="settings-section-title">Social Media</h3>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Facebook URL</label>
+                        <input type="url" name="facebook_url" class="form-control" value="<?= e($settings['facebook_url'] ?? '') ?>" placeholder="https://facebook.com/...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Instagram URL</label>
+                        <input type="url" name="instagram_url" class="form-control" value="<?= e($settings['instagram_url'] ?? '') ?>" placeholder="https://instagram.com/...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">LinkedIn URL</label>
+                        <input type="url" name="linkedin_url" class="form-control" value="<?= e($settings['linkedin_url'] ?? '') ?>" placeholder="https://linkedin.com/company/...">
                     </div>
                     <div class="col-12">
                         <label class="form-label">Business Hours</label>
@@ -99,9 +129,7 @@ require __DIR__ . '/../includes/header.php';
                                     <button type="button" class="btn btn-soft btn-sm" id="logoEditCurrentBtn">
                                         <i class="bi bi-crop"></i> Edit logo
                                     </button>
-                                    <button type="submit" name="remove_logo" value="1" class="btn btn-outline-danger btn-sm" onclick="return confirm('Remove the company logo?');">
-                                        <i class="bi bi-trash"></i> Remove logo
-                                    </button>
+                                    <button type="submit" name="remove_logo" value="1" class="btn btn-soft-danger btn-sm" onclick="return confirm('Remove the company logo?');">Remove logo</button>
                                 <?php endif; ?>
                             </div>
                             <div class="logo-placement-preview">
@@ -153,9 +181,7 @@ require __DIR__ . '/../includes/header.php';
                             <div class="logo-upload-toolbar">
                                 <input type="file" name="favicon" class="form-control" accept=".ico,.png,image/x-icon,image/png">
                                 <?php if ($faviconUrl): ?>
-                                    <button type="submit" name="remove_favicon" value="1" class="btn btn-outline-danger btn-sm" onclick="return confirm('Remove the favicon?');">
-                                        <i class="bi bi-trash"></i> Remove favicon
-                                    </button>
+                                    <button type="submit" name="remove_favicon" value="1" class="btn btn-soft-danger btn-sm" onclick="return confirm('Remove the favicon?');">Remove favicon</button>
                                 <?php endif; ?>
                             </div>
                             <div class="favicon-preview-wrap">

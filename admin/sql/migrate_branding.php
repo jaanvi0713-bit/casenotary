@@ -47,6 +47,12 @@ addColumn($pdo, 'company_settings', 'dark_accent', "VARCHAR(7) NOT NULL DEFAULT 
 addColumn($pdo, 'company_settings', 'font_family', "VARCHAR(100) NOT NULL DEFAULT 'Montserrat' AFTER dark_accent");
 addColumn($pdo, 'company_settings', 'description', 'TEXT DEFAULT NULL AFTER font_family');
 addColumn($pdo, 'company_settings', 'business_hours', 'TEXT DEFAULT NULL AFTER office_phone');
+addColumn($pdo, 'company_settings', 'company_website', 'VARCHAR(500) DEFAULT NULL AFTER address');
+addColumn($pdo, 'company_settings', 'registration_number', 'VARCHAR(100) DEFAULT NULL AFTER company_website');
+addColumn($pdo, 'company_settings', 'tax_vat_number', 'VARCHAR(100) DEFAULT NULL AFTER registration_number');
+addColumn($pdo, 'company_settings', 'facebook_url', 'VARCHAR(500) DEFAULT NULL AFTER tax_vat_number');
+addColumn($pdo, 'company_settings', 'instagram_url', 'VARCHAR(500) DEFAULT NULL AFTER facebook_url');
+addColumn($pdo, 'company_settings', 'linkedin_url', 'VARCHAR(500) DEFAULT NULL AFTER instagram_url');
 addColumn($pdo, 'company_settings', 'google_calendar_id', 'VARCHAR(255) DEFAULT NULL');
 addColumn($pdo, 'company_settings', 'outlook_calendar_id', 'VARCHAR(255) DEFAULT NULL');
 

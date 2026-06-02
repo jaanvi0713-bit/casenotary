@@ -3213,6 +3213,14 @@ body.sidebar-collapsed .main-content {
     }
 }
 
+.settings-section-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--secondary);
+    margin: 0.5rem 0 0;
+    padding-top: 0.25rem;
+}
+
 .settings-tabs .nav-link {
     font-weight: 600;
     color: var(--text-muted);

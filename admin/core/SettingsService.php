@@ -23,8 +23,14 @@ class SettingsService
             'office_email'    => null,
             'office_phone'    => null,
             'business_hours'  => "Monday – Friday: 9:00 AM – 5:00 PM\nSaturday – Sunday: Closed",
-            'address'         => null,
-            'description'     => null,
+            'address'             => null,
+            'company_website'     => null,
+            'registration_number' => null,
+            'tax_vat_number'      => null,
+            'facebook_url'        => null,
+            'instagram_url'       => null,
+            'linkedin_url'        => null,
+            'description'         => null,
             'smtp_host'       => null,
             'smtp_port'       => 587,
             'smtp_username'   => null,
@@ -123,7 +129,13 @@ class SettingsService
             'office_email'        => trim($data['office_email'] ?? '') ?: null,
             'office_phone'        => trim($data['office_phone'] ?? '') ?: null,
             'business_hours'      => $businessHours,
-            'address'             => trim($data['address'] ?? '') ?: null,
+            'address'             => self::optionalString($data['address'] ?? null),
+            'company_website'     => self::optionalUrl($data['company_website'] ?? null, 'Company website'),
+            'registration_number' => self::optionalString($data['registration_number'] ?? null),
+            'tax_vat_number'      => self::optionalString($data['tax_vat_number'] ?? null),
+            'facebook_url'        => self::optionalUrl($data['facebook_url'] ?? null, 'Facebook URL'),
+            'instagram_url'       => self::optionalUrl($data['instagram_url'] ?? null, 'Instagram URL'),
+            'linkedin_url'        => self::optionalUrl($data['linkedin_url'] ?? null, 'LinkedIn URL'),
             'smtp_host'           => trim($data['smtp_host'] ?? '') ?: null,
             'smtp_port'           => (int) ($data['smtp_port'] ?? 587),
             'smtp_username'       => trim($data['smtp_username'] ?? '') ?: null,
@@ -255,5 +267,31 @@ class SettingsService
         }
 
         return '#3aafa9';
+    }
+
+    private static function optionalString(mixed $value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        return $value !== '' ? $value : null;
+    }
+
+    private static function optionalUrl(mixed $value, string $label): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (!preg_match('#^https?://#i', $value)) {
+            $value = 'https://' . $value;
+        }
+
+        if (!filter_var($value, FILTER_VALIDATE_URL)) {
+            throw new RuntimeException($label . ' is not a valid URL.');
+        }
+
+        return $value;
     }
 }
