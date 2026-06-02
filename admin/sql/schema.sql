@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     start_time      DATETIME NOT NULL,
     end_time        DATETIME NOT NULL,
     location        VARCHAR(255) DEFAULT NULL,
-    status          ENUM('scheduled', 'confirmed', 'completed', 'cancelled', 'no_show') NOT NULL DEFAULT 'scheduled',
+    status          ENUM('requested', 'scheduled', 'confirmed', 'completed', 'cancelled', 'no_show') NOT NULL DEFAULT 'scheduled',
     google_event_id VARCHAR(255) DEFAULT NULL,
     outlook_event_id VARCHAR(255) DEFAULT NULL,
     reminder_sent   TINYINT(1) NOT NULL DEFAULT 0,

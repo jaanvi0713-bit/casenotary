@@ -7,7 +7,9 @@ $pageTitle = 'Appointments';
 $appointments = getAllAppointments();
 $clients = getAllClients();
 $stats = getDashboardStats();
-$pageSubtitle = $stats['upcoming_appointments'] . ' upcoming';
+$pendingRequests = count(array_filter($appointments, static fn(array $a): bool => ($a['status'] ?? '') === 'requested'));
+$pageSubtitle = $stats['upcoming_appointments'] . ' upcoming'
+    . ($pendingRequests > 0 ? ' · ' . $pendingRequests . ' pending request' . ($pendingRequests === 1 ? '' : 's') : '');
 
 $addedId = (int) ($_GET['added'] ?? 0);
 $addedAppointment = null;
@@ -87,6 +89,20 @@ require __DIR__ . '/../includes/header.php';
 </div>
 <?php endif; ?>
 
+<?php if ($pendingRequests > 0): ?>
+<div class="alert alert-info border-0 shadow-sm mb-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+            <strong><i class="bi bi-inbox me-2"></i><?= $pendingRequests ?> appointment request<?= $pendingRequests === 1 ? '' : 's' ?> awaiting review</strong>
+            <span class="d-block small mt-1">Open a request, set the status to Scheduled or Confirmed, and save to approve it.</span>
+        </div>
+        <button type="button" class="btn btn-soft btn-sm" id="filterRequestedBtn">
+            <i class="bi bi-funnel me-1"></i> Show requests
+        </button>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
     <div>
         <p class="text-muted small mb-0">View appointments on the calendar or in the list below.</p>
@@ -106,6 +122,7 @@ require __DIR__ . '/../includes/header.php';
     <div class="appointment-calendar-wrap">
         <div id="appointmentCalendar"></div>
         <div class="appointment-calendar-legend">
+            <span><i style="background:#6366f1"></i> Requested</span>
             <span><i style="background:#3aafa9"></i> Scheduled</span>
             <span><i style="background:#10b981"></i> Confirmed</span>
             <span><i style="background:#f59e0b"></i> Past</span>
@@ -129,6 +146,7 @@ require __DIR__ . '/../includes/header.php';
         </div>
         <select class="form-select form-select-sm table-filter" id="statusFilter">
             <option value="">All statuses</option>
+            <option value="requested">Requested</option>
             <option value="scheduled">Scheduled</option>
             <option value="confirmed">Confirmed</option>
             <option value="completed">Completed</option>
@@ -167,7 +185,7 @@ require __DIR__ . '/../includes/header.php';
                                 $appt['description'] ?? '',
                             ]);
                             ?>
-                            <tr data-status="<?= e($appt['status']) ?>" data-search="<?= e($searchBlob) ?>">
+                            <tr data-status="<?= e($appt['status']) ?>" data-search="<?= e($searchBlob) ?>"<?= ($appt['status'] ?? '') === 'requested' ? ' class="table-row-requested"' : '' ?>>
                                 <td>
                                     <span class="table-primary"><?= formatDate(appointmentStart($appt)) ?></span>
                                     <span class="table-secondary d-block">
@@ -184,7 +202,7 @@ require __DIR__ . '/../includes/header.php';
                                         ? GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $appt)
                                         : null;
                                     ?>
-                                    <?php if ($links && $links['google']): ?>
+                                    <?php if ($links && $links['google'] && ($appt['status'] ?? '') !== 'requested'): ?>
                                         <div class="appointment-inline-actions">
                                         <a href="<?= e($links['google']) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm" title="Add to Google Calendar">
                                             <i class="bi bi-google"></i>
@@ -198,6 +216,8 @@ require __DIR__ . '/../includes/header.php';
                                             <i class="bi bi-download"></i>
                                         </a>
                                         </div>
+                                    <?php elseif (($appt['status'] ?? '') === 'requested'): ?>
+                                        <span class="text-muted small">Awaiting approval</span>
                                     <?php else: ?>
                                         —
                                     <?php endif; ?>
@@ -332,6 +352,7 @@ require __DIR__ . '/../includes/header.php';
                     <div class="col-md-6">
                         <label class="form-label">Status</label>
                         <select name="status" id="appt_status" class="form-select">
+                            <option value="requested">Requested</option>
                             <option value="scheduled">Scheduled</option>
                             <option value="confirmed">Confirmed</option>
                             <option value="completed">Completed</option>
@@ -574,19 +595,20 @@ document.addEventListener("DOMContentLoaded", function() {
         var googleBtn = document.getElementById("eventDetailGoogle");
         var outlookBtn = document.getElementById("eventDetailOutlook");
         var icsBtn = document.getElementById("eventDetailIcs");
-        if (props.calUrl) {
+        var showCalendar = props.status !== "requested";
+        if (showCalendar && props.calUrl) {
             googleBtn.href = props.calUrl;
             googleBtn.classList.remove("d-none");
         } else {
             googleBtn.classList.add("d-none");
         }
-        if (props.outlookUrl) {
+        if (showCalendar && props.outlookUrl) {
             outlookBtn.href = props.outlookUrl;
             outlookBtn.classList.remove("d-none");
         } else {
             outlookBtn.classList.add("d-none");
         }
-        if (props.icsUrl) {
+        if (showCalendar && props.icsUrl) {
             icsBtn.href = props.icsUrl;
             icsBtn.classList.remove("d-none");
         } else {
@@ -623,6 +645,16 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }, window.AppointmentCalendar ? window.AppointmentCalendar.calendarOptions() : {}));
         calendar.render();
+    }
+
+    var filterRequestedBtn = document.getElementById("filterRequestedBtn");
+    var statusFilter = document.getElementById("statusFilter");
+    if (filterRequestedBtn && statusFilter) {
+        filterRequestedBtn.addEventListener("click", function() {
+            statusFilter.value = "requested";
+            statusFilter.dispatchEvent(new Event("change"));
+            document.getElementById("dataTable")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
     }
 });
 </script>';

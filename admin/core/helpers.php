@@ -220,6 +220,7 @@ function isPastAppointment(array $appointment): bool
 function appointmentStatusColors(): array
 {
     return [
+        'requested' => '#6366f1',
         'scheduled' => '#3aafa9',
         'confirmed' => '#10b981',
         'completed' => '#64748b',
@@ -1032,6 +1033,7 @@ function statusBadge(string $status): string
         'partially_paid'     => 'badge-partial',
         'overdue'            => 'badge-overdue',
         'scheduled'          => 'badge-scheduled',
+        'requested'          => 'badge-requested',
         'confirmed'          => 'badge-confirmed',
         'active'             => 'badge-paid',
         'inactive'           => 'badge-closed',
