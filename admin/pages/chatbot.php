@@ -19,7 +19,7 @@ require __DIR__ . '/../includes/header.php';
                         <i class="bi bi-robot"></i>
                     </div>
                     <div>
-                        <h2 class="saas-card-title mb-0">Notary Admin AI</h2>
+                        <h2 class="saas-card-title mb-0"><?= e(companyAdminAiTitle($company)) ?></h2>
                         <p class="saas-card-subtitle">Powered by your live business data</p>
                     </div>
                 </div>

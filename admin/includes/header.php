@@ -53,11 +53,6 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                 </div>
                 </div>
 
-                <div class="topbar-search d-none d-md-flex">
-                    <i class="bi bi-search"></i>
-                    <input type="search" id="globalSearch" placeholder="Type to search..." class="form-control" autocomplete="off">
-                </div>
-
                 <div class="topbar-actions">
                     <div class="dropdown">
                         <button type="button" class="topbar-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">

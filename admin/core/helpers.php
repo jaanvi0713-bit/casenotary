@@ -1081,6 +1081,21 @@ function companyBrandName(?array $settings = null): string
 }
 
 /**
+ * Admin AI assistant title from company name (e.g. Eagle Company → Eagle Admin AI).
+ */
+function companyAdminAiTitle(?array $settings = null): string
+{
+    $name  = companyBrandName($settings);
+    $first = trim(explode(' ', $name, 2)[0] ?? '');
+
+    if ($first === '' || strcasecmp($name, 'Your Company') === 0) {
+        return 'Admin AI';
+    }
+
+    return $first . ' Admin AI';
+}
+
+/**
  * Professional Google Font choices for branding (value => label).
  */
 function companyFontCatalog(): array
@@ -2437,8 +2452,10 @@ function generateChatbotReply(string $message): string
     $stats = $ctx['stats'];
     $lastTopic = $_SESSION['chatbot_last_topic'] ?? null;
 
+    $aiTitle = companyAdminAiTitle();
+
     if ($message === '' || preg_match('/^(hi|hello|hey)$/', $message)) {
-        return "Hello! I'm your Notary Admin Assistant. I can help with:\n\n"
+        return "Hello! I'm your " . $aiTitle . " assistant. I can help with:\n\n"
             . "• **Clients** — ask \"how many clients\" or \"list clients\"\n"
             . "• **Cases** — ask \"how many active cases\" or \"list active cases\"\n"
             . "• **Payments** — ask \"total revenue\" or \"list recent payments\"\n"
@@ -2447,7 +2464,7 @@ function generateChatbotReply(string $message): string
     }
 
     if ($message === 'help') {
-        return "Hello! I'm your Notary Admin Assistant. I can help with:\n\n"
+        return "Hello! I'm your " . $aiTitle . " assistant. I can help with:\n\n"
             . "• **Clients** — ask \"how many clients\" or \"list clients\"\n"
             . "• **Cases** — ask \"how many active cases\" or \"list active cases\"\n"
             . "• **Payments** — ask \"total revenue\" or \"list recent payments\"\n"
