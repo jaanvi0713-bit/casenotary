@@ -40,13 +40,11 @@ require __DIR__ . '/../includes/header.php';
             <i class="bi bi-search"></i>
             <input type="search" class="form-control form-control-sm" name="q" value="<?= e($q) ?>" placeholder="Search notifications...">
         </div>
-        <select class="form-select form-select-sm table-filter" name="read">
+        <select class="form-select form-select-sm table-filter" name="read" onchange="this.form.requestSubmit()">
             <option value="">All</option>
             <option value="unread" <?= $readFilter === 'unread' ? 'selected' : '' ?>>Unread</option>
             <option value="read" <?= $readFilter === 'read' ? 'selected' : '' ?>>Read</option>
         </select>
-        <button type="submit" class="btn btn-light btn-sm">Apply</button>
-        <a href="<?= url('pages/notifications.php') ?>" class="btn btn-soft btn-sm">Reset</a>
     </form>
     <div class="card-body p-0">
         <?php if (empty($notifications)): ?>
