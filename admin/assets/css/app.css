@@ -263,6 +263,21 @@ a:hover { color: var(--primary-dark); }
 
 .password-toggle:hover { color: var(--primary); }
 
+/* Hide browser/password-manager default reveal icons.
+   We use the custom .password-toggle button for consistency. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
+
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-textfield-decoration-container {
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+}
+
 .auth-link {
     font-size: 0.875rem;
     font-weight: 500;
