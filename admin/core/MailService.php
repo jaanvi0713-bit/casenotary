@@ -203,7 +203,9 @@ class MailService
             ? '<p style="margin:0 0 12px;"><img src="' . e($logoUrl) . '" alt="' . $companyName . '" style="max-height:48px;max-width:200px;width:auto;height:auto;object-fit:contain;"></p>'
             : '';
 
-        return '<!DOCTYPE html><html><body style="font-family:Montserrat,Arial,sans-serif;color:#1e293b;line-height:1.6;">'
+        $fontStack = companyFontInlineStack($company);
+
+        return '<!DOCTYPE html><html><body style="font-family:' . $fontStack . ';color:#1e293b;line-height:1.6;">'
             . '<div style="max-width:560px;margin:0 auto;padding:24px;">'
             . $logoHtml
             . '<h2 style="color:#00182c;margin:0 0 16px;">' . $companyName . '</h2>'

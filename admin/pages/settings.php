@@ -48,7 +48,14 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Font Family</label>
-                        <input type="text" name="font_family" class="form-control" value="<?= e($settings['font_family'] ?? 'Montserrat') ?>">
+                        <?php $activeFont = companyFontFamily($settings); ?>
+                        <select name="font_family" id="fontFamilySelect" class="form-select">
+                            <?php foreach (companyFontCatalog() as $fontKey => $fontMeta): ?>
+                                <option value="<?= e($fontKey) ?>" <?= $activeFont === $fontKey ? 'selected' : '' ?>>
+                                    <?= e($fontMeta['label']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Primary Color</label>

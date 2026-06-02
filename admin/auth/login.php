@@ -55,8 +55,7 @@ $isClientPortal = $portal === 'client';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle) ?> — <?= e(companyBrandName($company)) ?></title>
     <?= renderFaviconTags($company) ?>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <?= renderCompanyFontStylesheet($company) ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="<?= asset('css/app.css') ?>" rel="stylesheet">
@@ -65,7 +64,9 @@ $isClientPortal = $portal === 'client';
             --primary: <?= e($company['primary_color']) ?>;
             --secondary: <?= e($company['secondary_color']) ?>;
             --dark-accent: <?= e($company['dark_accent'] ?? '#000000') ?>;
+            --font-family: <?= companyFontCssStack($company) ?>;
         }
+        body { font-family: var(--font-family); }
     </style>
 </head>
 <body class="auth-page">

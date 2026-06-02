@@ -118,7 +118,7 @@ class SettingsService
             'primary_color'       => self::normalizeColor($data['primary_color'] ?? '#3aafa9'),
             'secondary_color'     => self::normalizeColor($data['secondary_color'] ?? '#00182c'),
             'dark_accent'         => self::normalizeColor($data['dark_accent'] ?? '#000000'),
-            'font_family'         => trim($data['font_family'] ?? 'Montserrat'),
+            'font_family'         => resolveCompanyFont($data['font_family'] ?? null),
             'description'         => trim($data['description'] ?? '') ?: null,
             'office_email'        => trim($data['office_email'] ?? '') ?: null,
             'office_phone'        => trim($data['office_phone'] ?? '') ?: null,

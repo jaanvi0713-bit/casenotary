@@ -1080,6 +1080,130 @@ function companyBrandName(?array $settings = null): string
     return $name !== '' ? $name : 'Your Company';
 }
 
+/**
+ * Professional Google Font choices for branding (value => label).
+ */
+function companyFontCatalog(): array
+{
+    return [
+        'Montserrat' => [
+            'label'  => 'Montserrat — modern geometric',
+            'google' => 'Montserrat:wght@300;400;500;600;700',
+            'stack'  => "'Montserrat', sans-serif",
+        ],
+        'Inter' => [
+            'label'  => 'Inter — clean UI sans',
+            'google' => 'Inter:wght@400;500;600;700',
+            'stack'  => "'Inter', sans-serif",
+        ],
+        'Open Sans' => [
+            'label'  => 'Open Sans — friendly professional',
+            'google' => 'Open+Sans:wght@400;500;600;700',
+            'stack'  => "'Open Sans', sans-serif",
+        ],
+        'Lato' => [
+            'label'  => 'Lato — warm corporate',
+            'google' => 'Lato:wght@400;700;900',
+            'stack'  => "'Lato', sans-serif",
+        ],
+        'Roboto' => [
+            'label'  => 'Roboto — neutral workplace',
+            'google' => 'Roboto:wght@400;500;700',
+            'stack'  => "'Roboto', sans-serif",
+        ],
+        'Source Sans 3' => [
+            'label'  => 'Source Sans 3 — Adobe clarity',
+            'google' => 'Source+Sans+3:wght@400;500;600;700',
+            'stack'  => "'Source Sans 3', sans-serif",
+        ],
+        'Nunito Sans' => [
+            'label'  => 'Nunito Sans — soft rounded',
+            'google' => 'Nunito+Sans:wght@400;600;700',
+            'stack'  => "'Nunito Sans', sans-serif",
+        ],
+        'Poppins' => [
+            'label'  => 'Poppins — bold marketing',
+            'google' => 'Poppins:wght@400;500;600;700',
+            'stack'  => "'Poppins', sans-serif",
+        ],
+        'Raleway' => [
+            'label'  => 'Raleway — elegant headings',
+            'google' => 'Raleway:wght@400;500;600;700',
+            'stack'  => "'Raleway', sans-serif",
+        ],
+        'Work Sans' => [
+            'label'  => 'Work Sans — technical neutral',
+            'google' => 'Work+Sans:wght@400;500;600;700',
+            'stack'  => "'Work Sans', sans-serif",
+        ],
+        'DM Sans' => [
+            'label'  => 'DM Sans — low-contrast UI',
+            'google' => 'DM+Sans:wght@400;500;700',
+            'stack'  => "'DM Sans', sans-serif",
+        ],
+        'IBM Plex Sans' => [
+            'label'  => 'IBM Plex Sans — enterprise',
+            'google' => 'IBM+Plex+Sans:wght@400;500;600;700',
+            'stack'  => "'IBM Plex Sans', sans-serif",
+        ],
+        'Libre Franklin' => [
+            'label'  => 'Libre Franklin — classic news',
+            'google' => 'Libre+Franklin:wght@400;500;600;700',
+            'stack'  => "'Libre Franklin', sans-serif",
+        ],
+        'Plus Jakarta Sans' => [
+            'label'  => 'Plus Jakarta Sans — contemporary SaaS',
+            'google' => 'Plus+Jakarta+Sans:wght@400;500;600;700',
+            'stack'  => "'Plus Jakarta Sans', sans-serif",
+        ],
+    ];
+}
+
+function resolveCompanyFont(?string $font): string
+{
+    $font    = trim((string) $font);
+    $catalog = companyFontCatalog();
+
+    if ($font !== '' && isset($catalog[$font])) {
+        return $font;
+    }
+
+    return 'Montserrat';
+}
+
+function companyFontFamily(?array $settings = null): string
+{
+    $settings = $settings ?? getCompanySettings();
+
+    return resolveCompanyFont($settings['font_family'] ?? null);
+}
+
+function companyFontCssStack(?array $settings = null): string
+{
+    $key = companyFontFamily($settings);
+
+    return companyFontCatalog()[$key]['stack'];
+}
+
+/** Comma-separated stack for inline HTML/email styles. */
+function companyFontInlineStack(?array $settings = null): string
+{
+    $stack = companyFontCssStack($settings);
+    $name  = preg_replace("/^'(.+)'$/", '$1', explode(',', $stack)[0]);
+
+    return trim($name) . ', Arial, sans-serif';
+}
+
+function renderCompanyFontStylesheet(?array $settings = null): string
+{
+    $key    = companyFontFamily($settings);
+    $google = companyFontCatalog()[$key]['google'];
+
+    return '<link rel="preconnect" href="https://fonts.googleapis.com">' . "\n"
+        . '    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' . "\n"
+        . '    <link href="https://fonts.googleapis.com/css2?family=' . $google . '&display=swap" rel="stylesheet">';
+}
+
 function companyLogoUrl(?array $settings = null): ?string
 {
     $settings = $settings ?? getCompanySettings();

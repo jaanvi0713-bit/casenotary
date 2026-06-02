@@ -42,7 +42,7 @@ header('Content-Disposition: inline; filename="' . ($receipt['receipt_number'] ?
     <meta charset="UTF-8">
     <title><?= e($receipt['receipt_number']) ?> — Receipt</title>
     <style>
-        body { font-family: Montserrat, Arial, sans-serif; color: #0f172a; margin: 40px; }
+        body { font-family: <?= e(companyFontInlineStack($company)) ?>; color: #0f172a; margin: 40px; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
         .brand { font-size: 22px; font-weight: 700; color: <?= e($company['secondary_color'] ?? '#00182c') ?>; }
         .receipt-brand-logo { display: block; max-height: 48px; max-width: 200px; width: auto; height: auto; object-fit: contain; margin-bottom: 10px; }

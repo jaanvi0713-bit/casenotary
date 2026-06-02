@@ -41,7 +41,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     font-size: 0.875rem;
     color: var(--text-body);
     background: var(--gray-50);
@@ -234,7 +234,7 @@ a:hover { color: var(--primary-dark); }
     border: 2px solid var(--gray-200);
     border-radius: var(--radius-sm);
     padding: 1rem 0.875rem;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     transition: var(--transition);
 }
 
@@ -244,7 +244,7 @@ a:hover { color: var(--primary-dark); }
 }
 
 .auth-form .form-floating > label {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     color: var(--gray-500);
 }
 
@@ -629,7 +629,7 @@ body.sidebar-collapsed .main-content {
     border-radius: 10px;
     background: var(--gray-50);
     font-size: 0.8125rem;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     height: 38px;
 }
 
@@ -1272,7 +1272,7 @@ body.sidebar-collapsed .main-content {
     font-weight: 500;
     padding: 0.35rem 0.75rem;
     border-radius: 6px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     transition: var(--transition);
 }
 
@@ -1510,7 +1510,7 @@ body.sidebar-collapsed .main-content {
     border-radius: 8px;
     border-color: var(--gray-200);
     font-size: 0.8125rem;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
 }
 
 .table-filter {
@@ -1519,7 +1519,7 @@ body.sidebar-collapsed .main-content {
     border-radius: 8px;
     border-color: var(--gray-200);
     font-size: 0.8125rem;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
 }
 
 .table-filter-month {
@@ -1761,7 +1761,7 @@ body.sidebar-collapsed .main-content {
     border-color: var(--primary);
     font-weight: 500;
     border-radius: 10px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     font-size: 0.8125rem;
     padding: 0.5rem 1rem;
 }
@@ -1828,7 +1828,7 @@ body.sidebar-collapsed .main-content {
 /* Forms */
 .form-control,
 .form-select {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     border-radius: 10px;
     border-color: var(--gray-200);
     font-size: 0.875rem;
@@ -1847,7 +1847,7 @@ body.sidebar-collapsed .main-content {
 }
 
 .form-floating > label {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     color: var(--gray-500);
 }
 
@@ -2524,7 +2524,7 @@ body.sidebar-collapsed .main-content {
     border: 1px solid var(--gray-200);
     border-radius: var(--radius-sm);
     background: var(--white);
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     font-size: 0.85rem;
     color: var(--gray-600);
     cursor: pointer;
@@ -2645,7 +2645,7 @@ body.sidebar-collapsed .main-content {
 }
 
 .appointment-calendar-wrap .fc {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     font-size: 0.8125rem;
 }
 
@@ -3267,7 +3267,7 @@ body.sidebar-collapsed .main-content {
     cursor: pointer;
     transition: var(--transition);
     text-align: left;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-family, 'Montserrat', sans-serif);
     color: var(--gray-600);
     width: 100%;
 }

@@ -73,7 +73,7 @@ class DocumentTemplate
 
         return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Client Letter — '
             . e($case['case_number'] ?? '') . '</title>'
-            . self::letterStyles($primary, $secondary)
+            . self::letterStyles($primary, $secondary, $company)
             . '</head><body>'
             . '<div class="no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>'
             . '<div class="header"><div>' . $brandHtml . $address . $email . $phone . '</div>'
@@ -95,10 +95,12 @@ class DocumentTemplate
             . '</body></html>';
     }
 
-    private static function letterStyles(string $primary, string $secondary): string
+    private static function letterStyles(string $primary, string $secondary, ?array $company = null): string
     {
+        $font = companyFontInlineStack($company);
+
         return '<style>
-            body{font-family:Montserrat,Arial,sans-serif;color:#0f172a;margin:40px;line-height:1.6;font-size:14px}
+            body{font-family:' . $font . ';color:#0f172a;margin:40px;line-height:1.6;font-size:14px}
             .no-print{margin-bottom:24px}
             .no-print button{padding:10px 18px;background:' . $primary . ';color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit}
             .header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e2e8f0}
@@ -202,7 +204,7 @@ class DocumentTemplate
         $phone   = !empty($company['office_phone']) ? '<div class="muted">' . e($company['office_phone']) . '</div>' : '';
 
         return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>' . e($docType) . ' ' . e($number) . '</title>'
-            . self::styles($primary, $secondary)
+            . self::styles($primary, $secondary, $company)
             . '</head><body>'
             . '<div class="no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>'
             . '<div class="header"><div>' . $brandHtml . $address . $email . $phone . '</div>'
@@ -219,10 +221,12 @@ class DocumentTemplate
             . '</body></html>';
     }
 
-    private static function styles(string $primary, string $secondary): string
+    private static function styles(string $primary, string $secondary, ?array $company = null): string
     {
+        $font = companyFontInlineStack($company);
+
         return '<style>
-            body{font-family:Montserrat,Arial,sans-serif;color:#0f172a;margin:40px;line-height:1.5}
+            body{font-family:' . $font . ';color:#0f172a;margin:40px;line-height:1.5}
             .no-print{margin-bottom:24px}
             .no-print button{padding:10px 18px;background:' . $primary . ';color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit}
             .header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e2e8f0}
