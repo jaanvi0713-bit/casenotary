@@ -152,6 +152,48 @@ class MailService
         return self::send($client['email'], ($subjects[$event] ?? 'Appointment: ') . $appointment['title'], $body);
     }
 
+    public static function sendAppointmentRequestEmail(array $client, array $appointment): bool
+    {
+        $name  = clientFullName($client) ?: 'Client';
+        $start = appointmentStart($appointment);
+
+        $body = self::wrapTemplate(
+            'Appointment Request Received',
+            '<p>Dear ' . e($name) . ',</p>'
+            . '<p>We received your appointment request and will review it shortly. You will be notified once it is confirmed.</p>'
+            . '<p><strong>' . e($appointment['title']) . '</strong><br>'
+            . '<strong>Preferred time:</strong> ' . e(formatDateTime($start)) . '<br>'
+            . '<strong>Location:</strong> ' . e($appointment['location'] ?: 'To be confirmed') . '</p>'
+            . (!empty($appointment['description']) ? '<p>' . nl2br(e($appointment['description'])) . '</p>' : '')
+            . '<p><a href="' . e(clientUrl('pages/appointments.php')) . '" style="color:#3aafa9;">View in Client Portal</a></p>'
+        );
+
+        return self::send($client['email'], 'Appointment request received — ' . $appointment['title'], $body);
+    }
+
+    public static function sendAppointmentRequestAdminEmail(array $client, array $appointment): bool
+    {
+        $company = getCompanySettings();
+        $to      = trim($company['office_email'] ?? '');
+        if ($to === '') {
+            return false;
+        }
+
+        $start = appointmentStart($appointment);
+        $body  = self::wrapTemplate(
+            'New Appointment Request',
+            '<p><strong>Client:</strong> ' . e(clientFullName($client)) . '<br>'
+            . '<strong>Email:</strong> ' . e($client['email'] ?? '') . '</p>'
+            . '<p><strong>' . e($appointment['title']) . '</strong><br>'
+            . '<strong>Preferred time:</strong> ' . e(formatDateTime($start)) . '<br>'
+            . '<strong>Location:</strong> ' . e($appointment['location'] ?: 'Not specified') . '</p>'
+            . (!empty($appointment['description']) ? '<p>' . nl2br(e($appointment['description'])) . '</p>' : '')
+            . '<p><a href="' . e(url('pages/appointments.php')) . '" style="color:#3aafa9;">Review in Admin Portal</a></p>'
+        );
+
+        return self::send($to, 'New appointment request — ' . clientFullName($client), $body);
+    }
+
     private static function wrapTemplate(string $title, string $content): string
     {
         $company     = getCompanySettings();

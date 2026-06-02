@@ -68,6 +68,72 @@ class AppointmentService
         return $id;
     }
 
+    public static function createClientRequest(array $data, int $clientId): int
+    {
+        $title = trim($data['title'] ?? '');
+        if ($title === '') {
+            throw new RuntimeException('Please enter a title for your appointment request.');
+        }
+
+        $client = ClientService::getById($clientId);
+        if (!$client) {
+            throw new RuntimeException('Client profile not found.');
+        }
+
+        $startsAt = normalizeDateTimeInput(trim($data['starts_at'] ?? ''));
+        $endsAt   = normalizeDateTimeInput(trim($data['ends_at'] ?? ''));
+
+        if ($startsAt === '') {
+            throw new RuntimeException('Preferred date and start time are required.');
+        }
+
+        $startTs = strtotime($startsAt);
+        if ($startTs === false || $startTs < strtotime('-15 minutes')) {
+            throw new RuntimeException('Preferred date and time must be in the future.');
+        }
+
+        if ($endsAt === '') {
+            $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
+        } else {
+            $endsAt = normalizeAppointmentEndTime($startsAt, $endsAt);
+        }
+
+        $caseId      = resolveAppointmentCaseId(
+            $clientId,
+            !empty($data['case_id']) ? (int) $data['case_id'] : null
+        );
+        $description = trim($data['description'] ?? '') ?: null;
+        $location    = trim($data['location'] ?? '') ?: null;
+        $status      = 'requested';
+
+        try {
+            $id = Database::insert(
+                'INSERT INTO appointments (case_id, client_id, admin_id, title, description, starts_at, ends_at, location, status, created_at, updated_at)
+                 VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+                [$caseId, $clientId, $title, $description, $startsAt, $endsAt, $location, $status]
+            );
+        } catch (Throwable $e) {
+            $id = Database::insert(
+                'INSERT INTO appointments (case_id, client_id, admin_id, title, description, start_time, end_time, location, status, created_at, updated_at)
+                 VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+                [$caseId, $clientId, $title, $description, $startsAt, $endsAt, $location, $status]
+            );
+        }
+
+        $appointment = self::getById($id);
+        self::notifyAppointment($client, $appointment ?? [
+            'id'          => $id,
+            'title'       => $title,
+            'starts_at'   => $startsAt,
+            'ends_at'     => $endsAt,
+            'location'    => $location,
+            'description' => $description,
+            'status'      => $status,
+        ], [], 'requested');
+
+        return $id;
+    }
+
     public static function update(int $id, array $data): void
     {
         $appointment = self::getById($id);
@@ -155,18 +221,30 @@ class AppointmentService
 
         $client = ClientService::getById((int) ($appointment['client_id'] ?? 0));
         if ($client) {
-            try {
-                $calendar = GoogleCalendarService::syncAppointment($id, $client);
-            } catch (Throwable $e) {
+            $previousStatus = strtolower(trim($appointment['status'] ?? ''));
+            $newStatus      = strtolower(trim($fields['status']));
+
+            if (!in_array($newStatus, ['requested'], true)) {
+                try {
+                    $calendar = GoogleCalendarService::syncAppointment($id, $client);
+                } catch (Throwable $e) {
+                    $calendar = [];
+                }
+            } else {
                 $calendar = [];
             }
-            $updated  = self::getById($id);
+
+            $updated = self::getById($id);
             if ($updated) {
                 if (!empty($calendar['url'])) {
                     $updated['meeting_link'] = $calendar['url'];
                 }
                 try {
-                    self::notifyAppointment($client, $updated, $calendar, 'updated');
+                    if ($previousStatus === 'requested' && in_array($newStatus, ['scheduled', 'confirmed'], true)) {
+                        self::notifyAppointment($client, $updated, $calendar, 'scheduled');
+                    } elseif ($previousStatus !== 'requested' || $newStatus !== 'requested') {
+                        self::notifyAppointment($client, $updated, $calendar, 'updated');
+                    }
                 } catch (Throwable $e) {
                     // Appointment saved; notification failure should not block the update
                 }
@@ -231,50 +309,69 @@ class AppointmentService
     private static function notifyAppointment(array $client, array $appointment, array $calendar = [], string $event = 'scheduled'): void
     {
         $appointmentId = (int) ($appointment['id'] ?? 0);
-        $links = GoogleCalendarService::getCalendarLinks($appointmentId, $appointment, $client, true);
+        $links = $event === 'requested'
+            ? []
+            : GoogleCalendarService::getCalendarLinks($appointmentId, $appointment, $client, true);
 
         if (!empty($client['email'])) {
-            MailService::sendAppointmentEmail($client, $appointment, $links, $event);
+            if ($event === 'requested') {
+                MailService::sendAppointmentRequestEmail($client, $appointment);
+            } else {
+                MailService::sendAppointmentEmail($client, $appointment, $links, $event);
+            }
         }
 
         $userId = (int) ($client['user_id'] ?? 0);
         $start  = formatDateTime(appointmentStart($appointment));
 
         $titles = [
+            'requested' => 'Appointment request submitted',
             'scheduled' => 'Appointment scheduled',
             'updated'   => 'Appointment updated',
             'cancelled' => 'Appointment cancelled',
         ];
 
-        $clientMessage = ($appointment['title'] ?? 'Appointment') . ' — ' . $start;
-        if ($event === 'cancelled') {
-            $clientMessage = ($appointment['title'] ?? 'Appointment') . ' on ' . $start . ' has been cancelled.';
-        }
+        $clientMessages = [
+            'requested' => ($appointment['title'] ?? 'Appointment') . ' — pending approval. Preferred time: ' . $start,
+            'scheduled' => ($appointment['title'] ?? 'Appointment') . ' — ' . $start,
+            'updated'   => ($appointment['title'] ?? 'Appointment') . ' — ' . $start,
+            'cancelled' => ($appointment['title'] ?? 'Appointment') . ' on ' . $start . ' has been cancelled.',
+        ];
 
         if ($userId > 0) {
             createNotification(
                 $userId,
                 $titles[$event] ?? 'Appointment update',
-                $clientMessage,
+                $clientMessages[$event] ?? (($appointment['title'] ?? 'Appointment') . ' — ' . $start),
                 'appointment',
                 clientUrl('pages/appointments.php')
             );
         }
 
         $adminTitles = [
+            'requested' => 'New appointment request',
             'scheduled' => 'Appointment scheduled',
             'updated'   => 'Appointment updated',
             'cancelled' => 'Appointment cancelled',
         ];
 
+        $adminMessage = clientFullName($client) . ' — ' . ($appointment['title'] ?? 'Appointment') . ' (' . $start . ')';
+        if ($event === 'requested') {
+            $adminMessage = clientFullName($client) . ' requested "' . ($appointment['title'] ?? 'Appointment') . '" for ' . $start;
+        }
+
         foreach (Database::fetchAll("SELECT id FROM users WHERE role = 'admin' AND status = 'active'") as $admin) {
             createNotification(
                 (int) $admin['id'],
                 $adminTitles[$event] ?? 'Appointment update',
-                clientFullName($client) . ' — ' . ($appointment['title'] ?? 'Appointment') . ' (' . $start . ')',
+                $adminMessage,
                 'appointment',
                 url('pages/appointments.php')
             );
+        }
+
+        if ($event === 'requested') {
+            MailService::sendAppointmentRequestAdminEmail($client, $appointment);
         }
     }
 }

@@ -78,4 +78,13 @@ if (!columnExists($pdo, 'company_settings', 'business_hours')) {
     echo "[OK] company_settings.business_hours already exists\n";
 }
 
+try {
+    $pdo->exec(
+        "ALTER TABLE appointments MODIFY status ENUM('requested', 'scheduled', 'confirmed', 'completed', 'cancelled', 'no_show') NOT NULL DEFAULT 'scheduled'"
+    );
+    echo "[OK] appointments.status includes requested\n";
+} catch (Throwable $e) {
+    echo "[SKIP] appointments.status requested: {$e->getMessage()}\n";
+}
+
 echo "\nWorkflow migration complete.\n";
