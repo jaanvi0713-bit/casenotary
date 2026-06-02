@@ -24,6 +24,8 @@ if ($page > $totalPages) {
 $notifications = getNotificationsPaginated($userId, $page, $perPage, $q, $readFilter);
 $unreadCount = getUnreadNotificationCount($userId);
 $pageSubtitle = $unreadCount . ' unread';
+$showingFrom = $totalNotifications > 0 ? paginationOffset($page, $perPage) + 1 : 0;
+$showingTo = min($totalNotifications, $page * $perPage);
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -83,9 +85,9 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                 <?php endforeach; ?>
             </div>
-            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-2 border-top">
                 <small class="text-muted">
-                    Showing <?= count($notifications) ?> of <?= $totalNotifications ?> notifications
+                    Showing <?= $showingFrom ?>–<?= $showingTo ?> of <?= $totalNotifications ?> notifications
                 </small>
                 <?= renderPaginationNav($page, $totalPages) ?>
             </div>

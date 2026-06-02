@@ -2221,7 +2221,12 @@ body.sidebar-collapsed .main-content {
 }
 
 .notification-list-item:hover { background: var(--gray-50); }
-.notification-list-item.unread { border-left: 3px solid var(--primary); }
+.notification-list-item.unread {
+    background: rgba(58, 175, 169, 0.06);
+}
+.notification-list-item.unread:hover {
+    background: rgba(58, 175, 169, 0.1);
+}
 
 .notif-icon {
     width: 36px;
@@ -3702,6 +3707,7 @@ body.sidebar-collapsed.page-chatbot .chatbot-sidebar-open {
 .notification-list-body { flex: 1; min-width: 0; }
 
 .notification-list-icon {
+    position: relative;
     width: 40px;
     height: 40px;
     border-radius: 10px;
@@ -3711,6 +3717,19 @@ body.sidebar-collapsed.page-chatbot .chatbot-sidebar-open {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+}
+
+.notification-list-item.unread .notification-list-icon::after {
+    content: "";
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(58, 175, 169, 0.35);
 }
 
 .notification-list-actions {
