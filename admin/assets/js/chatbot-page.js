@@ -539,18 +539,38 @@
 
             try {
                 const csrfToken = getCsrfToken();
-                const response = await fetch(apiUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRF-Token": csrfToken
-                    },
-                    body: JSON.stringify({
-                        message: trimmed,
-                        conversation_id: activeConversationId || 0,
-                        _csrf_token: csrfToken
-                    })
-                });
+                let response;
+
+                if (files.length) {
+                    const formData = new FormData();
+                    formData.append("message", trimmed);
+                    formData.append("conversation_id", String(activeConversationId || 0));
+                    formData.append("_csrf_token", csrfToken);
+                    files.forEach(function(file) {
+                        formData.append("attachments[]", file);
+                    });
+
+                    response = await fetch(apiUrl, {
+                        method: "POST",
+                        headers: {
+                            "X-CSRF-Token": csrfToken
+                        },
+                        body: formData
+                    });
+                } else {
+                    response = await fetch(apiUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-Token": csrfToken
+                        },
+                        body: JSON.stringify({
+                            message: trimmed,
+                            conversation_id: activeConversationId || 0,
+                            _csrf_token: csrfToken
+                        })
+                    });
+                }
 
                 let data = null;
                 try { data = await response.json(); } catch (e) { data = null; }
@@ -558,7 +578,10 @@
                 hideTyping();
 
                 if (!response.ok || !data) {
-                    appendMessage("Unable to reach the AI assistant. Please try again.", "bot");
+                    const errText = data && data.message
+                        ? data.message
+                        : "Unable to reach the AI assistant (HTTP " + response.status + "). Please refresh and try again.";
+                    appendMessage(errText, "bot");
                     return;
                 }
 

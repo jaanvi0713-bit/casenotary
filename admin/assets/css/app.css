@@ -2628,9 +2628,69 @@ body.sidebar-collapsed .main-content {
     flex-shrink: 0;
 }
 
+.chatbot-input-hint {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--gray-600);
+    line-height: 1.4;
+}
+
+
+.chat-attachment-preview {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0 0.75rem;
+}
+
+.chat-attach-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.5rem 0.35rem 0.65rem;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    max-width: 100%;
+}
+
+.chat-attach-chip-name {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chat-attach-remove {
+    border: none;
+    background: transparent;
+    color: var(--gray-600);
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.chat-attach-remove:hover {
+    color: var(--danger, #dc3545);
+}
+
+.chatbot-attach-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+}
+
 .chatbot-form {
     display: flex;
     gap: 0.75rem;
+    align-items: flex-end;
 }
 
 .chatbot-form .form-control {

@@ -11,6 +11,10 @@ function chatbotExtractAppointmentStatusFilter(string $message): ?string
 {
     $normalized = strtolower(trim($message));
 
+    if (preg_match('/^(requested|scheduled|confirmed|cancelled|canceled|completed)$/', $normalized)) {
+        return $normalized === 'canceled' ? 'cancelled' : $normalized;
+    }
+
     if (preg_match('/\b(cancelled|canceled)\b/', $normalized)) {
         return 'cancelled';
     }
@@ -30,39 +34,81 @@ function chatbotExtractAppointmentStatusFilter(string $message): ?string
     return null;
 }
 
-function chatbotFormatAppointmentListWithLinks(array $rows, string $heading): string
-{
-    if ($rows === []) {
-        return str_replace(':**', ' yet:**', $heading);
-    }
-
-    $lines = [$heading, ''];
-    foreach ($rows as $row) {
-        $when = !empty($row['start_time']) ? formatDateTime($row['start_time']) : 'TBD';
-        $client = clientFullName($row);
-        $status = ucfirst($row['status'] ?? 'scheduled');
-        $line = '• **' . ($row['title'] ?? 'Appointment') . '** — '
-            . $when . ' — ' . $client . " (*{$status}*)";
-        if (!empty($row['id'])) {
-            $line .= ' — ' . chatbotAdminLink('pages/appointments.php', 'Open');
-        }
-        $lines[] = $line;
-    }
-
-    $lines[] = '';
-    $lines[] = chatbotAdminLink('pages/appointments.php', 'View all appointments');
-
-    return implode("\n", $lines);
-}
-
-function chatbotReplyForAppointmentQueries(string $message): ?string
+function chatbotIsAppointmentRelatedMessage(string $message): bool
 {
     $normalized = strtolower(trim($message));
 
-    if (!preg_match('/\b(appointment|appointments|schedule|meeting|calendar)\b/', $normalized)) {
-        return null;
+    if (preg_match('/\b(appointment|appointments|schedule|meeting|calendar)\b/', $normalized)) {
+        return true;
     }
 
+    if (preg_match('/^(requested|scheduled|confirmed|cancelled|canceled|completed)$/', $normalized)) {
+        return true;
+    }
+
+    if (!empty($_SESSION['chatbot_appointment_pending']) && is_array($_SESSION['chatbot_appointment_pending'])) {
+        if (chatbotIsAdviceOrHowToQuery($message) || chatbotIsGeneralQuestion($message)) {
+            return false;
+        }
+
+        return chatbotWantsAppointmentListFollowUp($normalized)
+            || chatbotLooksLikeAppointmentClientRefinement($message);
+    }
+
+    return false;
+}
+
+function chatbotWantsAppointmentListFollowUp(string $normalized): bool
+{
+    return (bool) preg_match(
+        '/^(yes|yeah|yep|sure|ok|okay|list|list them|list all|show|show them|show all|show me|all of them|every one|go on|continue)$/',
+        $normalized
+    ) || (bool) preg_match(
+        '/\b(list them|list them all|list all|show all|show them|show me all|all appointments|every appointment)\b/',
+        $normalized
+    );
+}
+
+function chatbotLooksLikeAppointmentClientRefinement(string $message): bool
+{
+    $normalized = strtolower(trim($message));
+
+    if (chatbotIsAdviceOrHowToQuery($message)) {
+        return false;
+    }
+
+    if (preg_match('/^(how|what|why|when|where|can|should|is|are|do|does)\s+/i', trim($message))) {
+        return false;
+    }
+
+    if (preg_match('/\b(for|about|from)\s+(.{2,})/', $normalized)) {
+        return true;
+    }
+
+    if (preg_match('/\b(client|customer)\s+(.{2,})/', $normalized)) {
+        return true;
+    }
+
+    if (preg_match('/\bwith\s+([a-z][a-z\s\'-]{1,40})$/i', $normalized, $matches)) {
+        $fragment = strtolower(trim($matches[1]));
+        if (!preg_match('/\b(tough|difficult|angry|problem|challenging|upset|hostile)\b/', $fragment)) {
+            return true;
+        }
+    }
+
+    $term = chatbotNormalizeLookupTerm($message);
+
+    return $term !== '' && strlen($term) >= 2 && str_word_count($term) <= 4
+        && !chatbotWantsAppointmentListFollowUp($normalized)
+        && !preg_match('/\b(how many|list all|show all|how to|deal with|handle)\b/', $normalized);
+}
+
+/**
+ * @return array{where_sql: string, params: list<mixed>, label: string, status: ?string}
+ */
+function chatbotBuildAppointmentFilter(string $message): array
+{
+    $normalized = strtolower(trim($message));
     $statusFilter = chatbotExtractAppointmentStatusFilter($message);
     $startSql = appointmentStartSql('a');
     $endSql = appointmentEndSql('a');
@@ -74,72 +120,225 @@ function chatbotReplyForAppointmentQueries(string $message): ?string
         $params[] = $statusFilter;
     }
 
-    if (preg_match('/\b(upcoming|future|next)\b/', $normalized)) {
+    $upcomingOnly = (bool) preg_match('/\b(upcoming|future|next)\b/', $normalized);
+    if ($upcomingOnly) {
         $where[] = "a.status IN ('scheduled', 'confirmed')";
         $where[] = "({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))";
     }
 
+    $label = match (true) {
+        $statusFilter !== null => strtolower($statusFilter) . ' appointments',
+        $upcomingOnly => 'upcoming appointments',
+        default => 'appointments',
+    };
+
+    return [
+        'where_sql' => implode(' AND ', $where),
+        'params'    => $params,
+        'label'     => $label,
+        'status'    => $statusFilter,
+        'upcoming'  => $upcomingOnly,
+    ];
+}
+
+/**
+ * @param array{where_sql: string, params: list<mixed>, label: string} $filter
+ * @return list<array<string, mixed>>
+ */
+function chatbotFetchAppointmentsForFilter(array $filter, ?int $clientId = null, int $limit = 20): array
+{
+    $startSql = appointmentStartSql('a');
+    $where = [$filter['where_sql']];
+    $params = $filter['params'];
+
+    if ($clientId !== null && $clientId > 0) {
+        $where[] = 'a.client_id = ?';
+        $params[] = $clientId;
+    }
+
     $whereSql = implode(' AND ', $where);
 
-    if (chatbotWantsCount($normalized) || preg_match('/\bhow many\b/', $normalized)) {
-        $count = (int) (Database::fetch(
-            "SELECT COUNT(*) AS c FROM appointments a WHERE {$whereSql}",
-            $params
-        )['c'] ?? 0);
+    return Database::fetchAll(
+        "SELECT a.id, a.title, a.status, a.client_id, {$startSql} AS start_time,
+                cl.first_name, cl.last_name, cl.company_name, cl.email, cl.phone,
+                (SELECT COUNT(*) FROM cases cs WHERE cs.client_id = cl.id) AS case_count
+         FROM appointments a
+         LEFT JOIN clients cl ON cl.id = a.client_id
+         WHERE {$whereSql}
+         ORDER BY {$startSql} ASC
+         LIMIT ?",
+        array_merge($params, [$limit])
+    );
+}
 
-        $label = $statusFilter !== null
-            ? strtolower($statusFilter) . ' appointments'
-            : (preg_match('/\bupcoming\b/', $normalized) ? 'upcoming appointments' : 'appointments');
+function chatbotCountAppointmentsForFilter(array $filter, ?int $clientId = null): int
+{
+    $where = [$filter['where_sql']];
+    $params = $filter['params'];
 
-        $lines = ["You have **{$count} {$label}**."];
-        $_SESSION['chatbot_last_topic'] = 'appointments';
+    if ($clientId !== null && $clientId > 0) {
+        $where[] = 'a.client_id = ?';
+        $params[] = $clientId;
+    }
 
-        if ($count > 0) {
-            $rows = Database::fetchAll(
-                "SELECT a.id, a.title, a.status, {$startSql} AS start_time,
-                        cl.first_name, cl.last_name, cl.company_name
-                 FROM appointments a
-                 LEFT JOIN clients cl ON cl.id = a.client_id
-                 WHERE {$whereSql}
-                 ORDER BY {$startSql} ASC
-                 LIMIT 8",
-                $params
-            );
-            $lines[] = '';
-            foreach ($rows as $row) {
-                $when = !empty($row['start_time']) ? formatDateTime($row['start_time']) : 'TBD';
-                $client = clientFullName($row);
-                $status = ucfirst($row['status'] ?? 'scheduled');
-                $lines[] = '• **' . ($row['title'] ?? 'Appointment') . '** — '
-                    . $when . ' — ' . $client . " (*{$status}*) — "
-                    . chatbotAdminLink('pages/appointments.php', 'Open');
-            }
+    return (int) (Database::fetch(
+        'SELECT COUNT(*) AS c FROM appointments a WHERE ' . implode(' AND ', $where),
+        $params
+    )['c'] ?? 0);
+}
+
+function chatbotFormatAppointmentDetailList(array $rows, string $heading): string
+{
+    if ($rows === []) {
+        return str_replace(':**', ' yet:**', $heading);
+    }
+
+    $lines = [$heading, ''];
+
+    foreach ($rows as $row) {
+        $when = !empty($row['start_time']) ? formatDateTime($row['start_time']) : 'TBD';
+        $client = clientFullName($row);
+        if ($client === '' || $client === ' ') {
+            $client = '— (no client linked)';
+        }
+        $status = ucwords(str_replace('_', ' ', $row['status'] ?? 'scheduled'));
+        $cases = (int) ($row['case_count'] ?? 0);
+        $email = trim((string) ($row['email'] ?? ''));
+        $phone = trim((string) ($row['phone'] ?? ''));
+
+        $lines[] = '• **' . ($row['title'] ?? 'Appointment') . '** — ' . $when . " (*{$status}*)";
+        $lines[] = '  Client: **' . $client . '** · **' . $cases . '** case(s)'
+            . ($email !== '' ? ' · ' . $email : '')
+            . ($phone !== '' ? ' · ' . $phone : '');
+        $lines[] = '  ' . chatbotAdminLink('pages/appointments.php', 'Open in calendar');
+        $lines[] = '';
+    }
+
+    $lines[] = chatbotAdminLink('pages/appointments.php', 'View all appointments');
+
+    return implode("\n", $lines);
+}
+
+function chatbotSetAppointmentPendingContext(array $filter, int $count): void
+{
+    $_SESSION['chatbot_appointment_pending'] = [
+        'where_sql' => $filter['where_sql'],
+        'params'    => $filter['params'],
+        'label'     => $filter['label'],
+        'status'    => $filter['status'] ?? null,
+        'count'     => $count,
+    ];
+    $_SESSION['chatbot_last_topic'] = 'appointments';
+}
+
+function chatbotReplyForAppointmentFollowUp(string $message): ?string
+{
+    $pending = $_SESSION['chatbot_appointment_pending'] ?? null;
+    if (!is_array($pending) || empty($pending['where_sql'])) {
+        return null;
+    }
+
+    $normalized = strtolower(trim($message));
+    $filter = [
+        'where_sql' => (string) $pending['where_sql'],
+        'params'    => is_array($pending['params'] ?? null) ? $pending['params'] : [],
+        'label'     => (string) ($pending['label'] ?? 'appointments'),
+        'status'    => $pending['status'] ?? null,
+    ];
+
+    $clientId = null;
+    $clientTerm = '';
+
+    if (preg_match('/\b(?:for|about|from|with|client)\s+(.+)/', $normalized, $matches)) {
+        $clientTerm = trim($matches[1]);
+    } elseif (chatbotLooksLikeAppointmentClientRefinement($message)) {
+        $clientTerm = chatbotNormalizeLookupTerm($message);
+    }
+
+    if ($clientTerm !== '') {
+        $clients = findClientsForChatbot($clientTerm, 5);
+        if (count($clients) === 0) {
+            return 'I could not find a client matching **“' . $clientTerm . '”**. '
+                . 'Try again with a full name, or say **list all** to see every ' . $filter['label'] . '.';
         }
 
-        $lines[] = '';
-        $lines[] = chatbotAdminLink('pages/appointments.php', 'View all appointments');
+        if (count($clients) > 1) {
+            $lines = ['I found **' . count($clients) . ' clients** matching “' . $clientTerm . '”:', ''];
+            foreach ($clients as $client) {
+                $name = clientFullName($client);
+                $lines[] = '• **' . $name . '** — ' . (int) ($client['case_count'] ?? 0) . ' case(s)';
+            }
+            $lines[] = '';
+            $lines[] = 'Reply with a **full name** to see that client\'s ' . $filter['label'] . '.';
 
-        return implode("\n", $lines);
-    }
+            return implode("\n", $lines);
+        }
 
-    if (chatbotWantsList($normalized) || preg_match('/\blist|\bshow|\bupcoming\b/', $normalized)) {
-        $rows = Database::fetchAll(
-            "SELECT a.id, a.title, a.status, {$startSql} AS start_time,
-                    cl.first_name, cl.last_name, cl.company_name
-             FROM appointments a
-             LEFT JOIN clients cl ON cl.id = a.client_id
-             WHERE {$whereSql}
-             ORDER BY {$startSql} ASC
-             LIMIT 12",
-            $params
+        $clientId = (int) $clients[0]['id'];
+        $name = clientFullName($clients[0]);
+        $rows = chatbotFetchAppointmentsForFilter($filter, $clientId, 15);
+        $count = count($rows);
+
+        if ($count === 0) {
+            return "**{$name}** has no {$filter['label']} matching this filter.";
+        }
+
+        unset($_SESSION['chatbot_appointment_pending']);
+
+        return chatbotFormatAppointmentDetailList(
+            $rows,
+            "**{$filter['label']} for {$name}** ({$count}):"
         );
-
-        $_SESSION['chatbot_last_topic'] = 'appointments';
-
-        return chatbotFormatAppointmentListWithLinks($rows, '**Appointments:**');
     }
 
-    return null;
+    if (!chatbotWantsAppointmentListFollowUp($normalized)) {
+        return null;
+    }
+
+    $rows = chatbotFetchAppointmentsForFilter($filter, null, 25);
+    unset($_SESSION['chatbot_appointment_pending']);
+
+    return chatbotFormatAppointmentDetailList(
+        $rows,
+        '**' . ucfirst($filter['label']) . '** (' . count($rows) . '):'
+    );
+}
+
+function chatbotReplyForAppointmentQueries(string $message): ?string
+{
+    if (!chatbotIsAppointmentRelatedMessage($message)) {
+        return null;
+    }
+
+    $followUp = chatbotReplyForAppointmentFollowUp($message);
+    if ($followUp !== null) {
+        return $followUp;
+    }
+
+    $normalized = strtolower(trim($message));
+    $filter = chatbotBuildAppointmentFilter($message);
+
+    if (chatbotWantsList($normalized)
+        || preg_match('/\blist all\b|\bshow all\b|\bshow me all\b/', $normalized)) {
+        $rows = chatbotFetchAppointmentsForFilter($filter, null, 25);
+        unset($_SESSION['chatbot_appointment_pending']);
+
+        return chatbotFormatAppointmentDetailList($rows, '**' . ucfirst($filter['label']) . ':**');
+    }
+
+    $count = chatbotCountAppointmentsForFilter($filter);
+    chatbotSetAppointmentPendingContext($filter, $count);
+
+    if ($count === 0) {
+        unset($_SESSION['chatbot_appointment_pending']);
+
+        return 'You have **0 ' . $filter['label'] . '**. '
+            . chatbotAdminLink('pages/appointments.php', 'Open appointments');
+    }
+
+    return 'You have **' . $count . ' ' . $filter['label'] . '**.' . "\n\n"
+        . 'Would you like me to **list them all** with client details and case counts, '
+        . 'or look up a **specific client** (e.g. *“for Emily Chen”* or just *“Emily”*)?';
 }
 
 function chatbotFormatNotificationListWithLinks(array $rows, string $heading, ?int $unreadCount = null): string
@@ -314,10 +513,58 @@ function chatbotIsAdviceOrHowToQuery(string $message): bool
 {
     $normalized = strtolower(trim($message));
 
-    return (bool) preg_match(
-        '/\b(how to handle|how should i|what should i|advice|best way|deal with|handle a|handle tough|difficult client|tips for|recommend|suggest|what would you|help me with a|guide me on)\b/',
+    if (preg_match(
+        '/\b(how to|how do i|how should|what should|how can i|ways to|tips for|advice|best way|'
+        . 'deal with|handle a|handle tough|difficult client|recommend|suggest|what would you|'
+        . 'help me with|guide me|explain|tell me about|what is the best)\b/',
         $normalized
-    );
+    )) {
+        return true;
+    }
+
+    return (bool) preg_match('/^(how|what|why|when|where|can|should|is|are|do|does)\s+/i', trim($message))
+        && !chatbotIsSystemDataQuestion($message);
+}
+
+function chatbotReplyForAdviceAndGeneral(string $message): ?string
+{
+    if (!chatbotIsAdviceOrHowToQuery($message) && !chatbotIsGeneralQuestion($message)) {
+        return null;
+    }
+
+    if (chatbotIsSystemDataQuestion($message) && chatbotWantsCount(strtolower($message))) {
+        return null;
+    }
+
+    unset($_SESSION['chatbot_appointment_pending']);
+
+    $open = chatbotReplyForOpenEndedLocal($message);
+    if ($open !== null) {
+        return $open;
+    }
+
+    $general = chatbotReplyForGeneralKnowledge($message);
+    if ($general !== null) {
+        return $general;
+    }
+
+    $template = chatbotReplyForGeneralizedTemplate($message);
+    if ($template !== null) {
+        return $template;
+    }
+
+    $fused = chatbotFuseKnowledgeByKeywords($message);
+    if ($fused !== null) {
+        return $fused;
+    }
+
+    if (chatbotIsGeneralQuestion($message)) {
+        $subject = chatbotExtractQuestionSubject($message);
+
+        return chatbotTemplateOpenAnswer($subject, $message);
+    }
+
+    return null;
 }
 
 function chatbotIsDocumentDataQuery(string $normalized): bool

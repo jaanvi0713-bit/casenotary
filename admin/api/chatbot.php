@@ -104,27 +104,59 @@ if ($action !== '') {
     }
 }
 
-if ($message === '') {
-    echo json_encode(['success' => false, 'message' => 'Please enter a message.']);
+$hasUploads = false;
+if ($isMultipart && !empty($_FILES['attachments'])) {
+    $uploadNames = $_FILES['attachments']['name'] ?? '';
+    if (is_array($uploadNames)) {
+        foreach ($uploadNames as $uploadName) {
+            if (trim((string) $uploadName) !== '') {
+                $hasUploads = true;
+                break;
+            }
+        }
+    } else {
+        $hasUploads = trim((string) $uploadNames) !== '';
+    }
+}
+
+if ($message === '' && !$hasUploads) {
+    echo json_encode(['success' => false, 'message' => 'Please enter a message or attach a file.']);
     exit;
 }
 
 try {
-    $reply = ChatbotService::reply($message);
+    if ($hasUploads) {
+        $reply = ChatbotService::replyWithAttachments($message, $_FILES['attachments']);
+    } else {
+        $reply = ChatbotService::reply($message);
+    }
+
+    $attachmentNames = '';
+    if ($hasUploads) {
+        $names = is_array($_FILES['attachments']['name'] ?? null)
+            ? $_FILES['attachments']['name']
+            : [$_FILES['attachments']['name']];
+        $attachmentNames = implode('|', array_filter(array_map('strval', $names)));
+    }
 
     $response = ['success' => true, 'reply' => $reply];
 
     if (ChatbotChatStore::isAvailable()) {
         $saved = ChatbotChatStore::appendExchange($userId, $conversationId, [
-            ['type' => 'user', 'text' => $message, 'attachments' => ''],
+            ['type' => 'user', 'text' => $message ?: '(attached files)', 'attachments' => $attachmentNames],
             ['type' => 'bot', 'text' => $reply, 'attachments' => ''],
         ]);
         $response['conversation_id'] = (int) ($saved['id'] ?? 0);
         $response['conversation_title'] = (string) ($saved['title'] ?? 'New chat');
     }
 
-    echo json_encode($response);
+    echo json_encode($response, JSON_INVALID_UTF8_SUBSTITUTE);
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Assistant error. Please try again.']);
+    $config = require __DIR__ . '/../config/config.php';
+    $errorMessage = 'Assistant error. Please try again.';
+    if (!empty($config['debug'])) {
+        $errorMessage = 'Assistant error: ' . $e->getMessage();
+    }
+    echo json_encode(['success' => false, 'message' => $errorMessage], JSON_INVALID_UTF8_SUBSTITUTE);
 }

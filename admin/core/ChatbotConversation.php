@@ -39,7 +39,8 @@ function chatbotClearSession(): void
     unset(
         $_SESSION['chatbot_last_topic'],
         $_SESSION['chatbot_last_entity'],
-        $_SESSION['chatbot_history']
+        $_SESSION['chatbot_history'],
+        $_SESSION['chatbot_appointment_pending']
     );
 }
 

@@ -42,6 +42,11 @@ class ChatbotService
             return $calculation;
         }
 
+        $adviceOrGeneral = chatbotReplyForAdviceAndGeneral($message);
+        if ($adviceOrGeneral !== null) {
+            return $adviceOrGeneral;
+        }
+
         $appointments = chatbotReplyForAppointmentQueries($message);
         if ($appointments !== null) {
             return $appointments;

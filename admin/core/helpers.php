@@ -2653,7 +2653,7 @@ function generateChatbotReply(string $message): string
         }
     }
 
-    if (preg_match('/appointment|schedule/', $message)) {
+    if (preg_match('/appointment|schedule/', $message) || function_exists('chatbotIsAppointmentRelatedMessage') && chatbotIsAppointmentRelatedMessage($message)) {
         if (function_exists('chatbotReplyForAppointmentQueries')) {
             $appointmentReply = chatbotReplyForAppointmentQueries($message);
             if ($appointmentReply !== null) {

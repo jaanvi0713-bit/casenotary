@@ -103,7 +103,7 @@ function chatbotReplyForGeneralKnowledge(string $message): ?string
             . '• Email **quotations** and **client letters** from the case page.\n'
             . '• Set case status to **Waiting for Client** when you need documents back.',
 
-        '/\b(tough client|difficult client|angry client|upset client|handle a client|handle an? tough|deal with a client|problem client|challenging client|complaint|unhappy client|hostile client|rude client)\b/' =>
+        '/\b(tough client|difficult client|angry client|upset client|handle a client|handle an? tough|deal with.{0,12}client|problem client|challenging client|complaint|unhappy client|hostile client|rude client)\b/' =>
             "**Handling a difficult client:**\n\n"
             . "1. **Stay calm & professional** — don't argue; listen first.\n"
             . "2. **Clarify the issue** — repeat their concern in your own words so they feel heard.\n"

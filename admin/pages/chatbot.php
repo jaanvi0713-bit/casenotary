@@ -61,8 +61,19 @@ require __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                     <div class="chatbot-input-area">
-                        <form id="chatForm" class="chatbot-form">
+                        <div id="chatAttachmentPreview" class="chat-attachment-preview d-none" aria-live="polite"></div>
+                        <form id="chatForm" class="chatbot-form" enctype="multipart/form-data">
                             <?= CSRF::field() ?>
+                            <input type="file"
+                                   id="chatAttachments"
+                                   name="attachments[]"
+                                   class="d-none"
+                                   multiple
+                                   accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.doc,.docx,image/*">
+                            <button type="button" class="btn btn-soft chatbot-attach-btn" id="chatAttachBtn"
+                                    title="Attach up to 10 files" aria-label="Attach files">
+                                <i class="bi bi-paperclip"></i>
+                            </button>
                             <input type="text" class="form-control" id="chatInput" name="message"
                                    placeholder="Ask anything… e.g. &quot;morning briefing&quot;"
                                    autocomplete="off">
@@ -70,6 +81,9 @@ require __DIR__ . '/../includes/header.php';
                                 <i class="bi bi-send-fill"></i>
                             </button>
                         </form>
+                        <p class="chatbot-input-hint mb-0">
+                            Attach images or PDFs (up to 10) using the clip button beside the message box.
+                        </p>
                     </div>
                 </div>
             </div>

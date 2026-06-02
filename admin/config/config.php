@@ -44,4 +44,11 @@ return [
     'security' => [
         'csrf_token_name' => '_csrf_token',
     ],
+
+    'chatbot' => [
+        'max_attachments' => 10,
+        'max_size'        => 10 * 1024 * 1024,
+        'allowed_types'   => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'doc', 'docx'],
+        'upload_path'     => __DIR__ . '/../uploads/chatbot/',
+    ],
 ];
