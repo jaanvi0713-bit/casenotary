@@ -4,10 +4,39 @@ require_once __DIR__ . '/../core/bootstrap.php';
 Auth::requireAdmin();
 
 $pageTitle = 'Appointments';
-$appointments = getAllAppointments();
+$allAppointments = getAllAppointments();
+$q = trim((string) ($_GET['q'] ?? ''));
+$statusFilter = trim((string) ($_GET['status'] ?? ''));
+$filteredAppointments = array_values(array_filter($allAppointments, static function (array $appt) use ($q, $statusFilter): bool {
+    if ($statusFilter !== '' && ($appt['status'] ?? '') !== $statusFilter) {
+        return false;
+    }
+
+    if ($q === '') {
+        return true;
+    }
+
+    $searchBlob = caseRowSearchBlob($appt, [
+        $appt['title'] ?? '',
+        clientFullName($appt),
+        appointmentCaseLabel($appt),
+        $appt['location'] ?? '',
+        $appt['description'] ?? '',
+    ]);
+
+    return stripos($searchBlob, $q) !== false;
+}));
+$perPage = 10;
+$page = requestPageNumber();
+$totalAppointments = count($filteredAppointments);
+$totalPages = max(1, (int) ceil($totalAppointments / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$appointments = array_slice($filteredAppointments, paginationOffset($page, $perPage), $perPage);
 $clients = getAllClients();
 $stats = getDashboardStats();
-$pendingRequests = count(array_filter($appointments, static fn(array $a): bool => ($a['status'] ?? '') === 'requested'));
+$pendingRequests = count(array_filter($allAppointments, static fn(array $a): bool => ($a['status'] ?? '') === 'requested'));
 $pageSubtitle = $stats['upcoming_appointments'] . ' upcoming'
     . ($pendingRequests > 0 ? ' · ' . $pendingRequests . ' pending request' . ($pendingRequests === 1 ? '' : 's') : '');
 
@@ -29,7 +58,7 @@ if ($addedId > 0) {
 }
 
 $calendarEvents = [];
-foreach ($appointments as $appt) {
+foreach ($allAppointments as $appt) {
     $start = appointmentEffectiveStart($appt);
     if (!$start) {
         continue;
@@ -96,9 +125,9 @@ require __DIR__ . '/../includes/header.php';
             <strong><i class="bi bi-inbox me-2"></i><?= $pendingRequests ?> appointment request<?= $pendingRequests === 1 ? '' : 's' ?> awaiting review</strong>
             <span class="d-block small mt-1">Open a request, set the status to Scheduled or Confirmed, and save to approve it.</span>
         </div>
-        <button type="button" class="btn btn-soft btn-sm" id="filterRequestedBtn">
+        <a href="<?= e(url('pages/appointments.php?status=requested')) ?>" class="btn btn-soft btn-sm">
             <i class="bi bi-funnel me-1"></i> Show requests
-        </button>
+        </a>
     </div>
 </div>
 <?php endif; ?>
@@ -136,23 +165,25 @@ require __DIR__ . '/../includes/header.php';
     <div class="saas-card-header appointment-list-header">
         <div>
             <h2 class="saas-card-title">Appointment List</h2>
-            <p class="saas-card-subtitle"><?= count($appointments) ?> total appointments</p>
+            <p class="saas-card-subtitle"><?= $totalAppointments ?> total appointments</p>
         </div>
     </div>
-    <div class="table-toolbar">
+    <form method="get" class="table-toolbar">
         <div class="table-search">
             <i class="bi bi-search"></i>
-            <input type="search" class="form-control form-control-sm" id="tableSearch" placeholder="Search by service...">
+            <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search by service...">
         </div>
-        <select class="form-select form-select-sm table-filter" id="statusFilter">
+        <select class="form-select form-select-sm table-filter" id="statusFilter" name="status">
             <option value="">All statuses</option>
-            <option value="requested">Requested</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="requested" <?= $statusFilter === 'requested' ? 'selected' : '' ?>>Requested</option>
+            <option value="scheduled" <?= $statusFilter === 'scheduled' ? 'selected' : '' ?>>Scheduled</option>
+            <option value="confirmed" <?= $statusFilter === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
+            <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
+            <option value="cancelled" <?= $statusFilter === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
         </select>
-    </div>
+        <button type="submit" class="btn btn-light btn-sm">Apply</button>
+        <a href="<?= url('pages/appointments.php') ?>" class="btn btn-soft btn-sm">Reset</a>
+    </form>
     <div class="card-body p-0">
         <?php if (empty($appointments)): ?>
             <div class="empty-state py-5">
@@ -248,6 +279,12 @@ require __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                <small class="text-muted">
+                    Showing <?= count($appointments) ?> of <?= $totalAppointments ?> appointments
+                </small>
+                <?= renderPaginationNav($page, $totalPages) ?>
             </div>
         <?php endif; ?>
     </div>

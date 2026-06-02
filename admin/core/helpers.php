@@ -1604,6 +1604,58 @@ function getAllNotifications(int $userId, int $limit = 100): array
     );
 }
 
+function countNotifications(int $userId, ?string $search = null, ?string $readFilter = null): int
+{
+    $search = normalizeSearchTerm($search);
+    $readFilter = normalizeSearchTerm($readFilter);
+    $where = ['user_id = ?'];
+    $params = [$userId];
+
+    if ($search !== '') {
+        $where[] = 'CONCAT_WS(" ", title, message, type) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+    if ($readFilter === 'unread') {
+        $where[] = 'is_read = 0';
+    } elseif ($readFilter === 'read') {
+        $where[] = 'is_read = 1';
+    }
+
+    $row = Database::fetch(
+        'SELECT COUNT(*) AS c FROM notifications WHERE ' . implode(' AND ', $where),
+        $params
+    );
+
+    return (int) ($row['c'] ?? 0);
+}
+
+function getNotificationsPaginated(int $userId, int $page, int $perPage = 10, ?string $search = null, ?string $readFilter = null): array
+{
+    $search = normalizeSearchTerm($search);
+    $readFilter = normalizeSearchTerm($readFilter);
+    $offset = paginationOffset($page, $perPage);
+    $where = ['user_id = ?'];
+    $params = [$userId];
+
+    if ($search !== '') {
+        $where[] = 'CONCAT_WS(" ", title, message, type) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+    if ($readFilter === 'unread') {
+        $where[] = 'is_read = 0';
+    } elseif ($readFilter === 'read') {
+        $where[] = 'is_read = 1';
+    }
+
+    $params[] = $perPage;
+    $params[] = $offset;
+
+    return Database::fetchAll(
+        'SELECT * FROM notifications WHERE ' . implode(' AND ', $where) . ' ORDER BY created_at DESC LIMIT ? OFFSET ?',
+        $params
+    );
+}
+
 function getPendingInvoices(): array
 {
     syncOverdueInvoices();
@@ -2062,32 +2114,247 @@ function paymentMethodBadge(string $method): string
     return sprintf('<span class="status-badge %s">%s</span>', $class, e($label));
 }
 
-function getAllClients(): array
+function requestPageNumber(string $param = 'page'): int
 {
+    $page = (int) ($_GET[$param] ?? 1);
+    return max(1, $page);
+}
+
+function paginationOffset(int $page, int $perPage): int
+{
+    return max(0, ($page - 1) * $perPage);
+}
+
+function buildPaginationUrl(int $page, string $pageParam = 'page'): string
+{
+    $query = $_GET;
+    $query[$pageParam] = $page;
+
+    return '?' . http_build_query($query);
+}
+
+function renderPaginationNav(int $page, int $totalPages, string $pageParam = 'page'): string
+{
+    if ($totalPages <= 1) {
+        return '';
+    }
+
+    $start = max(1, $page - 2);
+    $end = min($totalPages, $page + 2);
+    if ($end - $start < 4) {
+        if ($start === 1) {
+            $end = min($totalPages, $start + 4);
+        } elseif ($end === $totalPages) {
+            $start = max(1, $end - 4);
+        }
+    }
+
+    $html = '<nav aria-label="Pagination" class="saas-pagination-nav"><ul class="pagination pagination-sm mb-0">';
+
+    $prevDisabled = $page <= 1 ? ' disabled' : '';
+    $prevHref = $page > 1 ? buildPaginationUrl($page - 1, $pageParam) : '#';
+    $html .= '<li class="page-item' . $prevDisabled . '">'
+        . '<a class="page-link" href="' . e($prevHref) . '" aria-label="Previous">&laquo;</a></li>';
+
+    for ($i = $start; $i <= $end; $i++) {
+        $active = $i === $page ? ' active' : '';
+        $html .= '<li class="page-item' . $active . '">'
+            . '<a class="page-link" href="' . e(buildPaginationUrl($i, $pageParam)) . '">' . $i . '</a></li>';
+    }
+
+    $nextDisabled = $page >= $totalPages ? ' disabled' : '';
+    $nextHref = $page < $totalPages ? buildPaginationUrl($page + 1, $pageParam) : '#';
+    $html .= '<li class="page-item' . $nextDisabled . '">'
+        . '<a class="page-link" href="' . e($nextHref) . '" aria-label="Next">&raquo;</a></li>';
+
+    $html .= '</ul></nav>';
+
+    return $html;
+}
+
+function normalizeSearchTerm(?string $term): string
+{
+    return trim((string) $term);
+}
+
+function countClients(?string $search = null): int
+{
+    $search = normalizeSearchTerm($search);
+    $sql = 'SELECT COUNT(*) AS c FROM clients c';
+    $params = [];
+
+    if ($search !== '') {
+        $sql .= ' WHERE CONCAT_WS(" ", c.first_name, c.last_name, c.email, c.phone, c.company_name, c.address, c.city, c.state, c.country) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+
+    return (int) (Database::fetch($sql, $params)['c'] ?? 0);
+}
+
+function getClientsPaginated(int $page, int $perPage = 10, ?string $search = null): array
+{
+    $search = normalizeSearchTerm($search);
+    $offset = paginationOffset($page, $perPage);
+    $params = [];
+    $whereSql = '';
+
+    if ($search !== '') {
+        $whereSql = ' WHERE CONCAT_WS(" ", c.first_name, c.last_name, c.email, c.phone, c.company_name, c.address, c.city, c.state, c.country) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+
+    $params[] = $perPage;
+    $params[] = $offset;
+
     return Database::fetchAll(
         'SELECT c.*, c.status AS user_status,
                 (SELECT COUNT(*) FROM cases cs WHERE cs.client_id = c.id) AS case_count
          FROM clients c
-         ORDER BY c.last_name ASC, c.first_name ASC'
+         ' . $whereSql . '
+         ORDER BY c.last_name ASC, c.first_name ASC
+         LIMIT ? OFFSET ?',
+        $params
     );
 }
 
-function getAllCases(): array
+function countCases(?string $search = null, ?string $status = null, ?string $priority = null): int
 {
+    $search = normalizeSearchTerm($search);
+    $status = normalizeSearchTerm($status);
+    $priority = normalizeSearchTerm($priority);
+    $where = [];
+    $params = [];
+
+    if ($search !== '') {
+        $where[] = 'CONCAT_WS(" ", cs.case_number, cs.title, cs.service_type, cl.first_name, cl.last_name, cl.company_name) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+    if ($status !== '') {
+        $where[] = 'cs.status = ?';
+        $params[] = $status;
+    }
+    if ($priority !== '') {
+        $where[] = 'cs.priority = ?';
+        $params[] = $priority;
+    }
+
+    $sql = 'SELECT COUNT(*) AS c FROM cases cs JOIN clients cl ON cl.id = cs.client_id';
+    if ($where !== []) {
+        $sql .= ' WHERE ' . implode(' AND ', $where);
+    }
+
+    return (int) (Database::fetch($sql, $params)['c'] ?? 0);
+}
+
+function getCasesPaginated(int $page, int $perPage = 10, ?string $search = null, ?string $status = null, ?string $priority = null): array
+{
+    $search = normalizeSearchTerm($search);
+    $status = normalizeSearchTerm($status);
+    $priority = normalizeSearchTerm($priority);
+    $offset = paginationOffset($page, $perPage);
+    $where = [];
+    $params = [];
+
+    if ($search !== '') {
+        $where[] = 'CONCAT_WS(" ", cs.case_number, cs.title, cs.service_type, cl.first_name, cl.last_name, cl.company_name) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+    if ($status !== '') {
+        $where[] = 'cs.status = ?';
+        $params[] = $status;
+    }
+    if ($priority !== '') {
+        $where[] = 'cs.priority = ?';
+        $params[] = $priority;
+    }
+    $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
+    $params[] = $perPage;
+    $params[] = $offset;
+
     return Database::fetchAll(
         "SELECT cs.*, cl.first_name, cl.last_name, cl.email, cl.company_name,
                 adm.name AS admin_name
          FROM cases cs
          JOIN clients cl ON cl.id = cs.client_id
          LEFT JOIN users adm ON adm.id = cs.assigned_admin_id
-         ORDER BY cs.updated_at DESC"
+         {$whereSql}
+         ORDER BY cs.updated_at DESC
+         LIMIT ? OFFSET ?",
+        $params
     );
 }
 
-function getAllPayments(): array
+function countPayments(?string $search = null, ?string $status = null, ?string $method = null, ?string $month = null): int
 {
     syncOverdueInvoices();
     $paymentCol = paymentStatusColumn();
+    $search = normalizeSearchTerm($search);
+    $status = normalizeSearchTerm($status);
+    $method = normalizeSearchTerm($method);
+    $month = normalizeSearchTerm($month);
+    $where = [];
+    $params = [];
+
+    if ($search !== '') {
+        $where[] = 'CONCAT_WS(" ", i.invoice_number, cl.first_name, cl.last_name, cl.company_name, p.payment_method, r.receipt_number) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+    if ($status !== '') {
+        $where[] = "p.{$paymentCol} = ?";
+        $params[] = $status;
+    }
+    if ($method !== '') {
+        $where[] = 'p.payment_method = ?';
+        $params[] = $method;
+    }
+    if ($month !== '' && preg_match('/^(0?[1-9]|1[0-2])$/', $month)) {
+        $where[] = 'MONTH(COALESCE(p.paid_at, p.created_at)) = ?';
+        $params[] = (int) $month;
+    }
+
+    $sql = "SELECT COUNT(*) AS c
+            FROM payments p
+            JOIN invoices i ON i.id = p.invoice_id
+            JOIN clients cl ON cl.id = i.client_id
+            LEFT JOIN receipts r ON r.payment_id = p.id";
+    if ($where !== []) {
+        $sql .= ' WHERE ' . implode(' AND ', $where);
+    }
+
+    return (int) (Database::fetch($sql, $params)['c'] ?? 0);
+}
+
+function getPaymentsPaginated(int $page, int $perPage = 10, ?string $search = null, ?string $status = null, ?string $method = null, ?string $month = null): array
+{
+    syncOverdueInvoices();
+    $paymentCol = paymentStatusColumn();
+    $search = normalizeSearchTerm($search);
+    $status = normalizeSearchTerm($status);
+    $method = normalizeSearchTerm($method);
+    $month = normalizeSearchTerm($month);
+    $offset = paginationOffset($page, $perPage);
+    $where = [];
+    $params = [];
+
+    if ($search !== '') {
+        $where[] = 'CONCAT_WS(" ", i.invoice_number, cl.first_name, cl.last_name, cl.company_name, p.payment_method, r.receipt_number) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+    if ($status !== '') {
+        $where[] = "p.{$paymentCol} = ?";
+        $params[] = $status;
+    }
+    if ($method !== '') {
+        $where[] = 'p.payment_method = ?';
+        $params[] = $method;
+    }
+    if ($month !== '' && preg_match('/^(0?[1-9]|1[0-2])$/', $month)) {
+        $where[] = 'MONTH(COALESCE(p.paid_at, p.created_at)) = ?';
+        $params[] = (int) $month;
+    }
+    $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
+    $params[] = $perPage;
+    $params[] = $offset;
 
     return Database::fetchAll(
         "SELECT p.*, p.{$paymentCol} AS payment_status, i.invoice_number, i.total AS invoice_total, i.case_id,
@@ -2099,8 +2366,26 @@ function getAllPayments(): array
          JOIN clients cl ON cl.id = i.client_id
          LEFT JOIN cases cs ON cs.id = i.case_id
          LEFT JOIN receipts r ON r.payment_id = p.id
-         ORDER BY COALESCE(p.paid_at, p.created_at) DESC"
+         {$whereSql}
+         ORDER BY COALESCE(p.paid_at, p.created_at) DESC
+         LIMIT ? OFFSET ?",
+        $params
     );
+}
+
+function getAllClients(): array
+{
+    return getClientsPaginated(1, max(1, countClients()));
+}
+
+function getAllCases(): array
+{
+    return getCasesPaginated(1, max(1, countCases()));
+}
+
+function getAllPayments(): array
+{
+    return getPaymentsPaginated(1, max(1, countPayments()));
 }
 
 function getAllAppointments(): array

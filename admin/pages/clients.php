@@ -4,8 +4,16 @@ require_once __DIR__ . '/../core/bootstrap.php';
 Auth::requireAdmin();
 
 $pageTitle = 'Clients';
-$clients = getAllClients();
-$pageSubtitle = count($clients) . ' registered clients';
+$q = trim((string) ($_GET['q'] ?? ''));
+$perPage = 10;
+$page = requestPageNumber();
+$totalClients = countClients($q);
+$totalPages = max(1, (int) ceil($totalClients / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$clients = getClientsPaginated($page, $perPage, $q);
+$pageSubtitle = $totalClients . ' registered clients';
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -18,12 +26,14 @@ require __DIR__ . '/../includes/header.php';
         </div>
         <a href="<?= url('pages/client-form.php') ?>" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add Client</a>
     </div>
-    <div class="table-toolbar">
+    <form method="get" class="table-toolbar">
         <div class="table-search">
             <i class="bi bi-search"></i>
-            <input type="search" class="form-control form-control-sm" id="tableSearch" placeholder="Search clients...">
+            <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search clients...">
         </div>
-    </div>
+        <button type="submit" class="btn btn-light btn-sm">Apply</button>
+        <a href="<?= url('pages/clients.php') ?>" class="btn btn-soft btn-sm">Reset</a>
+    </form>
     <div class="card-body p-0">
         <?php if (empty($clients)): ?>
             <div class="empty-state py-5">
@@ -86,6 +96,12 @@ require __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                <small class="text-muted">
+                    Showing <?= count($clients) ?> of <?= $totalClients ?> clients
+                </small>
+                <?= renderPaginationNav($page, $totalPages) ?>
             </div>
         <?php endif; ?>
     </div>

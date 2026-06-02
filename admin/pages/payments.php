@@ -4,7 +4,18 @@ require_once __DIR__ . '/../core/bootstrap.php';
 Auth::requireAdmin();
 
 $pageTitle = 'Payments';
-$payments = getAllPayments();
+$q = trim((string) ($_GET['q'] ?? ''));
+$statusFilter = trim((string) ($_GET['status'] ?? ''));
+$methodFilter = trim((string) ($_GET['method'] ?? ''));
+$monthFilter = trim((string) ($_GET['month'] ?? ''));
+$perPage = 10;
+$page = requestPageNumber();
+$totalPayments = countPayments($q, $statusFilter, $methodFilter, $monthFilter);
+$totalPages = max(1, (int) ceil($totalPayments / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$payments = getPaymentsPaginated($page, $perPage, $q, $statusFilter, $methodFilter, $monthFilter);
 $pendingInvoices = getPendingInvoices();
 $overdueInvoices = getOverdueInvoices();
 $stats = getDashboardStats();
@@ -84,7 +95,7 @@ require __DIR__ . '/../includes/header.php';
     <div class="saas-card-header appointment-list-header">
         <div>
             <h2 class="saas-card-title">Payment History</h2>
-            <p class="saas-card-subtitle mb-0"><?= count($payments) ?> transactions</p>
+            <p class="saas-card-subtitle mb-0"><?= $totalPayments ?> transactions</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <?php if (!empty($payments)): ?>
@@ -99,33 +110,35 @@ require __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         </div>
     </div>
-    <div class="table-toolbar">
+    <form method="get" class="table-toolbar">
         <div class="table-search">
             <i class="bi bi-search"></i>
-            <input type="search" class="form-control form-control-sm" id="tableSearch" placeholder="Search by service...">
+            <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search by service...">
         </div>
-        <select class="form-select form-select-sm table-filter" id="statusFilter">
+        <select class="form-select form-select-sm table-filter" id="statusFilter" name="status">
             <option value="">All statuses</option>
-            <option value="completed">Completed</option>
-            <option value="pending">Pending</option>
-            <option value="failed">Failed</option>
-            <option value="refunded">Refunded</option>
+            <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
+            <option value="pending" <?= $statusFilter === 'pending' ? 'selected' : '' ?>>Pending</option>
+            <option value="failed" <?= $statusFilter === 'failed' ? 'selected' : '' ?>>Failed</option>
+            <option value="refunded" <?= $statusFilter === 'refunded' ? 'selected' : '' ?>>Refunded</option>
         </select>
-        <select class="form-select form-select-sm table-filter" id="methodFilter">
+        <select class="form-select form-select-sm table-filter" id="methodFilter" name="method">
             <option value="">All methods</option>
-            <option value="stripe">Stripe</option>
-            <option value="bank_transfer">Bank Transfer</option>
-            <option value="cash">Cash</option>
-            <option value="check">Check</option>
-            <option value="other">Other</option>
+            <option value="stripe" <?= $methodFilter === 'stripe' ? 'selected' : '' ?>>Stripe</option>
+            <option value="bank_transfer" <?= $methodFilter === 'bank_transfer' ? 'selected' : '' ?>>Bank Transfer</option>
+            <option value="cash" <?= $methodFilter === 'cash' ? 'selected' : '' ?>>Cash</option>
+            <option value="check" <?= $methodFilter === 'check' ? 'selected' : '' ?>>Check</option>
+            <option value="other" <?= $methodFilter === 'other' ? 'selected' : '' ?>>Other</option>
         </select>
-        <select class="form-select form-select-sm table-filter table-filter-month" id="monthFilter">
+        <select class="form-select form-select-sm table-filter table-filter-month" id="monthFilter" name="month">
             <option value="">All months</option>
             <?php foreach ($paymentMonths as $monthKey => $monthLabel): ?>
-                <option value="<?= e($monthKey) ?>"><?= e($monthLabel) ?></option>
+                <option value="<?= e($monthKey) ?>" <?= $monthFilter === (string) $monthKey ? 'selected' : '' ?>><?= e($monthLabel) ?></option>
             <?php endforeach; ?>
         </select>
-    </div>
+        <button type="submit" class="btn btn-light btn-sm">Apply</button>
+        <a href="<?= url('pages/payments.php') ?>" class="btn btn-soft btn-sm">Reset</a>
+    </form>
     <div class="card-body p-0">
         <?php if (empty($payments)): ?>
             <div class="empty-state py-5">
@@ -183,6 +196,12 @@ require __DIR__ . '/../includes/header.php';
                     </tbody>
                 </table>
             </div>
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                <small class="text-muted">
+                    Showing <?= count($payments) ?> of <?= $totalPayments ?> transactions
+                </small>
+                <?= renderPaginationNav($page, $totalPages) ?>
+            </div>
         <?php endif; ?>
     </div>
 </div>
@@ -237,35 +256,4 @@ require __DIR__ . '/../includes/header.php';
 </div>
 <?php endif; ?>
 
-<?php
-$pageScripts = '<script>
-document.addEventListener("DOMContentLoaded", function() {
-    var tableSearch = document.getElementById("tableSearch");
-    var statusFilter = document.getElementById("statusFilter");
-    var methodFilter = document.getElementById("methodFilter");
-    var monthFilter = document.getElementById("monthFilter");
-    var rows = document.querySelectorAll("#dataTable tbody tr");
-
-    function filterPayments() {
-        var q = (tableSearch?.value || "").toLowerCase();
-        var status = statusFilter?.value || "";
-        var method = methodFilter?.value || "";
-        var month = monthFilter?.value || "";
-        rows.forEach(function(row) {
-            var searchBlob = (row.dataset.search || row.textContent).toLowerCase();
-            var matchSearch = !q || searchBlob.includes(q);
-            var matchStatus = !status || row.dataset.status === status;
-            var matchMethod = !method || row.dataset.method === method;
-            var matchMonth = !month || row.dataset.month === month;
-            row.style.display = matchSearch && matchStatus && matchMethod && matchMonth ? "" : "none";
-        });
-    }
-
-    tableSearch?.addEventListener("input", filterPayments);
-    statusFilter?.addEventListener("change", filterPayments);
-    methodFilter?.addEventListener("change", filterPayments);
-    monthFilter?.addEventListener("change", filterPayments);
-});
-</script>';
-require __DIR__ . '/../includes/footer.php';
-?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
