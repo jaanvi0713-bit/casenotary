@@ -12,7 +12,17 @@ if (!$clientId) {
 
 $pageTitle = 'My Cases';
 $pageSubtitle = 'View your cases and upload documents';
-$cases = getClientCases($clientId);
+$perPage = 10;
+$allCases = getClientCases($clientId);
+$page = requestPageNumber();
+$totalCases = count($allCases);
+$totalPages = max(1, (int) ceil($totalCases / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$cases = array_slice($allCases, paginationOffset($page, $perPage), $perPage);
+$showingFrom = $totalCases > 0 ? paginationOffset($page, $perPage) + 1 : 0;
+$showingTo = min($totalCases, $page * $perPage);
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -21,11 +31,11 @@ require __DIR__ . '/../includes/header.php';
     <div class="saas-card-header">
         <div>
             <h2 class="saas-card-title">My Cases</h2>
-            <p class="saas-card-subtitle"><?= count($cases) ?> assigned case(s)</p>
+            <p class="saas-card-subtitle"><?= $totalCases ?> assigned case(s)</p>
         </div>
     </div>
     <div class="card-body p-0">
-        <?php if (empty($cases)): ?>
+        <?php if ($totalCases === 0): ?>
             <div class="empty-state py-5">
                 <i class="bi bi-briefcase"></i>
                 <p>No cases assigned yet.</p>
@@ -68,6 +78,12 @@ require __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-2 border-top">
+                <small class="text-muted">
+                    Showing <?= $showingFrom ?>–<?= $showingTo ?> of <?= $totalCases ?> cases
+                </small>
+                <?= renderPaginationNav($page, $totalPages) ?>
             </div>
         <?php endif; ?>
     </div>
