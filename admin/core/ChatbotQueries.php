@@ -7,6 +7,20 @@ function chatbotPageLink(string $path, string $label): string
     return chatbotAdminLink($path, $label);
 }
 
+function getChatbotDefaultQuickPrompts(): array
+{
+    return [
+        ['icon' => 'bi-sunrise', 'label' => 'Morning briefing', 'prompt' => 'Morning briefing'],
+        ['icon' => 'bi-grid-1x2', 'label' => 'Dashboard summary', 'prompt' => 'Give me a dashboard summary'],
+        ['icon' => 'bi-people', 'label' => 'Client count', 'prompt' => 'How many clients do we have?'],
+        ['icon' => 'bi-briefcase', 'label' => 'Active cases', 'prompt' => 'List active cases'],
+        ['icon' => 'bi-cash-stack', 'label' => 'Total revenue', 'prompt' => 'What is our total revenue?'],
+        ['icon' => 'bi-calendar-event', 'label' => 'Upcoming appointments', 'prompt' => 'Show upcoming appointments'],
+        ['icon' => 'bi-credit-card', 'label' => 'Recent payments', 'prompt' => 'List recent payments'],
+        ['icon' => 'bi-exclamation-circle', 'label' => 'Overdue invoices', 'prompt' => 'List overdue invoices'],
+    ];
+}
+
 function chatbotExtractAppointmentStatusFilter(string $message): ?string
 {
     $normalized = strtolower(trim($message));

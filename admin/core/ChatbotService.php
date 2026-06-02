@@ -14,6 +14,72 @@ class ChatbotService
         return $reply;
     }
 
+    public static function regenerate(string $message): string
+    {
+        $baseReply = self::resolveReply($message);
+        $variant = self::makeRegeneratedVariant($baseReply);
+
+        chatbotRememberTurn($message, $variant);
+
+        return $variant;
+    }
+
+    private static function makeRegeneratedVariant(string $reply): string
+    {
+        $counter = (int) ($_SESSION['chatbot_regen_counter'] ?? 0) + 1;
+        $_SESSION['chatbot_regen_counter'] = $counter;
+
+        $trimmed = trim($reply);
+        if ($trimmed === '') {
+            return $reply;
+        }
+
+        // Alternate response style to make regenerate materially different.
+        if ($counter % 2 === 1) {
+            return self::regenerateConcise($trimmed);
+        }
+
+        return self::regenerateDetailed($trimmed);
+    }
+
+    private static function regenerateConcise(string $reply): string
+    {
+        $lines = preg_split('/\R+/', $reply) ?: [];
+        $picked = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            if (str_starts_with($line, '•') || str_starts_with($line, '1.') || str_starts_with($line, '2.')) {
+                $picked[] = $line;
+            } elseif (count($picked) < 2) {
+                $picked[] = $line;
+            }
+
+            if (count($picked) >= 5) {
+                break;
+            }
+        }
+
+        if ($picked === []) {
+            $picked[] = mb_strimwidth($reply, 0, 420, '...');
+        }
+
+        return "**Alternative (concise):**\n\n" . implode("\n", $picked);
+    }
+
+    private static function regenerateDetailed(string $reply): string
+    {
+        $extra = "\n\n**Expanded version:**\n"
+            . "• If you want, I can tailor this to a specific client/case.\n"
+            . "• I can also convert it into a ready-to-send email or letter format.";
+
+        return "**Alternative (detailed):**\n\n" . $reply . $extra;
+    }
+
     private static function resolveReply(string $message): string
     {
         $normalized = strtolower(trim($message));

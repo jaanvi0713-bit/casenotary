@@ -22,6 +22,7 @@ $token = $input[$tokenName] ?? $_POST[$tokenName] ?? $_SERVER['HTTP_X_CSRF_TOKEN
 $message = trim((string) ($input['message'] ?? $_POST['message'] ?? ''));
 $action = trim((string) ($input['action'] ?? ''));
 $conversationId = (int) ($input['conversation_id'] ?? $_POST['conversation_id'] ?? 0);
+$isRegenerate = filter_var($input['regenerate'] ?? false, FILTER_VALIDATE_BOOL);
 
 if (!CSRF::validate($token)) {
     http_response_code(403);
@@ -127,6 +128,8 @@ if ($message === '' && !$hasUploads) {
 try {
     if ($hasUploads) {
         $reply = ChatbotService::replyWithAttachments($message, $_FILES['attachments']);
+    } elseif ($isRegenerate) {
+        $reply = ChatbotService::regenerate($message);
     } else {
         $reply = ChatbotService::reply($message);
     }

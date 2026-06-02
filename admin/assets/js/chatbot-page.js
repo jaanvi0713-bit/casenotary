@@ -166,6 +166,17 @@
         function setSidebarHidden(hidden) {
             app.classList.toggle("sidebar-hidden", hidden);
             localStorage.setItem(sidebarKey, hidden ? "1" : "0");
+            updateSidebarOpenButton(hidden);
+        }
+
+        function updateSidebarOpenButton(hidden) {
+            if (!chatSidebarOpen) return;
+
+            chatSidebarOpen.title = hidden ? "Show chats" : "Hide chats";
+            chatSidebarOpen.setAttribute("aria-label", hidden ? "Show chats" : "Hide chats");
+            chatSidebarOpen.innerHTML = hidden
+                ? '<i class="bi bi-layout-sidebar-inset"></i>'
+                : '<i class="bi bi-layout-sidebar-inset-reverse"></i>';
         }
 
         if (chatSidebarClose) {
@@ -176,12 +187,15 @@
 
         if (chatSidebarOpen) {
             chatSidebarOpen.addEventListener("click", function() {
-                setSidebarHidden(false);
+                const hidden = app.classList.contains("sidebar-hidden");
+                setSidebarHidden(!hidden);
             });
         }
 
         if (localStorage.getItem(sidebarKey) === "1") {
             setSidebarHidden(true);
+        } else {
+            updateSidebarOpenButton(false);
         }
 
         function getCustomPrompts() {
@@ -567,6 +581,7 @@
                         body: JSON.stringify({
                             message: trimmed,
                             conversation_id: activeConversationId || 0,
+                            regenerate: !!options.regenerate,
                             _csrf_token: csrfToken
                         })
                     });

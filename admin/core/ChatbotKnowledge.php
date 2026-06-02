@@ -2,6 +2,23 @@
 
 declare(strict_types=1);
 
+function chatbotLookupStopWords(): array
+{
+    // Lightweight English stop-word list used for local “keyword fusion” replies.
+    return [
+        'a','an','the','and','or','but','if','then','else','when','where','why','how','what','which','who','whom',
+        'to','of','in','on','at','by','for','with','from','into','onto','over','under','above','below',
+        'is','are','was','were','be','been','being','am','do','does','did','done','have','has','had',
+        'can','could','should','would','may','might','will','shall',
+        'i','you','he','she','it','we','they','me','my','your','yours','our','ours','their','theirs','his','her',
+        'this','that','these','those','there','here','then','than',
+        'as','so','such','just','also','too','very','more','most','less',
+        'any','all','some','no','not','yes',
+        'please','help','about','regarding','concerning',
+        'draft','compose','prepare','write','email','letter','document','template','reply','response',
+    ];
+}
+
 function chatbotIsSystemDataQuestion(string $message): bool
 {
     return (bool) preg_match(
@@ -619,6 +636,30 @@ function chatbotTemplateDraftContent(string $message): string
             . "_Generate a formal PDF from **Cases → Client Letter** when ready to send._";
     }
 
+    if (preg_match('/\b(doc|document|agreement|contract|statement|summary)\b/i', $message)) {
+        return "**Draft document template** (edit before use):\n\n"
+            . "**Title:** {$subject}\n\n"
+            . "[Parties]\n"
+            . "- Notary / firm: [Your name + firm]\n"
+            . "- Client(s): [Full client name(s)]\n\n"
+            . "**Purpose / background:**\n"
+            . "[1-3 sentences explaining why this document exists.]\n\n"
+            . "**Key facts:**\n"
+            . "• [Fact 1]\n"
+            . "• [Fact 2]\n"
+            . "• [Fact 3]\n\n"
+            . "**Instructions / next steps:**\n"
+            . "1. [What the client must do]\n"
+            . "2. [What to bring / provide]\n"
+            . "3. [Appointment date/time if applicable]\n\n"
+            . "**Fees (if relevant):**\n"
+            . "- [Fee type + amount or fee range]\n\n"
+            . "**Signature block:**\n"
+            . "____________________\n"
+            . "[Your name]\n{$brand}\n\n"
+            . "_Tip: If you tell me the jurisdiction and who the signer is, I can tailor the wording._";
+    }
+
     return chatbotTemplateTips($subject);
 }
 
@@ -633,7 +674,10 @@ function chatbotReplyForOpenEndedLocal(string $message): ?string
         return null;
     }
 
-    if (preg_match('/\b(write|draft|compose|prepare)\b.*\b(email|letter|message|template|reply|response)\b/i', $message)) {
+    if (preg_match(
+        '/\b(write|draft|compose|prepare)\b.*\b(email|e-mail|letter|message|template|reply|response|doc|document|agreement|contract|statement|summary)\b/i',
+        $message
+    )) {
         return chatbotTemplateDraftContent($message);
     }
 
