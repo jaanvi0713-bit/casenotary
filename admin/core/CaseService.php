@@ -20,6 +20,8 @@ class CaseService
         'closed'             => ['pending'],
     ];
 
+    private static ?string $clientPostalSelectSql = null;
+
     public static function isValidStatus(string $status): bool
     {
         return in_array($status, self::STATUSES, true);
@@ -281,8 +283,11 @@ class CaseService
 
     public static function getCaseById(int $id): ?array
     {
+        $postalSelect = self::clientPostalSelectSql();
+
         return Database::fetch(
             "SELECT cs.*, cl.first_name, cl.last_name, cl.email, cl.phone, cl.company_name,
+                    cl.address, cl.city, cl.state, {$postalSelect}, cl.country,
                     cl.user_id AS client_user_id, adm.name AS admin_name
              FROM cases cs
              JOIN clients cl ON cl.id = cs.client_id
@@ -294,13 +299,33 @@ class CaseService
 
     public static function getCaseForClient(int $caseId, int $clientId): ?array
     {
+        $postalSelect = self::clientPostalSelectSql();
+
         return Database::fetch(
-            "SELECT cs.*, cl.first_name, cl.last_name, cl.email, cl.company_name
+            "SELECT cs.*, cl.first_name, cl.last_name, cl.email, cl.company_name,
+                    cl.address, cl.city, cl.state, {$postalSelect}, cl.country
              FROM cases cs
              JOIN clients cl ON cl.id = cs.client_id
              WHERE cs.id = ? AND cs.client_id = ?",
             [$caseId, $clientId]
         );
+    }
+
+    private static function clientPostalSelectSql(): string
+    {
+        if (self::$clientPostalSelectSql !== null) {
+            return self::$clientPostalSelectSql;
+        }
+
+        if (Database::columnExists('clients', 'zip_code')) {
+            self::$clientPostalSelectSql = 'cl.zip_code';
+        } elseif (Database::columnExists('clients', 'zip')) {
+            self::$clientPostalSelectSql = 'cl.zip AS zip_code';
+        } else {
+            self::$clientPostalSelectSql = 'NULL AS zip_code';
+        }
+
+        return self::$clientPostalSelectSql;
     }
 
     public static function getWorkspace(int $caseId): ?array
@@ -857,26 +882,36 @@ class CaseService
     {
         $case   = self::getCaseById($caseId);
         $number = self::generateNumber('INV');
-        $amount = (float) ($data['amount'] ?? $case['service_fee'] ?? 0);
-        $tax    = (float) ($data['tax_rate'] ?? 0);
-        $taxAmt = $amount * $tax / 100;
-        $total  = $amount + $taxAmt;
+        $lineItems = self::parseInvoiceLineItems($data, $case ?: []);
+        $subtotal  = array_reduce($lineItems, static fn(float $sum, array $row): float => $sum + (float) ($row['line_total'] ?? 0), 0.0);
+        if ($subtotal <= 0) {
+            $subtotal = (float) ($data['amount'] ?? $case['service_fee'] ?? 0);
+        }
+
+        $vatEnabled = !empty($data['include_vat']) ? 1 : 0;
+        $tax        = $vatEnabled ? 20.0 : 0.0;
+        $taxAmt     = round($subtotal * $tax / 100, 2);
+        $total      = round($subtotal + $taxAmt, 2);
         $due    = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
 
         $id = insertTableRow('invoices', [
             'invoice_number'  => $number,
             'case_id'         => $caseId,
             'client_id'       => $case['client_id'],
-            'amount'          => $amount,
-            'subtotal'        => $amount,
+            'amount'          => $subtotal,
+            'line_items'      => json_encode($lineItems, JSON_UNESCAPED_UNICODE),
+            'subtotal'        => $subtotal,
             'tax_rate'        => $tax,
             'tax_amount'      => $taxAmt,
             'total'           => $total,
+            'vat_enabled'     => $vatEnabled,
             'payment_status'  => 'pending',
             'status'          => 'pending',
             'issue_date'      => date('Y-m-d'),
             'due_date'        => $due,
             'notes'           => $data['notes'] ?? null,
+            'payment_terms'        => trim((string) ($data['payment_terms'] ?? '')) ?: null,
+            'payment_instructions' => trim((string) ($data['payment_instructions'] ?? '')) ?: null,
         ]);
 
         self::saveHtmlDocument($caseId, 'invoice', $id);
@@ -884,6 +919,59 @@ class CaseService
         self::notifyCaseEvent($caseId, 'invoice', 'Invoice generated', $number . ' — ' . formatCurrency($total), 'pages/case-view.php?id=' . $caseId . '#invoice-payments');
 
         return $id;
+    }
+
+    /** @return list<array{description:string, quantity:float, unit_price:float, line_total:float}> */
+    private static function parseInvoiceLineItems(array $data, array $case): array
+    {
+        $descriptions = $data['item_description'] ?? [];
+        $qtys         = $data['item_qty'] ?? [];
+        $prices       = $data['item_amount'] ?? [];
+
+        if (!is_array($descriptions) || !is_array($qtys) || !is_array($prices)) {
+            return [[
+                'description' => (string) ($case['service_type'] ?? 'Notary Service'),
+                'quantity'    => 1.0,
+                'unit_price'  => (float) ($case['service_fee'] ?? 0),
+                'line_total'  => (float) ($case['service_fee'] ?? 0),
+            ]];
+        }
+
+        $rows = [];
+        $max = max(count($descriptions), count($qtys), count($prices));
+        for ($i = 0; $i < $max; $i++) {
+            $description = trim((string) ($descriptions[$i] ?? ''));
+            $qty         = (float) ($qtys[$i] ?? 0);
+            $unit        = (float) ($prices[$i] ?? 0);
+
+            if ($description === '' && $qty <= 0 && $unit <= 0) {
+                continue;
+            }
+
+            if ($qty <= 0) {
+                $qty = 1.0;
+            }
+
+            $lineTotal = round($qty * $unit, 2);
+            $rows[] = [
+                'description' => $description !== '' ? $description : 'Service',
+                'quantity'    => $qty,
+                'unit_price'  => $unit,
+                'line_total'  => $lineTotal,
+            ];
+        }
+
+        if ($rows === []) {
+            $fee = (float) ($case['service_fee'] ?? 0);
+            $rows[] = [
+                'description' => (string) ($case['service_type'] ?? 'Notary Service'),
+                'quantity'    => 1.0,
+                'unit_price'  => $fee,
+                'line_total'  => $fee,
+            ];
+        }
+
+        return $rows;
     }
 
     public static function getInvoicePaidTotal(int $invoiceId): float

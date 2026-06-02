@@ -678,9 +678,35 @@ require __DIR__ . '/../includes/header.php';
             <input type="hidden" name="case_id" value="<?= $caseId ?>">
             <div class="modal-header"><h5 class="modal-title">Generate Invoice</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
-                <div class="mb-3"><label class="form-label">Amount</label><input type="number" step="0.01" name="amount" class="form-control" value="<?= e((string) $case['service_fee']) ?>"></div>
-                <div class="mb-3"><label class="form-label">Tax Rate (%)</label><input type="number" step="0.01" name="tax_rate" class="form-control" value="0"></div>
+                <div class="mb-3">
+                    <label class="form-label">Line items</label>
+                    <div id="invoiceItems">
+                        <div class="row g-2 mb-2 invoice-item-row">
+                            <div class="col-2"><input type="number" step="0.01" min="0" name="item_qty[]" class="form-control form-control-sm invoice-item-qty" value="1" placeholder="Qty"></div>
+                            <div class="col-6"><input type="text" name="item_description[]" class="form-control form-control-sm" value="<?= e($case['service_type'] ?? 'Notary service') ?>" placeholder="Description"></div>
+                            <div class="col-4"><input type="number" step="0.01" min="0" name="item_amount[]" class="form-control form-control-sm invoice-item-amount" value="<?= e((string) $case['service_fee']) ?>" placeholder="Unit amount"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-soft btn-sm mt-1" id="addInvoiceItemBtn"><i class="bi bi-plus-lg"></i> Add item</button>
+                </div>
+                <div class="row g-2 mb-3 small">
+                    <div class="col-md-6">
+                        <div class="p-2 border rounded-2">
+                            <div><strong>Subtotal:</strong> <span id="invoiceSubtotalPreview"><?= formatCurrency((float) $case['service_fee']) ?></span></div>
+                            <div><strong>VAT (20%):</strong> <span id="invoiceVatPreview"><?= formatCurrency((float) $case['service_fee'] * 0.2) ?></span></div>
+                            <div><strong>Total:</strong> <span id="invoiceTotalPreview"><?= formatCurrency((float) $case['service_fee'] * 1.2) ?></span></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check mt-1">
+                            <input class="form-check-input" type="checkbox" id="invoiceIncludeVat" name="include_vat" value="1" checked>
+                            <label class="form-check-label" for="invoiceIncludeVat">Include VAT (20%)</label>
+                        </div>
+                    </div>
+                </div>
                 <div class="mb-3"><label class="form-label">Due Date</label><input type="date" name="due_date" class="form-control" value="<?= date('Y-m-d', strtotime('+14 days')) ?>"></div>
+                <div class="mb-3"><label class="form-label">Payment Terms</label><input type="text" name="payment_terms" class="form-control" value="Payment due within 14 days"></div>
+                <div class="mb-3"><label class="form-label">Payment Instructions</label><textarea name="payment_instructions" class="form-control" rows="2" placeholder="Bank details / payment method details"></textarea></div>
                 <div class="mb-3"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Generate</button></div>
@@ -830,6 +856,63 @@ document.addEventListener("DOMContentLoaded", function() {
             setTimeout(refreshLetterPreview, 400);
         }
     }
+
+    var itemsWrap = document.getElementById("invoiceItems");
+    var addItemBtn = document.getElementById("addInvoiceItemBtn");
+    var includeVat = document.getElementById("invoiceIncludeVat");
+    var subtotalEl = document.getElementById("invoiceSubtotalPreview");
+    var vatEl = document.getElementById("invoiceVatPreview");
+    var totalEl = document.getElementById("invoiceTotalPreview");
+
+    function formatMoney(num) {
+        return "£" + (Math.round((num || 0) * 100) / 100).toFixed(2);
+    }
+
+    function recalcInvoicePreview() {
+        if (!itemsWrap || !subtotalEl || !vatEl || !totalEl) return;
+        var subtotal = 0;
+        itemsWrap.querySelectorAll(".invoice-item-row").forEach(function(row) {
+            var qty = parseFloat((row.querySelector(".invoice-item-qty") || {}).value || "0") || 0;
+            var unit = parseFloat((row.querySelector(".invoice-item-amount") || {}).value || "0") || 0;
+            if (qty <= 0) qty = 1;
+            subtotal += qty * unit;
+        });
+        var vat = (includeVat && includeVat.checked) ? subtotal * 0.2 : 0;
+        var total = subtotal + vat;
+        subtotalEl.textContent = formatMoney(subtotal);
+        vatEl.textContent = formatMoney(vat);
+        totalEl.textContent = formatMoney(total);
+    }
+
+    if (addItemBtn && itemsWrap) {
+        addItemBtn.addEventListener("click", function() {
+            var row = document.createElement("div");
+            row.className = "row g-2 mb-2 invoice-item-row";
+            row.innerHTML =
+                "<div class=\"col-2\"><input type=\"number\" step=\"0.01\" min=\"0\" name=\"item_qty[]\" class=\"form-control form-control-sm invoice-item-qty\" value=\"1\" placeholder=\"Qty\"></div>" +
+                "<div class=\"col-5\"><input type=\"text\" name=\"item_description[]\" class=\"form-control form-control-sm\" placeholder=\"Description\"></div>" +
+                "<div class=\"col-4\"><input type=\"number\" step=\"0.01\" min=\"0\" name=\"item_amount[]\" class=\"form-control form-control-sm invoice-item-amount\" value=\"0\" placeholder=\"Unit amount\"></div>" +
+                "<div class=\"col-1\"><button type=\"button\" class=\"btn btn-soft btn-sm invoice-item-remove\">×</button></div>";
+            itemsWrap.appendChild(row);
+            recalcInvoicePreview();
+        });
+
+        itemsWrap.addEventListener("click", function(e) {
+            var btn = e.target.closest(".invoice-item-remove");
+            if (!btn) return;
+            var rows = itemsWrap.querySelectorAll(".invoice-item-row");
+            if (rows.length <= 1) return;
+            btn.closest(".invoice-item-row").remove();
+            recalcInvoicePreview();
+        });
+
+        itemsWrap.addEventListener("input", recalcInvoicePreview);
+    }
+
+    if (includeVat) {
+        includeVat.addEventListener("change", recalcInvoicePreview);
+    }
+    recalcInvoicePreview();
 });
 </script>';
 require __DIR__ . '/../includes/footer.php';
