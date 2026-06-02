@@ -2125,15 +2125,20 @@ function paginationOffset(int $page, int $perPage): int
     return max(0, ($page - 1) * $perPage);
 }
 
-function buildPaginationUrl(int $page, string $pageParam = 'page'): string
+function buildPaginationUrl(int $page, string $pageParam = 'page', ?string $fragment = null): string
 {
     $query = $_GET;
     $query[$pageParam] = $page;
 
-    return '?' . http_build_query($query);
+    $url = '?' . http_build_query($query);
+    if ($fragment !== null && $fragment !== '') {
+        $url .= '#' . ltrim($fragment, '#');
+    }
+
+    return $url;
 }
 
-function renderPaginationNav(int $page, int $totalPages, string $pageParam = 'page'): string
+function renderPaginationNav(int $page, int $totalPages, string $pageParam = 'page', ?string $fragment = null): string
 {
     if ($totalPages <= 1) {
         return '';
@@ -2152,18 +2157,18 @@ function renderPaginationNav(int $page, int $totalPages, string $pageParam = 'pa
     $html = '<nav aria-label="Pagination" class="saas-pagination-nav"><ul class="pagination pagination-sm mb-0">';
 
     $prevDisabled = $page <= 1 ? ' disabled' : '';
-    $prevHref = $page > 1 ? buildPaginationUrl($page - 1, $pageParam) : '#';
+    $prevHref = $page > 1 ? buildPaginationUrl($page - 1, $pageParam, $fragment) : '#';
     $html .= '<li class="page-item' . $prevDisabled . '">'
         . '<a class="page-link" href="' . e($prevHref) . '" aria-label="Previous">&laquo;</a></li>';
 
     for ($i = $start; $i <= $end; $i++) {
         $active = $i === $page ? ' active' : '';
         $html .= '<li class="page-item' . $active . '">'
-            . '<a class="page-link" href="' . e(buildPaginationUrl($i, $pageParam)) . '">' . $i . '</a></li>';
+            . '<a class="page-link" href="' . e(buildPaginationUrl($i, $pageParam, $fragment)) . '">' . $i . '</a></li>';
     }
 
     $nextDisabled = $page >= $totalPages ? ' disabled' : '';
-    $nextHref = $page < $totalPages ? buildPaginationUrl($page + 1, $pageParam) : '#';
+    $nextHref = $page < $totalPages ? buildPaginationUrl($page + 1, $pageParam, $fragment) : '#';
     $html .= '<li class="page-item' . $nextDisabled . '">'
         . '<a class="page-link" href="' . e($nextHref) . '" aria-label="Next">&raquo;</a></li>';
 

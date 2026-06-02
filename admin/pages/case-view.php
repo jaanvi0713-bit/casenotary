@@ -42,6 +42,22 @@ $csrfFieldName      = (require __DIR__ . '/../config/config.php')['security']['c
 $successMsg = flash('success');
 $errorMsg   = flash('error');
 
+$allActivity       = $workspace['activity'] ?? [];
+$activityPerPage   = 10;
+$activityPage      = requestPageNumber('activity_page');
+$totalActivity     = count($allActivity);
+$totalActivityPages = max(1, (int) ceil($totalActivity / $activityPerPage));
+if ($activityPage > $totalActivityPages) {
+    $activityPage = $totalActivityPages;
+}
+$pagedActivity = array_slice(
+    $allActivity,
+    paginationOffset($activityPage, $activityPerPage),
+    $activityPerPage
+);
+$activityShowingFrom = $totalActivity > 0 ? paginationOffset($activityPage, $activityPerPage) + 1 : 0;
+$activityShowingTo   = min($totalActivity, $activityPage * $activityPerPage);
+
 require __DIR__ . '/../includes/header.php';
 ?>
 
@@ -501,13 +517,13 @@ require __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                 </div>
                 <div class="case-activity-scroll">
-                    <?php if (empty($workspace['activity'])): ?>
+                    <?php if ($totalActivity === 0): ?>
                         <div class="empty-state py-4"><i class="bi bi-activity"></i><p>No activity recorded yet.</p></div>
                     <?php else: ?>
                         <ul class="case-timeline" id="activityTimeline">
                             <?php
                             $lastGroup = '';
-                            foreach ($workspace['activity'] as $ev):
+                            foreach ($pagedActivity as $ev):
                                 $group = caseActivityDateLabel($ev['time']);
                                 if ($group !== $lastGroup):
                                     $lastGroup = $group;
@@ -529,6 +545,14 @@ require __DIR__ . '/../includes/header.php';
                         </ul>
                     <?php endif; ?>
                 </div>
+                <?php if ($totalActivity > 0): ?>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-1 pt-3 mt-2 border-top">
+                        <small class="text-muted">
+                            Showing <?= $activityShowingFrom ?>–<?= $activityShowingTo ?> of <?= $totalActivity ?> activities
+                        </small>
+                        <?= renderPaginationNav($activityPage, $totalActivityPages, 'activity_page', 'activity') ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -772,6 +796,8 @@ document.addEventListener("DOMContentLoaded", function() {
     var hash = window.location.hash.replace("#", "");
     var tabAliases = { invoices: "invoices", payments: "invoice-payments" };
     if (hash && tabAliases[hash]) hash = tabAliases[hash];
+    var activityPageParam = parseInt(new URLSearchParams(window.location.search).get("activity_page") || "1", 10);
+    if (!hash && activityPageParam > 1) hash = "activity";
     if (hash) {
         var tabBtn = document.querySelector("[data-bs-target=\"#" + hash + "\"]");
         if (tabBtn) new bootstrap.Tab(tabBtn).show();

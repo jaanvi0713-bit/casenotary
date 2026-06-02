@@ -12,8 +12,31 @@ if (!$clientId) {
 
 $pageTitle = 'Payments';
 $pageSubtitle = 'Your invoices and payment history';
-$invoices = getClientInvoices($clientId);
-$payments = getClientPayments($clientId);
+$perPage = 10;
+
+$allInvoices = getClientInvoices($clientId);
+$allPayments = getClientPayments($clientId);
+
+$invoicePage = requestPageNumber('invoice_page');
+$totalInvoices = count($allInvoices);
+$totalInvoicePages = max(1, (int) ceil($totalInvoices / $perPage));
+if ($invoicePage > $totalInvoicePages) {
+    $invoicePage = $totalInvoicePages;
+}
+$invoices = array_slice($allInvoices, paginationOffset($invoicePage, $perPage), $perPage);
+$invoiceShowingFrom = $totalInvoices > 0 ? paginationOffset($invoicePage, $perPage) + 1 : 0;
+$invoiceShowingTo = min($totalInvoices, $invoicePage * $perPage);
+
+$paymentPage = requestPageNumber('payment_page');
+$totalPayments = count($allPayments);
+$totalPaymentPages = max(1, (int) ceil($totalPayments / $perPage));
+if ($paymentPage > $totalPaymentPages) {
+    $paymentPage = $totalPaymentPages;
+}
+$payments = array_slice($allPayments, paginationOffset($paymentPage, $perPage), $perPage);
+$paymentShowingFrom = $totalPayments > 0 ? paginationOffset($paymentPage, $perPage) + 1 : 0;
+$paymentShowingTo = min($totalPayments, $paymentPage * $perPage);
+
 $stats = getClientDashboardStats($clientId);
 $stripeEnabled = StripeService::isConfigured();
 
@@ -53,7 +76,7 @@ require __DIR__ . '/../includes/header.php';
             <div class="metric-icon metric-icon-primary"><i class="bi bi-receipt"></i></div>
             <div class="metric-body">
                 <span class="metric-label">Total Invoices</span>
-                <span class="metric-value"><?= number_format(count($invoices)) ?></span>
+                <span class="metric-value"><?= number_format($totalInvoices) ?></span>
             </div>
         </div>
     </div>
@@ -62,24 +85,24 @@ require __DIR__ . '/../includes/header.php';
             <div class="metric-icon metric-icon-success"><i class="bi bi-cash-stack"></i></div>
             <div class="metric-body">
                 <span class="metric-label">Payments Made</span>
-                <span class="metric-value"><?= number_format(count($payments)) ?></span>
+                <span class="metric-value"><?= number_format($totalPayments) ?></span>
             </div>
         </div>
     </div>
 </div>
 
-<div class="saas-card mb-4">
+<div class="saas-card mb-4" id="client-invoices">
     <div class="saas-card-header appointment-list-header">
         <div>
             <h2 class="saas-card-title">Invoices</h2>
-            <p class="saas-card-subtitle mb-0"><?= count($invoices) ?> invoice(s)</p>
+            <p class="saas-card-subtitle mb-0"><?= $totalInvoices ?> invoice(s)</p>
         </div>
         <?php if ($stripeEnabled): ?>
             <span class="badge bg-light text-dark"><i class="bi bi-shield-check"></i> Secure Stripe checkout</span>
         <?php endif; ?>
     </div>
     <div class="card-body p-0">
-        <?php if (empty($invoices)): ?>
+        <?php if ($totalInvoices === 0): ?>
             <div class="empty-state py-5">
                 <i class="bi bi-receipt"></i>
                 <p class="mb-0">No invoices yet.</p>
@@ -141,19 +164,25 @@ require __DIR__ . '/../includes/header.php';
                     </tbody>
                 </table>
             </div>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-2 border-top">
+                <small class="text-muted">
+                    Showing <?= $invoiceShowingFrom ?>–<?= $invoiceShowingTo ?> of <?= $totalInvoices ?> invoices
+                </small>
+                <?= renderPaginationNav($invoicePage, $totalInvoicePages, 'invoice_page', 'client-invoices') ?>
+            </div>
         <?php endif; ?>
     </div>
 </div>
 
-<div class="saas-card">
+<div class="saas-card" id="client-payments">
     <div class="saas-card-header appointment-list-header">
         <div>
             <h2 class="saas-card-title">Payment History</h2>
-            <p class="saas-card-subtitle mb-0"><?= count($payments) ?> payment(s)</p>
+            <p class="saas-card-subtitle mb-0"><?= $totalPayments ?> payment(s)</p>
         </div>
     </div>
     <div class="card-body p-0">
-        <?php if (empty($payments)): ?>
+        <?php if ($totalPayments === 0): ?>
             <div class="empty-state py-5">
                 <i class="bi bi-credit-card"></i>
                 <p class="mb-0">No payments recorded yet.</p>
@@ -195,6 +224,12 @@ require __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-2 border-top">
+                <small class="text-muted">
+                    Showing <?= $paymentShowingFrom ?>–<?= $paymentShowingTo ?> of <?= $totalPayments ?> payments
+                </small>
+                <?= renderPaginationNav($paymentPage, $totalPaymentPages, 'payment_page', 'client-payments') ?>
             </div>
         <?php endif; ?>
     </div>
