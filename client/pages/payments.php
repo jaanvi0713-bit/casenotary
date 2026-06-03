@@ -6,7 +6,7 @@ Auth::requireClient();
 $clientId = Auth::clientId();
 if (!$clientId) {
     flash('error', 'Client profile not found.');
-    header('Location: ' . adminUrl('auth/login.php?portal=client'));
+    header('Location: ' . clientLoginUrl());
     exit;
 }
 

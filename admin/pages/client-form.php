@@ -3,7 +3,11 @@ require_once __DIR__ . '/../core/bootstrap.php';
 
 $id = (int) ($_GET['id'] ?? 0);
 $isEdit = $id > 0;
-Auth::requireAdmin();
+Auth::requirePage('clients');
+if (!Auth::canManage(RoleAccess::PERMISSION_CLIENTS)) {
+    flash('error', 'You have read-only access to clients.');
+    redirect('pages/clients.php');
+}
 
 if ($isEdit) {
     $client = ClientService::getById($id);
@@ -150,25 +154,37 @@ require __DIR__ . '/../includes/header.php';
                 <div id="portalPasswordFields" class="row g-3">
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
-                        <div class="case-form-password-wrap">
-                            <input type="password" id="password" name="password" class="form-control case-form-control"
-                                   minlength="8" autocomplete="new-password"
-                                   pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                                   title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
-                            <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
-                                <i class="bi bi-eye"></i>
-                            </button>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" id="password" name="password"
+                                       class="form-control case-form-control login-pw-input login-pw-masked"
+                                       spellcheck="false"
+                                       minlength="8" autocomplete="new-password" required
+                                       data-lpignore="true" data-1p-ignore="true"
+                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
                         <p class="text-muted small mb-0 mt-1">Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).</p>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
-                        <div class="case-form-password-wrap">
-                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
-                                   minlength="8" autocomplete="new-password">
-                            <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
-                                <i class="bi bi-eye"></i>
-                            </button>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" id="password_confirmation" name="password_confirmation"
+                                       class="form-control case-form-control login-pw-input login-pw-masked"
+                                       spellcheck="false"
+                                       minlength="8" autocomplete="off" required
+                                       data-lpignore="true" data-1p-ignore="true">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -193,25 +209,37 @@ require __DIR__ . '/../includes/header.php';
                 <div id="portalPasswordFields" class="row g-3" style="display:none;">
                     <div class="col-md-6">
                         <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
-                        <div class="case-form-password-wrap">
-                            <input type="password" id="password" name="password" class="form-control case-form-control"
-                                   minlength="8" autocomplete="new-password"
-                                   pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                                   title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
-                            <button type="button" class="password-toggle js-password-toggle" data-target="password" tabindex="-1" aria-label="Show password">
-                                <i class="bi bi-eye"></i>
-                            </button>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" id="password" name="password"
+                                       class="form-control case-form-control login-pw-input login-pw-masked"
+                                       spellcheck="false"
+                                       minlength="8" autocomplete="new-password" required
+                                       data-lpignore="true" data-1p-ignore="true"
+                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
                         <p class="text-muted small mb-0 mt-1">Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).</p>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
-                        <div class="case-form-password-wrap">
-                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control case-form-control"
-                                   minlength="8" autocomplete="new-password">
-                            <button type="button" class="password-toggle js-password-toggle" data-target="password_confirmation" tabindex="-1" aria-label="Show password">
-                                <i class="bi bi-eye"></i>
-                            </button>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" id="password_confirmation" name="password_confirmation"
+                                       class="form-control case-form-control login-pw-input login-pw-masked"
+                                       spellcheck="false"
+                                       minlength="8" autocomplete="off" required
+                                       data-lpignore="true" data-1p-ignore="true">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -271,81 +299,84 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     if (phoneInput && window.intlTelInput) {
-        iti = window.intlTelInput(phoneInput, {
-            separateDialCode: true,
-            initialCountry: "us",
-            preferredCountries: ["us", "mu", "gb", "ca", "au", "in"],
-            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/utils.js"
-        });
-
-        syncPhoneInputPadding();
-        phoneInput.addEventListener("countrychange", syncPhoneInputPadding);
-        window.addEventListener("resize", syncPhoneInputPadding);
-
-        if (iti.promise) {
-            iti.promise.then(syncPhoneInputPadding);
-        }
-
-        if (form) {
-            form.addEventListener("submit", function(e) {
-                if (phoneInput && iti) {
-                    phoneInput.value = iti.getNumber() || phoneInput.value.trim();
-                    if (!phoneInput.value.trim()) {
-                        e.preventDefault();
-                        phoneInput.setCustomValidity("Phone number is required.");
-                        phoneInput.reportValidity();
-                        phoneInput.setCustomValidity("");
-                        return;
-                    }
-                }
-
-                var loginCheckbox = document.getElementById("create_login");
-                var pwd = document.getElementById("password");
-                var pwdConfirm = document.getElementById("password_confirmation");
-
-                if (loginCheckbox && loginCheckbox.checked && pwd) {
-                    var strengthError = passwordStrengthError(pwd.value);
-                    if (strengthError) {
-                        e.preventDefault();
-                        pwd.setCustomValidity(strengthError);
-                        pwd.reportValidity();
-                        pwd.setCustomValidity("");
-                        return;
-                    }
-
-                    if (pwdConfirm && pwd.value !== pwdConfirm.value) {
-                        e.preventDefault();
-                        pwdConfirm.setCustomValidity("Password confirmation does not match.");
-                        pwdConfirm.reportValidity();
-                        pwdConfirm.setCustomValidity("");
-                    }
-                }
+        try {
+            iti = window.intlTelInput(phoneInput, {
+                separateDialCode: true,
+                initialCountry: "us",
+                preferredCountries: ["us", "mu", "gb", "ca", "au", "in"],
+                utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/utils.js"
             });
+
+            syncPhoneInputPadding();
+            phoneInput.addEventListener("countrychange", syncPhoneInputPadding);
+            window.addEventListener("resize", syncPhoneInputPadding);
+
+            if (iti.promise) {
+                iti.promise.then(syncPhoneInputPadding).catch(function() {});
+            }
+        } catch (err) {
+            iti = null;
         }
     }
 
-    document.querySelectorAll(".js-password-toggle").forEach(function(button) {
-        button.addEventListener("click", function() {
-            var input = document.getElementById(this.getAttribute("data-target"));
-            if (!input) return;
-
-            var reveal = input.type === "password";
-            input.type = reveal ? "text" : "password";
-
-            var icon = this.querySelector("i");
-            if (icon) {
-                icon.classList.toggle("bi-eye", !reveal);
-                icon.classList.toggle("bi-eye-slash", reveal);
+    if (form) {
+        form.addEventListener("submit", function(e) {
+            if (phoneInput && iti) {
+                phoneInput.value = iti.getNumber() || phoneInput.value.trim();
+                if (!phoneInput.value.trim()) {
+                    e.preventDefault();
+                    phoneInput.setCustomValidity("Phone number is required.");
+                    phoneInput.reportValidity();
+                    phoneInput.setCustomValidity("");
+                    return;
+                }
             }
-            this.setAttribute("aria-label", reveal ? "Hide password" : "Show password");
+
+            var loginCheckbox = document.getElementById("create_login");
+            var pwd = document.getElementById("password");
+            var pwdConfirm = document.getElementById("password_confirmation");
+
+            if (loginCheckbox && loginCheckbox.checked && pwd) {
+                var strengthError = passwordStrengthError(pwd.value);
+                if (strengthError) {
+                    e.preventDefault();
+                    pwd.setCustomValidity(strengthError);
+                    pwd.reportValidity();
+                    pwd.setCustomValidity("");
+                    return;
+                }
+
+                if (pwdConfirm && pwd.value !== pwdConfirm.value) {
+                    e.preventDefault();
+                    pwdConfirm.setCustomValidity("Password confirmation does not match.");
+                    pwdConfirm.reportValidity();
+                    pwdConfirm.setCustomValidity("");
+                }
+            }
         });
-    });
+    }
 
     var checkbox = document.getElementById("create_login");
     var fields = document.getElementById("portalPasswordFields");
     var password = document.getElementById("password");
     var confirm = document.getElementById("password_confirmation");
     if (!checkbox || !fields) return;
+
+    function resetPasswordReveal(fieldId) {
+        var masked = document.getElementById(fieldId);
+        if (!masked) return;
+        var field = masked.closest(".login-pw-field");
+        masked.value = "";
+        if (field) {
+            field.classList.remove("login-pw-field--revealed");
+            var revealBtn = field.querySelector(".login-pw-reveal");
+            if (revealBtn) {
+                revealBtn.setAttribute("aria-pressed", "false");
+                revealBtn.setAttribute("aria-label", "Show password");
+                revealBtn.title = "Show password";
+            }
+        }
+    }
 
     function syncPasswordFields() {
         var enabled = checkbox.checked;
@@ -355,11 +386,17 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!enabled) {
             if (password) password.value = "";
             if (confirm) confirm.value = "";
+            resetPasswordReveal("password");
+            resetPasswordReveal("password_confirmation");
         }
     }
 
     checkbox.addEventListener("change", syncPasswordFields);
     syncPasswordFields();
+
+    if (window.bootPasswordRevealFields) {
+        window.bootPasswordRevealFields(fields || document);
+    }
 });
 </script>';
 require __DIR__ . '/../includes/footer.php';

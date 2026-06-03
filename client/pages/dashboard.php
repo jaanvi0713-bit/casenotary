@@ -7,7 +7,7 @@ $clientId = Auth::clientId();
 if (!$clientId) {
     Auth::logout();
     flash('success', 'Your client profile could not be found. Please contact support.');
-    header('Location: ' . adminUrl('auth/login.php?portal=client'));
+    header('Location: ' . clientLoginUrl(TenantService::id()));
     exit;
 }
 

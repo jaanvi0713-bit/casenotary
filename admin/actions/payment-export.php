@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::guardAction();
 
 syncOverdueInvoices();
 $payments = getAllPayments();

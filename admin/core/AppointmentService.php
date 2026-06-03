@@ -286,12 +286,22 @@ class AppointmentService
         $startSql = appointmentStartSql('a');
         $endSql   = appointmentEndSql('a');
 
-        $row = Database::fetch(
-            "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time FROM appointments a WHERE a.id = ?",
-            [$id]
-        );
+        if (TenantService::isEnabled()) {
+            $row = Database::fetch(
+                "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time
+                 FROM appointments a
+                 JOIN clients cl ON cl.id = a.client_id
+                 WHERE a.id = ? AND cl.company_id = ?",
+                [$id, TenantService::id()]
+            );
+        } else {
+            $row = Database::fetch(
+                "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time FROM appointments a WHERE a.id = ?",
+                [$id]
+            );
+        }
 
-        if (!$row) {
+        if (!$row && !TenantService::isEnabled()) {
             $row = Database::fetch('SELECT * FROM appointments WHERE id = ?', [$id]);
         }
 
@@ -338,13 +348,16 @@ class AppointmentService
             'cancelled' => ($appointment['title'] ?? 'Appointment') . ' on ' . $start . ' has been cancelled.',
         ];
 
+        $companyId = (int) ($client['company_id'] ?? 0);
+
         if ($userId > 0) {
             createNotification(
                 $userId,
                 $titles[$event] ?? 'Appointment update',
                 $clientMessages[$event] ?? (($appointment['title'] ?? 'Appointment') . ' — ' . $start),
                 'appointment',
-                clientUrl('pages/appointments.php')
+                clientUrl('pages/appointments.php'),
+                $companyId > 0 ? $companyId : null
             );
         }
 
@@ -360,13 +373,14 @@ class AppointmentService
             $adminMessage = clientFullName($client) . ' requested "' . ($appointment['title'] ?? 'Appointment') . '" for ' . $start;
         }
 
-        foreach (Database::fetchAll("SELECT id FROM users WHERE role = 'admin' AND status = 'active'") as $admin) {
+        foreach (TenantService::adminNotifierUserIds($companyId) as $adminId) {
             createNotification(
-                (int) $admin['id'],
+                $adminId,
                 $adminTitles[$event] ?? 'Appointment update',
                 $adminMessage,
                 'appointment',
-                url('pages/appointments.php')
+                url('pages/appointments.php'),
+                $companyId > 0 ? $companyId : null
             );
         }
 

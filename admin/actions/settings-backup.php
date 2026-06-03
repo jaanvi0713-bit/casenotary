@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::guardAction();
 
 $backup = SettingsService::exportBackup();
 $json   = json_encode($backup, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);

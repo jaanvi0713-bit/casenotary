@@ -4,17 +4,25 @@ require_once __DIR__ . '/../core/bootstrap.php';
 $id = (int) ($_GET['id'] ?? 0);
 $isEdit = $id > 0;
 
+Auth::requirePage('cases');
+if (!Auth::canManage(RoleAccess::PERMISSION_CASES)) {
+    flash('error', 'You have read-only access to cases.');
+    redirect($isEdit && $id > 0 ? 'pages/case-view.php?id=' . $id : 'pages/cases.php');
+}
+
 if ($isEdit) {
-    Auth::requireAdmin();
     $case = CaseService::getCaseById($id);
     if (!$case) {
         flash('error', 'Case not found.');
         redirect('pages/cases.php');
     }
     $pageTitle = 'Edit Case';
+    $pageSubtitle = trim((string) ($case['case_number'] ?? '')) !== ''
+        ? $case['case_number'] . ' — ' . ($case['title'] ?? '')
+        : ($case['title'] ?? 'Update case details');
 } else {
-    Auth::requireAdmin();
     $pageTitle = 'New Case';
+    $pageSubtitle = 'Set up a new legal case workspace';
     $case = null;
 }
 
@@ -122,7 +130,7 @@ require __DIR__ . '/../includes/header.php';
                             <option value="">Unassigned</option>
                             <?php foreach ($admins as $admin): ?>
                                 <option value="<?= $admin['id'] ?>" <?= (string) ($case['assigned_admin_id'] ?? '') === (string) $admin['id'] ? 'selected' : '' ?>>
-                                    <?= e($admin['name']) ?>
+                                    <?= e(trim($admin['name'] ?? '') !== '' ? $admin['name'] : userFullName($admin)) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>

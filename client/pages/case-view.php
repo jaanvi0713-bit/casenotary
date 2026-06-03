@@ -16,6 +16,7 @@ if (!$case) {
 $workspace = CaseService::getWorkspace($caseId);
 $publishedLetters = ClientLetterService::getPublishedForClientCase($caseId, $clientId);
 $pageTitle = $case['case_number'];
+$pageSubtitle = $case['title'] ?? '';
 
 require __DIR__ . '/../includes/header.php';
 ?>

@@ -156,6 +156,11 @@ function chatbotBuildAppointmentFilter(string $message): array
         default => 'appointments',
     };
 
+    if (TenantService::isEnabled()) {
+        $where[] = 'EXISTS (SELECT 1 FROM clients _tsc WHERE _tsc.id = a.client_id AND _tsc.company_id = ?)';
+        $params[] = TenantService::id();
+    }
+
     return [
         'where_sql' => implode(' AND ', $where),
         'params'    => $params,
@@ -420,20 +425,21 @@ function chatbotReplyForCaseQueries(string $message): ?string
         $_SESSION['chatbot_last_topic'] = 'cases';
 
         return formatChatbotCaseList(
-            Database::fetchAll(
-                "SELECT cs.id, cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
-                 FROM cases cs
-                 JOIN clients cl ON cl.id = cs.client_id
-                 ORDER BY cs.updated_at DESC
-                 LIMIT 10"
-            ),
+            getRecentCases(10),
             '**Recent cases:**'
         );
     }
 
     if (chatbotWantsCount($normalized) || preg_match('/\bhow many\b/', $normalized)) {
         $_SESSION['chatbot_last_topic'] = 'cases';
-        $totalCases = (int) (Database::fetch('SELECT COUNT(*) AS c FROM cases')['c'] ?? 0);
+        $caseWhere = [];
+        $caseParams = [];
+        TenantService::appendScope($caseWhere, $caseParams, 'cs');
+        $caseWhereSql = $caseWhere === [] ? '' : (' WHERE ' . implode(' AND ', $caseWhere));
+        $totalCases = (int) (Database::fetch(
+            'SELECT COUNT(*) AS c FROM cases cs' . $caseWhereSql,
+            $caseParams
+        )['c'] ?? 0);
 
         return "You have **{$totalCases} cases** in total, with **{$stats['active_cases']} active**. "
             . chatbotAdminLink('pages/cases.php', 'Open cases');
@@ -473,10 +479,7 @@ function chatbotReplyForNotificationQueries(string $message): ?string
 
     if (preg_match('/\b(unread|new)\b/', $normalized)) {
         $_SESSION['chatbot_last_topic'] = 'notifications';
-        $rows = Database::fetchAll(
-            'SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 ORDER BY created_at DESC LIMIT 10',
-            [$userId]
-        );
+        $rows = getRecentNotifications($userId, 10, true);
 
         return chatbotFormatNotificationListWithLinks($rows, '**Unread notifications:**', $unread);
     }
@@ -639,8 +642,12 @@ function chatbotReplyForMorningBriefing(string $message): ?string
         $lines[] = '• **Next appointment:** ' . $appt['title'] . ' — ' . $when;
     }
 
+    $overdueWhere = [invoiceStatusColumn() . " = 'overdue'"];
+    $overdueParams = [];
+    TenantService::appendClientScope($overdueWhere, $overdueParams, 'cl');
     $overdue = (int) (Database::fetch(
-        'SELECT COUNT(*) AS c FROM invoices WHERE ' . invoiceStatusColumn() . " = 'overdue'"
+        'SELECT COUNT(*) AS c FROM invoices i JOIN clients cl ON cl.id = i.client_id WHERE ' . implode(' AND ', $overdueWhere),
+        $overdueParams
     )['c'] ?? 0);
 
     if ($overdue > 0) {
@@ -688,13 +695,18 @@ function chatbotReplyForDateFilteredQueries(string $message): ?string
             default => "{$startSql} >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)",
         };
 
+        $apptWhere = [$where];
+        $apptParams = [];
+        TenantService::appendClientScope($apptWhere, $apptParams, 'cl');
+
         $rows = Database::fetchAll(
             "SELECT a.title, a.status, {$startSql} AS start_time, cl.first_name, cl.last_name, cl.company_name
              FROM appointments a
              LEFT JOIN clients cl ON cl.id = a.client_id
-             WHERE {$where}
+             WHERE " . implode(' AND ', $apptWhere) . "
              ORDER BY {$startSql} ASC
-             LIMIT 12"
+             LIMIT 12",
+            $apptParams
         );
 
         if ($rows === []) {
@@ -726,15 +738,20 @@ function chatbotReplyForDateFilteredQueries(string $message): ?string
             default => "{$dateExpr} >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)",
         };
 
+        $payWhere = [$where];
+        $payParams = [];
+        TenantService::appendClientScope($payWhere, $payParams, 'cl');
+
         $rows = Database::fetchAll(
             "SELECT p.amount, p.paid_at, p.created_at, p.{$paymentCol} AS payment_status,
                     i.invoice_number, cl.first_name, cl.last_name, cl.company_name
              FROM payments p
              JOIN invoices i ON i.id = p.invoice_id
              JOIN clients cl ON cl.id = i.client_id
-             WHERE {$where}
+             WHERE " . implode(' AND ', $payWhere) . "
              ORDER BY {$dateExpr} DESC
-             LIMIT 12"
+             LIMIT 12",
+            $payParams
         );
 
         if ($rows === []) {
@@ -762,14 +779,19 @@ function chatbotReplyForDateFilteredQueries(string $message): ?string
             default => 'i.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)',
         };
 
+        $invDateWhere = [$where];
+        $invDateParams = [];
+        TenantService::appendClientScope($invDateWhere, $invDateParams, 'cl');
+
         $rows = Database::fetchAll(
             "SELECT i.invoice_number, i.total, i.due_date, i.{$statusCol} AS invoice_status,
                     cl.first_name, cl.last_name, cl.company_name
              FROM invoices i
              JOIN clients cl ON cl.id = i.client_id
-             WHERE {$where}
+             WHERE " . implode(' AND ', $invDateWhere) . "
              ORDER BY i.created_at DESC
-             LIMIT 12"
+             LIMIT 12",
+            $invDateParams
         );
 
         if ($rows === []) {
@@ -996,14 +1018,19 @@ function chatbotReplyForSystemInsights(string $message): ?string
 
     if (preg_match('/\b(overdue invoice|overdue invoices|past due)\b/', $normalized)
         && (chatbotWantsList($normalized) || preg_match('/\blist|\bshow|\bany\b/', $normalized))) {
+        $statusCol = invoiceStatusColumn();
+        $overdueListWhere = ["i.{$statusCol} = 'overdue'"];
+        $overdueListParams = [];
+        TenantService::appendClientScope($overdueListWhere, $overdueListParams, 'cl');
         $rows = Database::fetchAll(
             "SELECT i.invoice_number, i.total, i.due_date, i.{$statusCol} AS invoice_status,
                     cl.first_name, cl.last_name, cl.company_name
              FROM invoices i
              JOIN clients cl ON cl.id = i.client_id
-             WHERE i.{$statusCol} = 'overdue'
+             WHERE " . implode(' AND ', $overdueListWhere) . "
              ORDER BY i.due_date ASC
-             LIMIT 12"
+             LIMIT 12",
+            $overdueListParams
         );
 
         if ($rows === []) {
@@ -1027,15 +1054,19 @@ function chatbotReplyForSystemInsights(string $message): ?string
 
     if (preg_match('/\b(invoice|invoices)\b/', $normalized)
         && (chatbotWantsList($normalized) || preg_match('/\blist|\bshow|\bpending|\bunpaid|\boverdue|\brecent\b/', $normalized))) {
+        $invListWhere = ["i.{$statusCol} IN ('pending', 'overdue', 'partially_paid', 'paid')"];
+        $invListParams = [];
+        TenantService::appendClientScope($invListWhere, $invListParams, 'cl');
         $rows = Database::fetchAll(
             "SELECT i.id, i.invoice_number, i.total, i.due_date, i.{$statusCol} AS invoice_status,
                     cl.first_name, cl.last_name, cl.company_name, cs.id AS case_id
              FROM invoices i
              JOIN clients cl ON cl.id = i.client_id
              LEFT JOIN cases cs ON cs.id = i.case_id
-             WHERE i.{$statusCol} IN ('pending', 'overdue', 'partially_paid', 'paid')
+             WHERE " . implode(' AND ', $invListWhere) . "
              ORDER BY i.created_at DESC
-             LIMIT 12"
+             LIMIT 12",
+            $invListParams
         );
 
         if ($rows === []) {
@@ -1112,8 +1143,12 @@ function chatbotReplyForSystemInsights(string $message): ?string
     }
 
     if (preg_match('/\b(pending payment|pending payments|any pending|awaiting payment)\b/', $normalized)) {
+        $pendingWhere = ["i.{$statusCol} IN ('pending','overdue','partially_paid')"];
+        $pendingParams = [];
+        TenantService::appendClientScope($pendingWhere, $pendingParams, 'cl');
         $count = (int) (Database::fetch(
-            "SELECT COUNT(*) AS c FROM invoices WHERE {$statusCol} IN ('pending','overdue','partially_paid')"
+            'SELECT COUNT(*) AS c FROM invoices i JOIN clients cl ON cl.id = i.client_id WHERE ' . implode(' AND ', $pendingWhere),
+            $pendingParams
         )['c'] ?? 0);
 
         return 'You have **' . $count . ' invoices** awaiting payment (pending, partial, or overdue).';

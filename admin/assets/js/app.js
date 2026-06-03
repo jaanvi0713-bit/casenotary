@@ -155,6 +155,7 @@
         statusFilter?.addEventListener('change', filterTable);
         priorityFilter?.addEventListener('change', filterTable);
     }
+
 })();
 
 window.AppointmentCalendar = {

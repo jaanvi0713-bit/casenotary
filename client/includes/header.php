@@ -46,10 +46,8 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                         </div>
                     <?php endif; ?>
                     <div class="topbar-title-text">
-                    <div class="topbar-page-title"><?= e($pageTitle ?? 'Portal') ?></div>
-                    <?php if (!empty($pageSubtitle)): ?>
-                        <p class="topbar-page-subtitle"><?= e($pageSubtitle) ?></p>
-                    <?php endif; ?>
+                        <div class="topbar-page-title"><?= e($pageTitle ?? 'Portal') ?></div>
+                        <p class="topbar-page-subtitle<?= empty($pageSubtitle) ? ' topbar-page-subtitle--placeholder' : '' ?>"><?= !empty($pageSubtitle) ? e($pageSubtitle) : "\u{00a0}" ?></p>
                     </div>
                 </div>
             </div>

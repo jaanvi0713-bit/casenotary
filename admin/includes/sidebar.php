@@ -1,17 +1,7 @@
 <?php
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 $company = getCompanySettings();
-
-$navItems = [
-    ['icon' => 'bi-grid-1x2', 'label' => 'Dashboard', 'href' => 'pages/dashboard.php', 'page' => 'dashboard'],
-    ['icon' => 'bi-people', 'label' => 'Clients', 'href' => 'pages/clients.php', 'page' => 'clients'],
-    ['icon' => 'bi-briefcase', 'label' => 'Cases', 'href' => 'pages/cases.php', 'page' => 'cases'],
-    ['icon' => 'bi-credit-card', 'label' => 'Payments', 'href' => 'pages/payments.php', 'page' => 'payments'],
-    ['icon' => 'bi-calendar3', 'label' => 'Appointments', 'href' => 'pages/appointments.php', 'page' => 'appointments'],
-    ['icon' => 'bi-bell', 'label' => 'Notifications', 'href' => 'pages/notifications.php', 'page' => 'notifications'],
-    ['icon' => 'bi-robot', 'label' => 'AI Assistant', 'href' => 'pages/chatbot.php', 'page' => 'chatbot'],
-    ['icon' => 'bi-gear', 'label' => 'Settings', 'href' => 'pages/settings.php', 'page' => 'settings'],
-];
+$navItems = RoleAccess::navItemsForRole(Auth::role());
 ?>
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -43,6 +33,29 @@ $navItems = [
             <?php endforeach; ?>
         </ul>
     </nav>
+
+    <?php if (Auth::isSuperAdmin() && TenantService::isEnabled()): ?>
+        <?php $sidebarCompanies = TenantService::listActive(); ?>
+        <div class="sidebar-company-switch">
+            <form method="post" action="<?= url('actions/switch-company.php') ?>">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="return" value="<?= e(currentAdminReturn()) ?>">
+                <label class="sidebar-company-switch__label" for="sidebarCompanySelect">Workspace</label>
+                <select id="sidebarCompanySelect"
+                        name="company_id"
+                        class="sidebar-company-switch__select"
+                        aria-label="Switch company"
+                        onchange="this.form.submit()">
+                    <?php foreach ($sidebarCompanies as $sidebarCompany): ?>
+                        <option value="<?= (int) $sidebarCompany['id'] ?>"
+                            <?= (int) $sidebarCompany['id'] === TenantService::id() ? 'selected' : '' ?>>
+                            <?= e($sidebarCompany['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
+        </div>
+    <?php endif; ?>
 
     <div class="sidebar-footer">
         <a href="<?= url('auth/logout.php') ?>" class="sidebar-logout" title="Sign Out">

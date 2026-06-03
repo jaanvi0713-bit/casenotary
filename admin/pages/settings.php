@@ -1,11 +1,25 @@
 <?php
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::requirePage('settings');
 
 $pageTitle = 'Settings';
+$pageSubtitle = 'Branding, email delivery, payments, and role access';
 $settings  = getCompanySettings();
 $tab       = $_GET['tab'] ?? 'branding';
+if ($tab === 'roles') {
+    redirect('pages/settings-roles.php');
+}
+$canManageSettings = Auth::can(RoleAccess::PERMISSION_SETTINGS);
+$settingsNavTab = $tab;
+$editableRoleKeys = $canManageSettings
+    ? CompanyRoleAccessService::editableRolesForActor(Auth::role(), TenantService::id())
+    : [];
+
+if (!$canManageSettings) {
+    $tab = 'profile';
+    $pageSubtitle = 'Your profile';
+}
 $logoUrl    = companyLogoUrl($settings);
 $faviconUrl = companyFaviconUrl($settings);
 
@@ -16,7 +30,80 @@ if ($tab === 'branding') {
 require __DIR__ . '/../includes/header.php';
 ?>
 
+<?php $profileUser = Auth::user(); ?>
+
+<?php if ($tab === 'profile'): ?>
 <div class="saas-card">
+    <div class="saas-card-header">
+        <div>
+            <h2 class="saas-card-title">My Profile</h2>
+            <p class="saas-card-subtitle mb-0">Update your name, email, and password</p>
+        </div>
+    </div>
+    <div class="card-body p-4">
+        <form method="post" action="<?= url('actions/profile-action.php') ?>" class="row g-3">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="update_profile">
+            <div class="col-md-6">
+                <label class="form-label">First name</label>
+                <input type="text" name="first_name" class="form-control" required value="<?= e($profileUser['first_name'] ?? userFirstName($profileUser)) ?>">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Last name</label>
+                <input type="text" name="last_name" class="form-control" required value="<?= e($profileUser['last_name'] ?? '') ?>">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control" required value="<?= e($profileUser['email'] ?? '') ?>">
+            </div>
+            <?php if (Database::columnExists('users', 'phone')): ?>
+            <div class="col-md-6">
+                <label class="form-label">Phone</label>
+                <input type="text" name="phone" class="form-control" value="<?= e($profileUser['phone'] ?? '') ?>">
+            </div>
+            <?php endif; ?>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Save profile</button>
+            </div>
+        </form>
+        <hr class="my-4">
+        <h3 class="h6 mb-3">Change password</h3>
+        <form method="post" action="<?= url('actions/profile-action.php') ?>" class="row g-3">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="change_password">
+            <div class="col-md-4">
+                <label class="form-label">Current password</label>
+                <?php renderPasswordRevealField('current_password', 'current_password', [
+                    'required' => true,
+                    'autocomplete' => 'current-password',
+                ]); ?>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">New password</label>
+                <?php renderPasswordRevealField('new_password', 'new_password', [
+                    'required' => true,
+                    'autocomplete' => 'new-password',
+                    'minlength' => 8,
+                ]); ?>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Confirm new password</label>
+                <?php renderPasswordRevealField('new_password_confirmation', 'new_password_confirmation', [
+                    'required' => true,
+                    'autocomplete' => 'new-password',
+                    'minlength' => 8,
+                ]); ?>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-outline-primary">Update password</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($canManageSettings): ?>
+<div class="saas-card<?= $tab === 'profile' ? ' mt-4' : '' ?>">
     <div class="saas-card-header appointment-calendar-header">
         <div>
             <h2 class="saas-card-title">Company Settings</h2>
@@ -24,19 +111,14 @@ require __DIR__ . '/../includes/header.php';
         </div>
     </div>
     <div class="card-body p-0">
-        <ul class="nav nav-tabs settings-tabs px-3 pt-3" role="tablist">
-            <li class="nav-item">
-                <a class="nav-link <?= $tab === 'branding' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=branding') ?>">Branding</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?= $tab === 'email' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=email') ?>">Email / SMTP</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?= $tab === 'payments' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=payments') ?>">Payments</a>
-            </li>
-        </ul>
+        <?php require __DIR__ . '/../includes/settings-nav.php'; ?>
 
-        <form method="post" action="<?= url('actions/settings-action.php') ?>" enctype="multipart/form-data" class="p-4">
+        <form
+            method="post"
+            action="<?= url('actions/settings-action.php') ?>"
+            <?= $tab === 'branding' ? 'enctype="multipart/form-data"' : '' ?>
+            class="p-4"
+        >
             <?= CSRF::field() ?>
             <input type="hidden" name="tab" value="<?= e($tab) ?>">
 
@@ -96,7 +178,8 @@ require __DIR__ . '/../includes/header.php';
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Tax / VAT Number</label>
-                                    <input type="text" name="tax_vat_number" class="form-control" value="<?= e($settings['tax_vat_number'] ?? '') ?>" placeholder="e.g. GB123456789">
+                                    <input type="text" name="tax_vat_number" class="form-control" value="<?= e($settings['tax_vat_number'] ?? '') ?>" placeholder="Leave blank to auto-generate on invoices">
+                                    <div class="form-text">Shown on invoices. If empty, a number is generated from your company details.</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Office Email</label>
@@ -105,6 +188,26 @@ require __DIR__ . '/../includes/header.php';
                                 <div class="col-md-6">
                                     <label class="form-label">Office Phone</label>
                                     <input type="text" name="office_phone" class="form-control" value="<?= e($settings['office_phone'] ?? '') ?>" placeholder="+1 (555) 123-4567">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Street Address</label>
+                                    <input type="text" name="address" class="form-control" value="<?= e($settings['address'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">City</label>
+                                    <input type="text" name="city" class="form-control" value="<?= e($settings['city'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">State / Region</label>
+                                    <input type="text" name="state" class="form-control" value="<?= e($settings['state'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Postal / ZIP Code</label>
+                                    <input type="text" name="zip_code" class="form-control" value="<?= e($settings['zip_code'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Country</label>
+                                    <input type="text" name="country" class="form-control" value="<?= e($settings['country'] ?? '') ?>">
                                 </div>
                             </div>
                         </div>
@@ -141,10 +244,6 @@ require __DIR__ . '/../includes/header.php';
                                 <div class="col-12">
                                     <label class="form-label">Business Hours</label>
                                     <textarea name="business_hours" class="form-control" rows="3" placeholder="Monday – Friday: 9:00 AM – 5:00 PM"><?= e($settings['business_hours'] ?? '') ?></textarea>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label">Address</label>
-                                    <textarea name="address" class="form-control" rows="2"><?= e($settings['address'] ?? '') ?></textarea>
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label">Description</label>
@@ -257,7 +356,10 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">SMTP Password</label>
-                        <input type="password" name="smtp_password" class="form-control" placeholder="<?= !empty($settings['smtp_password']) ? '••••••••' : '' ?>">
+                        <?php renderPasswordRevealField('smtp_password', 'smtp_password', [
+                            'placeholder' => !empty($settings['smtp_password']) ? '••••••••' : '',
+                            'autocomplete' => 'new-password',
+                        ]); ?>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Encryption</label>
@@ -268,7 +370,39 @@ require __DIR__ . '/../includes/header.php';
                         </select>
                     </div>
                 </div>
-            <?php else: ?>
+            <?php elseif ($tab === 'payments'): ?>
+                <div class="settings-form-section mb-4">
+                    <div class="settings-form-section__header">
+                        <h3 class="settings-form-section__title">Invoice &amp; bank details</h3>
+                        <p class="settings-form-section__desc mb-0">Shown on generated invoices (Payable To, account details, and default payment terms). Company address and VAT number are set under Branding.</p>
+                    </div>
+                    <div class="settings-form-section__body row g-3 mt-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Payable to (legal name)</label>
+                            <input type="text" name="invoice_payable_name" class="form-control" value="<?= e($settings['invoice_payable_name'] ?? '') ?>" placeholder="e.g. WHARF NOTARIES LTD">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Default payment terms</label>
+                            <input type="text" name="default_invoice_payment_terms" class="form-control" value="<?= e($settings['default_invoice_payment_terms'] ?? '') ?>" placeholder="Payment due within 14 days">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Account number</label>
+                            <input type="text" name="bank_account_number" class="form-control" value="<?= e($settings['bank_account_number'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Sort code</label>
+                            <input type="text" name="bank_sort_code" class="form-control" value="<?= e($settings['bank_sort_code'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">IBAN</label>
+                            <input type="text" name="bank_iban" class="form-control" value="<?= e($settings['bank_iban'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">BIC</label>
+                            <input type="text" name="bank_bic" class="form-control" value="<?= e($settings['bank_bic'] ?? '') ?>">
+                        </div>
+                    </div>
+                </div>
                 <div class="alert alert-info border-0 small mb-3">
                     Add your Stripe publishable and secret keys to enable client online checkout. Manual payments can still be recorded from the Payments page or case workspace.
                 </div>
@@ -279,7 +413,10 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="col-12">
                         <label class="form-label">Stripe Secret Key</label>
-                        <input type="password" name="stripe_secret_key" class="form-control" placeholder="<?= !empty($settings['stripe_secret_key']) ? '••••••••' : '' ?>">
+                        <?php renderPasswordRevealField('stripe_secret_key', 'stripe_secret_key', [
+                            'placeholder' => !empty($settings['stripe_secret_key']) ? '••••••••' : '',
+                            'autocomplete' => 'off',
+                        ]); ?>
                     </div>
                 </div>
             <?php endif; ?>
@@ -290,8 +427,9 @@ require __DIR__ . '/../includes/header.php';
         </form>
     </div>
 </div>
+<?php endif; ?>
 
-<?php if ($tab === 'branding'): ?>
+<?php if ($canManageSettings && $tab === 'branding'): ?>
 <div class="modal fade" id="logoCropModal" tabindex="-1" aria-labelledby="logoCropModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">

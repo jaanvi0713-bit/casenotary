@@ -27,7 +27,7 @@ if ($letterId > 0) {
             http_response_code(403);
             exit('Forbidden');
         }
-    } elseif (!Auth::isAdmin()) {
+    } elseif (!Auth::isAdmin() || !Auth::can(RoleAccess::PERMISSION_CASES)) {
         http_response_code(403);
         exit('Forbidden');
     }
@@ -48,7 +48,20 @@ if ($letterId > 0) {
     }
     $fullPath = CaseService::documentPath($relative);
 
-    if (!Auth::isAdmin()) {
+    if (preg_match('#^cases/(\d+)/generated/invoice_(\d+)\.html$#', $relative, $invoiceMatch)) {
+        try {
+            CaseService::regenerateInvoiceHtml((int) $invoiceMatch[1], (int) $invoiceMatch[2]);
+            $fullPath = CaseService::documentPath($relative);
+        } catch (Throwable $e) {
+            // Fall back to the existing file if regeneration fails.
+        }
+    }
+
+    if (!Auth::isAdmin() || !Auth::can(RoleAccess::PERMISSION_CASES)) {
+        if (!Auth::isClient()) {
+            http_response_code(403);
+            exit('Forbidden');
+        }
         $clientId = Auth::clientId();
         if (!$clientId || !preg_match('#^cases/(\d+)/#', $relative, $m)) {
             http_response_code(403);
@@ -86,7 +99,7 @@ if ($letterId > 0) {
             http_response_code(403);
             exit('Forbidden');
         }
-    } elseif (!Auth::isAdmin()) {
+    } elseif (!Auth::isAdmin() || !Auth::can(RoleAccess::PERMISSION_CASES)) {
         http_response_code(403);
         exit('Forbidden');
     }

@@ -399,7 +399,7 @@ HTML,
         return [
             'company_name'        => companyBrandName($company),
             'company_legal_name'  => $legalName,
-            'company_address'     => nl2br(e(trim((string) ($company['address'] ?? '')))),
+            'company_address'     => companyAddressHtml($company),
             'company_contact'     => implode('<br>', $contactParts),
             'company_email'       => trim((string) ($company['office_email'] ?? '')),
             'company_phone'       => trim((string) ($company['office_phone'] ?? '')),
@@ -655,8 +655,8 @@ HTML,
             }
             .cl-logo {
                 display: block;
-                max-height: 72px;
-                max-width: 220px;
+                max-height: 88px;
+                max-width: 260px;
                 width: auto;
                 object-fit: contain;
             }
@@ -732,8 +732,8 @@ HTML,
             }
             .cl-end-logo {
                 display: block;
-                max-height: 58px;
-                max-width: 190px;
+                max-height: 70px;
+                max-width: 230px;
                 object-fit: contain;
                 margin-bottom: 8px;
             }
@@ -765,8 +765,8 @@ HTML,
             .cl-running-footer-logo {
                 display: inline-block;
                 vertical-align: middle;
-                max-height: 32px;
-                max-width: 90px;
+                max-height: 40px;
+                max-width: 110px;
                 margin-right: 10px;
                 object-fit: contain;
             }

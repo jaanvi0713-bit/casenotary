@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::guardAction();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !CSRF::verifyRequest()) {
     flash('error', 'Invalid request.');
@@ -19,10 +19,15 @@ try {
 
             $message = 'Client added successfully.';
             if ($createLogin) {
-                $message .= ' Portal login created. Client can sign in at ' . adminUrl('auth/login.php?portal=client');
+                $message .= ' Portal login created. Client can sign in at ' . clientLoginUrl(TenantService::id());
                 if (!empty($_POST['email']) && !empty($result['password'])) {
                     MailService::sendLoginEmail(
-                        ['email' => $_POST['email'], 'first_name' => $_POST['first_name'] ?? '', 'last_name' => $_POST['last_name'] ?? ''],
+                        [
+                            'email'      => $_POST['email'],
+                            'first_name' => $_POST['first_name'] ?? '',
+                            'last_name'  => $_POST['last_name'] ?? '',
+                            'company_id' => TenantService::id(),
+                        ],
                         'Welcome to our client portal. You can view cases, documents, and appointments after signing in.',
                         null
                     );
@@ -41,7 +46,7 @@ try {
             $newPassword = ClientService::update($id, $_POST);
             $message = 'Client updated successfully.';
             if ($newPassword) {
-                $message .= ' Portal login created. Client can sign in at ' . adminUrl('auth/login.php?portal=client');
+                $message .= ' Portal login created. Client can sign in at ' . clientLoginUrl(TenantService::id());
             }
             flash('success', $message);
             redirect('pages/client-form.php?id=' . $id);

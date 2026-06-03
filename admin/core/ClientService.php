@@ -6,6 +6,13 @@ class ClientService
 {
     public static function getById(int $id): ?array
     {
+        if (TenantService::isEnabled()) {
+            return Database::fetch(
+                'SELECT * FROM clients WHERE id = ? AND company_id = ?',
+                [$id, TenantService::id()]
+            );
+        }
+
         return Database::fetch('SELECT * FROM clients WHERE id = ?', [$id]);
     }
 
@@ -290,6 +297,11 @@ class ClientService
         $sql    = 'SELECT id FROM clients WHERE email = ?';
         $params = [$email];
 
+        if (TenantService::isEnabled()) {
+            $sql .= ' AND company_id = ?';
+            $params[] = TenantService::id();
+        }
+
         if ($excludeId) {
             $sql .= ' AND id != ?';
             $params[] = $excludeId;
@@ -300,7 +312,12 @@ class ClientService
 
     private static function createUserAccount(string $email, string $password, string $firstName, string $lastName, ?string $phone): int
     {
-        if (Database::fetch('SELECT id FROM users WHERE email = ? LIMIT 1', [$email])) {
+        if (Database::fetch(
+            TenantService::isEnabled()
+                ? 'SELECT id FROM users WHERE email = ? AND company_id = ? LIMIT 1'
+                : 'SELECT id FROM users WHERE email = ? LIMIT 1',
+            TenantService::isEnabled() ? [$email, TenantService::id()] : [$email]
+        )) {
             throw new RuntimeException('A user account with this email already exists.');
         }
 
@@ -308,6 +325,14 @@ class ClientService
         $name = trim($firstName . ' ' . $lastName);
 
         try {
+            if (TenantService::isEnabled() && Database::columnExists('users', 'company_id')) {
+                return Database::insert(
+                    "INSERT INTO users (company_id, email, password, role, name, status, is_active, created_at, updated_at)
+                     VALUES (?, ?, ?, 'client', ?, 'active', 1, NOW(), NOW())",
+                    [TenantService::id(), $email, $hash, $name]
+                );
+            }
+
             return Database::insert(
                 "INSERT INTO users (email, password, role, name, status, is_active, created_at, updated_at)
                  VALUES (?, ?, 'client', ?, 'active', 1, NOW(), NOW())",
@@ -349,7 +374,34 @@ class ClientService
 
     private static function insertClientRow(array $data): int
     {
+        if (TenantService::isEnabled() && Database::columnExists('clients', 'company_id')) {
+            $data['company_id'] = TenantService::id();
+        }
+
         try {
+            if (!empty($data['company_id'])) {
+                return Database::insert(
+                    'INSERT INTO clients (company_id, user_id, first_name, last_name, email, phone, company_name, address, city, state, zip_code, country, notes, status, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+                    [
+                        $data['company_id'],
+                        $data['user_id'],
+                        $data['first_name'],
+                        $data['last_name'],
+                        $data['email'],
+                        $data['phone'],
+                        $data['company_name'],
+                        $data['address'],
+                        $data['city'],
+                        $data['state'],
+                        $data['zip_code'],
+                        $data['country'],
+                        $data['notes'],
+                        'active',
+                    ]
+                );
+            }
+
             return Database::insert(
                 'INSERT INTO clients (user_id, first_name, last_name, email, phone, company_name, address, city, state, zip, country, notes, status, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
@@ -370,6 +422,29 @@ class ClientService
                 ]
             );
         } catch (Throwable $e) {
+            if (!empty($data['company_id'])) {
+                return Database::insert(
+                    'INSERT INTO clients (company_id, user_id, first_name, last_name, email, phone, company_name, address, city, state, zip, country, notes, status, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+                    [
+                        $data['company_id'],
+                        $data['user_id'],
+                        $data['first_name'],
+                        $data['last_name'],
+                        $data['email'],
+                        $data['phone'],
+                        $data['company_name'],
+                        $data['address'],
+                        $data['city'],
+                        $data['state'],
+                        $data['zip_code'],
+                        $data['country'],
+                        $data['notes'],
+                        'active',
+                    ]
+                );
+            }
+
             return Database::insert(
                 'INSERT INTO clients (user_id, first_name, last_name, email, phone, company_name, address, city, state, zip_code, country, notes, status, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',

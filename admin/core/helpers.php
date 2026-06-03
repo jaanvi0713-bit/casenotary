@@ -46,6 +46,20 @@ function clientUrl(string $path = ''): string
     return rtrim($config['client_url'], '/') . '/' . ltrim($path, '/');
 }
 
+function clientLoginUrl(?int $companyId = null): string
+{
+    $url = adminUrl('auth/login.php?portal=client');
+
+    if ($companyId !== null && $companyId > 0 && TenantService::isEnabled()) {
+        $slug = TenantService::slug($companyId);
+        if ($slug !== '') {
+            $url .= '&company=' . rawurlencode($slug);
+        }
+    }
+
+    return $url;
+}
+
 function e(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
@@ -97,6 +111,19 @@ function clientPostalCode(array $client): string
     return trim((string) ($client['zip_code'] ?? $client['zip'] ?? ''));
 }
 
+function clientPostalSelectSql(string $alias = 'cl'): string
+{
+    if (Database::columnExists('clients', 'zip_code')) {
+        return $alias . '.zip_code';
+    }
+
+    if (Database::columnExists('clients', 'zip')) {
+        return $alias . '.zip AS zip_code';
+    }
+
+    return 'NULL AS zip_code';
+}
+
 /**
  * @return list<string>
  */
@@ -131,6 +158,68 @@ function clientAddressSummary(array $client): string
     $lines = clientAddressLines($client);
 
     return $lines === [] ? '' : implode(', ', $lines);
+}
+
+function clientAddressHtml(array $client): string
+{
+    $lines = clientAddressLines($client);
+
+    if ($lines === []) {
+        return '';
+    }
+
+    return implode('<br>', array_map(static fn(string $line): string => e($line), $lines));
+}
+
+/**
+ * @return list<string>
+ */
+function companyAddressLines(?array $company = null): array
+{
+    if ($company === null) {
+        $company = getCompanySettings();
+    }
+
+    $street  = trim((string) ($company['address'] ?? ''));
+    $city    = trim((string) ($company['city'] ?? ''));
+    $state   = trim((string) ($company['state'] ?? ''));
+    $postal  = trim((string) ($company['zip_code'] ?? ''));
+    $country = trim((string) ($company['country'] ?? ''));
+
+    $lines = [];
+
+    if ($street !== '') {
+        $lines[] = $street;
+    }
+
+    $locality = array_values(array_filter([$city, $state, $postal], static fn(string $part): bool => $part !== ''));
+    if ($locality !== []) {
+        $lines[] = implode(', ', $locality);
+    }
+
+    if ($country !== '') {
+        $lines[] = $country;
+    }
+
+    return $lines;
+}
+
+function companyAddressSummary(?array $company = null): string
+{
+    $lines = companyAddressLines($company);
+
+    return $lines === [] ? '' : implode(', ', $lines);
+}
+
+function companyAddressHtml(?array $company = null): string
+{
+    $lines = companyAddressLines($company);
+
+    if ($lines === []) {
+        return '';
+    }
+
+    return implode('<br>', array_map(static fn(string $line): string => e($line), $lines));
 }
 
 function appointmentDateTimeValue(?string $value): ?string
@@ -713,7 +802,7 @@ function syncOverdueInvoices(): int
     $statusCol = invoiceStatusColumn();
 
     $overdueRows = Database::fetchAll(
-        "SELECT i.*, cl.user_id AS client_user_id
+        "SELECT i.*, cl.user_id AS client_user_id, cl.company_id
          FROM invoices i
          JOIN clients cl ON cl.id = i.client_id
          WHERE i.{$statusCol} IN ('pending', 'partially_paid')
@@ -738,23 +827,26 @@ function syncOverdueInvoices(): int
                 'pages/case-view.php?id=' . $caseId . '#invoice-payments'
             );
         } else {
+            $companyId = (int) ($invoice['company_id'] ?? 0);
             if (!empty($invoice['client_user_id'])) {
                 createNotification(
                     (int) $invoice['client_user_id'],
                     'Overdue Invoice',
                     $message,
                     'invoice',
-                    clientUrl('pages/payments.php')
+                    clientUrl('pages/payments.php'),
+                    $companyId > 0 ? $companyId : null
                 );
             }
 
-            foreach (Database::fetchAll("SELECT id FROM users WHERE role = 'admin' AND status = 'active'") as $admin) {
+            foreach (TenantService::adminNotifierUserIds($companyId) as $adminId) {
                 createNotification(
-                    (int) $admin['id'],
+                    $adminId,
                     'Overdue Invoice',
                     $message . ' (' . formatCurrency((float) ($invoice['total'] ?? 0)) . ')',
                     'invoice',
-                    url('pages/payments.php')
+                    url('pages/payments.php'),
+                    $companyId > 0 ? $companyId : null
                 );
             }
         }
@@ -767,6 +859,10 @@ function getOverdueInvoices(int $limit = 50): array
 {
     syncOverdueInvoices();
     $statusCol = invoiceStatusColumn();
+    $where = ["i.{$statusCol} = 'overdue'"];
+    $params = [];
+    TenantService::appendClientScope($where, $params, 'cl');
+    $params[] = $limit;
 
     return Database::fetchAll(
         "SELECT i.*, i.{$statusCol} AS payment_status, cl.first_name, cl.last_name, cl.company_name,
@@ -774,20 +870,29 @@ function getOverdueInvoices(int $limit = 50): array
          FROM invoices i
          JOIN clients cl ON cl.id = i.client_id
          LEFT JOIN cases cs ON cs.id = i.case_id
-         WHERE i.{$statusCol} = 'overdue'
+         WHERE " . implode(' AND ', $where) . "
          ORDER BY i.due_date ASC
          LIMIT ?",
-        [$limit]
+        $params
     );
 }
 
-function createNotification(int $userId, string $title, string $message, string $type, ?string $link = null): void
+function createNotification(int $userId, string $title, string $message, string $type, ?string $link = null, ?int $companyId = null): void
 {
     try {
-        Database::insert(
-            'INSERT INTO notifications (user_id, title, message, type, is_read, link, created_at) VALUES (?, ?, ?, ?, 0, ?, NOW())',
-            [$userId, $title, $message, $type, $link]
-        );
+        $companyId = $companyId ?? (TenantService::isEnabled() ? TenantService::id() : null);
+
+        if (TenantService::hasNotificationScope() && $companyId !== null && $companyId > 0) {
+            Database::insert(
+                'INSERT INTO notifications (user_id, company_id, title, message, type, is_read, link, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, NOW())',
+                [$userId, $companyId, $title, $message, $type, $link]
+            );
+        } else {
+            Database::insert(
+                'INSERT INTO notifications (user_id, title, message, type, is_read, link, created_at) VALUES (?, ?, ?, ?, 0, ?, NOW())',
+                [$userId, $title, $message, $type, $link]
+            );
+        }
     } catch (Throwable $e) {
         // optional
     }
@@ -797,6 +902,86 @@ function redirect(string $path): void
 {
     header('Location: ' . url($path));
     exit;
+}
+
+function redirectReturn(?string $return, string $fallback = 'pages/dashboard.php'): void
+{
+    redirect(resolveAdminReturn($return, $fallback));
+}
+
+function resolveAdminReturn(?string $return = null, string $fallback = 'pages/dashboard.php'): string
+{
+    $return = trim(html_entity_decode((string) $return, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+    if ($return !== '' && !str_contains($return, '://') && !str_starts_with($return, '//')) {
+        $path = ltrim($return, '/');
+        if (preg_match('#^pages/[a-z0-9_\-\./?=&%]+#i', $path)) {
+            return $path;
+        }
+    }
+
+    $referer = str_replace('\\', '/', (string) ($_SERVER['HTTP_REFERER'] ?? ''));
+    if (preg_match('#/admin/(pages/[a-z0-9_\-\./?=&%]+)#i', $referer, $matches)) {
+        return $matches[1];
+    }
+
+    return $fallback;
+}
+
+/**
+ * Return path safe after a company switch (avoids redirecting to records outside the new workspace).
+ */
+function resolveAdminReturnAfterCompanySwitch(?string $return = null, string $fallback = 'pages/dashboard.php'): string
+{
+    $path = resolveAdminReturn($return, $fallback);
+
+    if (!preg_match('#^pages/([^?]+)(\?.*)?$#', $path, $matches)) {
+        return $fallback;
+    }
+
+    $script = basename($matches[1]);
+    parse_str((string) parse_url($path, PHP_URL_QUERY), $query);
+    $id = (int) ($query['id'] ?? 0);
+
+    if ($id <= 0) {
+        return $path;
+    }
+
+    switch ($script) {
+        case 'case-view.php':
+        case 'case-form.php':
+            return CaseService::getCaseById($id) ? $path : 'pages/cases.php';
+
+        case 'client-form.php':
+            return ClientService::getById($id) ? $path : 'pages/clients.php';
+
+        default:
+            return $path;
+    }
+}
+
+/** Admin-relative path for post-action return (e.g. pages/appointments.php?q=foo). */
+function currentAdminReturn(): string
+{
+    $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+
+    if (preg_match('#/admin/(.+)$#i', $script, $matches)) {
+        $path = $matches[1];
+        $query = trim((string) ($_SERVER['QUERY_STRING'] ?? ''));
+
+        return $query !== '' ? $path . '?' . $query : $path;
+    }
+
+    $requestUri = str_replace('\\', '/', (string) ($_SERVER['REQUEST_URI'] ?? ''));
+    $requestPath = strtok($requestUri, '?') ?: '';
+    if (preg_match('#/admin/(.+)$#i', $requestPath, $matches)) {
+        $path = ltrim($matches[1], '/');
+        $query = trim((string) ($_SERVER['QUERY_STRING'] ?? ''));
+
+        return $query !== '' ? $path . '?' . $query : $path;
+    }
+
+    return 'pages/dashboard.php';
 }
 
 function flash(string $key, ?string $message = null): ?string
@@ -1019,6 +1204,20 @@ function formatDateTime(?string $datetime, string $format = 'M d, Y g:i A'): str
         return '—';
     }
     return date($format, strtotime($datetime));
+}
+
+function formatDateTimeStacked(?string $datetime): string
+{
+    if (!$datetime) {
+        return '—';
+    }
+
+    $timestamp = strtotime($datetime);
+    if ($timestamp === false) {
+        return '—';
+    }
+
+    return e(date('M d, Y', $timestamp)) . '<br>' . e(date('g:i A', $timestamp));
 }
 
 function statusBadge(string $status): string
@@ -1308,34 +1507,126 @@ function getDashboardStats(): array
     $paymentStatus = paymentStatusColumn();
     $appointmentStart = appointmentStartSql();
     $appointmentEnd   = appointmentEndSql();
+    $tenantEnabled = TenantService::isEnabled();
+    $companyId = TenantService::id();
 
-    $totalClients = Database::fetch('SELECT COUNT(*) AS count FROM clients')['count'] ?? 0;
+    $assignedOnly = Auth::restrictsToAssignedCases();
+    $assignedUserId = $assignedOnly ? (int) Auth::id() : 0;
 
-    $activeCases = Database::fetch(
-        "SELECT COUNT(*) AS count FROM cases WHERE status IN ('pending', 'in_progress', 'waiting_for_client')"
-    )['count'] ?? 0;
+    if ($tenantEnabled) {
+        $totalClients = Database::fetch('SELECT COUNT(*) AS count FROM clients WHERE company_id = ?', [$companyId])['count'] ?? 0;
 
-    $pendingInvoices = Database::fetch(
-        "SELECT COUNT(*) AS count FROM invoices WHERE {$invoiceStatus} IN ('pending', 'overdue', 'partially_paid')"
-    )['count'] ?? 0;
+        $activeCaseSql = "SELECT COUNT(*) AS count FROM cases WHERE company_id = ? AND status IN ('pending', 'in_progress', 'waiting_for_client')";
+        $activeCaseParams = [$companyId];
+        if ($assignedOnly && $assignedUserId > 0) {
+            $activeCaseSql .= ' AND assigned_admin_id = ?';
+            $activeCaseParams[] = $assignedUserId;
+        }
+        $activeCases = Database::fetch($activeCaseSql, $activeCaseParams)['count'] ?? 0;
 
-    $paidInvoices = Database::fetch(
-        "SELECT COUNT(*) AS count FROM invoices WHERE {$invoiceStatus} = 'paid'"
-    )['count'] ?? 0;
+        $invoiceScope = $assignedOnly && $assignedUserId > 0 ? ' AND cs.assigned_admin_id = ?' : '';
+        $invoiceScopeParams = $assignedOnly && $assignedUserId > 0 ? [$assignedUserId] : [];
 
-    $upcomingAppointments = Database::fetch(
-        "SELECT COUNT(*) AS count FROM appointments
-         WHERE status IN ('scheduled', 'confirmed')
-           AND ({$appointmentStart} >= NOW() OR ({$appointmentEnd} IS NOT NULL AND {$appointmentEnd} >= NOW()))"
-    )['count'] ?? 0;
+        $pendingInvoices = Database::fetch(
+            "SELECT COUNT(*) AS count FROM invoices i
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND i.{$invoiceStatus} IN ('pending', 'overdue', 'partially_paid'){$invoiceScope}",
+            array_merge([$companyId], $invoiceScopeParams)
+        )['count'] ?? 0;
 
-    $totalRevenue = Database::fetch(
-        "SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE {$paymentStatus} = 'completed'"
-    )['total'] ?? 0;
+        $paidInvoices = Database::fetch(
+            "SELECT COUNT(*) AS count FROM invoices i
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND i.{$invoiceStatus} = 'paid'{$invoiceScope}",
+            array_merge([$companyId], $invoiceScopeParams)
+        )['count'] ?? 0;
 
-    $monthlyRevenue = Database::fetch(
-        "SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE {$paymentStatus} = 'completed' AND MONTH(paid_at) = MONTH(NOW()) AND YEAR(paid_at) = YEAR(NOW())"
-    )['total'] ?? 0;
+        $upcomingAppointments = Database::fetch(
+            "SELECT COUNT(*) AS count FROM appointments a
+             JOIN clients cl ON cl.id = a.client_id
+             WHERE cl.company_id = ?
+               AND a.status IN ('scheduled', 'confirmed')
+               AND ({$appointmentStart} >= NOW() OR ({$appointmentEnd} IS NOT NULL AND {$appointmentEnd} >= NOW()))",
+            [$companyId]
+        )['count'] ?? 0;
+
+        $revenueScope = $invoiceScope;
+        $revenueScopeParams = $invoiceScopeParams;
+
+        $totalRevenue = Database::fetch(
+            "SELECT COALESCE(SUM(p.amount), 0) AS total FROM payments p
+             JOIN invoices i ON i.id = p.invoice_id
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND p.{$paymentStatus} = 'completed'{$revenueScope}",
+            array_merge([$companyId], $revenueScopeParams)
+        )['total'] ?? 0;
+
+        $monthlyRevenue = Database::fetch(
+            "SELECT COALESCE(SUM(p.amount), 0) AS total FROM payments p
+             JOIN invoices i ON i.id = p.invoice_id
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND p.{$paymentStatus} = 'completed'
+               AND MONTH(p.paid_at) = MONTH(NOW()) AND YEAR(p.paid_at) = YEAR(NOW()){$revenueScope}",
+            array_merge([$companyId], $revenueScopeParams)
+        )['total'] ?? 0;
+    } else {
+        $totalClients = Database::fetch('SELECT COUNT(*) AS count FROM clients')['count'] ?? 0;
+
+        $activeCaseSql = "SELECT COUNT(*) AS count FROM cases WHERE status IN ('pending', 'in_progress', 'waiting_for_client')";
+        $activeCaseParams = [];
+        if ($assignedOnly && $assignedUserId > 0) {
+            $activeCaseSql .= ' AND assigned_admin_id = ?';
+            $activeCaseParams[] = $assignedUserId;
+        }
+        $activeCases = Database::fetch($activeCaseSql, $activeCaseParams)['count'] ?? 0;
+
+        $invoiceScope = $assignedOnly && $assignedUserId > 0 ? ' WHERE cs.assigned_admin_id = ?' : '';
+        $invoiceScopeJoin = $assignedOnly && $assignedUserId > 0
+            ? ' JOIN cases cs ON cs.id = i.case_id'
+            : '';
+        $invoiceScopeParams = $assignedOnly && $assignedUserId > 0 ? [$assignedUserId] : [];
+
+        $pendingInvoices = Database::fetch(
+            "SELECT COUNT(*) AS count FROM invoices i{$invoiceScopeJoin}"
+            . ($invoiceScope !== '' ? $invoiceScope . ' AND' : ' WHERE')
+            . " i.{$invoiceStatus} IN ('pending', 'overdue', 'partially_paid')",
+            $invoiceScopeParams
+        )['count'] ?? 0;
+
+        $paidInvoices = Database::fetch(
+            "SELECT COUNT(*) AS count FROM invoices i{$invoiceScopeJoin}"
+            . ($invoiceScope !== '' ? $invoiceScope . ' AND' : ' WHERE')
+            . " i.{$invoiceStatus} = 'paid'",
+            $invoiceScopeParams
+        )['count'] ?? 0;
+
+        $upcomingAppointments = Database::fetch(
+            "SELECT COUNT(*) AS count FROM appointments
+             WHERE status IN ('scheduled', 'confirmed')
+               AND ({$appointmentStart} >= NOW() OR ({$appointmentEnd} IS NOT NULL AND {$appointmentEnd} >= NOW()))"
+        )['count'] ?? 0;
+
+        $revenueJoin = $assignedOnly && $assignedUserId > 0
+            ? ' JOIN invoices i ON i.id = p.invoice_id JOIN cases cs ON cs.id = i.case_id'
+            : '';
+        $revenueWhere = "p.{$paymentStatus} = 'completed'";
+        $revenueParams = [];
+        if ($assignedOnly && $assignedUserId > 0) {
+            $revenueWhere .= ' AND cs.assigned_admin_id = ?';
+            $revenueParams[] = $assignedUserId;
+        }
+
+        $totalRevenue = Database::fetch(
+            "SELECT COALESCE(SUM(p.amount), 0) AS total FROM payments p{$revenueJoin} WHERE {$revenueWhere}",
+            $revenueParams
+        )['total'] ?? 0;
+
+        $monthlyRevenue = Database::fetch(
+            "SELECT COALESCE(SUM(p.amount), 0) AS total FROM payments p{$revenueJoin}
+             WHERE {$revenueWhere} AND MONTH(p.paid_at) = MONTH(NOW()) AND YEAR(p.paid_at) = YEAR(NOW())",
+            $revenueParams
+        )['total'] ?? 0;
+    }
 
     return [
         'total_clients'         => (int) $totalClients,
@@ -1381,11 +1672,17 @@ function getBusinessActivityFeed(int $limit = 20): array
     $feed = [];
 
     try {
+        $clientWhere = [];
+        $clientParams = [];
+        TenantService::appendScope($clientWhere, $clientParams, 'c');
+        $clientWhereSql = $clientWhere === [] ? '' : (' WHERE ' . implode(' AND ', $clientWhere));
         $clients = Database::fetchAll(
             "SELECT first_name, last_name, company_name, created_at
-             FROM clients
+             FROM clients c
+             {$clientWhereSql}
              ORDER BY created_at DESC
-             LIMIT 8"
+             LIMIT 8",
+            $clientParams
         );
         foreach ($clients as $row) {
             $name = trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''));
@@ -1404,11 +1701,17 @@ function getBusinessActivityFeed(int $limit = 20): array
     }
 
     try {
+        $caseWhere = [];
+        $caseParams = [];
+        TenantService::appendScope($caseWhere, $caseParams, 'cs');
+        $caseWhereSql = $caseWhere === [] ? '' : (' WHERE ' . implode(' AND ', $caseWhere));
         $cases = Database::fetchAll(
             "SELECT case_number, title, created_at
-             FROM cases
+             FROM cases cs
+             {$caseWhereSql}
              ORDER BY created_at DESC
-             LIMIT 8"
+             LIMIT 8",
+            $caseParams
         );
         foreach ($cases as $row) {
             $feed[] = [
@@ -1423,12 +1726,18 @@ function getBusinessActivityFeed(int $limit = 20): array
     }
 
     try {
+        $statusCol = invoiceStatusColumn();
+        $invWhere = ["i.{$statusCol} = 'paid'"];
+        $invParams = [];
+        TenantService::appendClientScope($invWhere, $invParams, 'cl');
         $invoices = Database::fetchAll(
-            "SELECT invoice_number, total, updated_at, created_at
-             FROM invoices
-             WHERE payment_status = 'paid'
-             ORDER BY updated_at DESC
-             LIMIT 8"
+            "SELECT i.invoice_number, i.total, i.updated_at, i.created_at
+             FROM invoices i
+             JOIN clients cl ON cl.id = i.client_id
+             WHERE " . implode(' AND ', $invWhere) . "
+             ORDER BY i.updated_at DESC
+             LIMIT 8",
+            $invParams
         );
         foreach ($invoices as $row) {
             $feed[] = [
@@ -1443,13 +1752,18 @@ function getBusinessActivityFeed(int $limit = 20): array
     }
 
     try {
+        $payWhere = ["p.payment_status = 'completed'"];
+        $payParams = [];
+        TenantService::appendClientScope($payWhere, $payParams, 'cl');
         $payments = Database::fetchAll(
             "SELECT p.amount, p.paid_at, p.created_at, i.invoice_number
              FROM payments p
              JOIN invoices i ON i.id = p.invoice_id
-             WHERE p.payment_status = 'completed'
+             JOIN clients cl ON cl.id = i.client_id
+             WHERE " . implode(' AND ', $payWhere) . "
              ORDER BY COALESCE(p.paid_at, p.created_at) DESC
-             LIMIT 8"
+             LIMIT 8",
+            $payParams
         );
         foreach ($payments as $row) {
             $feed[] = [
@@ -1465,12 +1779,18 @@ function getBusinessActivityFeed(int $limit = 20): array
 
     try {
         $startSql = appointmentStartSql('a');
+        $apptWhere = [];
+        $apptParams = [];
+        TenantService::appendClientScope($apptWhere, $apptParams, 'c');
+        $apptWhereSql = $apptWhere === [] ? '' : (' WHERE ' . implode(' AND ', $apptWhere));
         $appointments = Database::fetchAll(
             "SELECT a.title, {$startSql} AS starts_at, a.created_at, c.first_name, c.last_name
              FROM appointments a
              JOIN clients c ON c.id = a.client_id
+             {$apptWhereSql}
              ORDER BY a.created_at DESC
-             LIMIT 8"
+             LIMIT 8",
+            $apptParams
         );
         foreach ($appointments as $row) {
             $start = $row['starts_at'] ?? $row['created_at'];
@@ -1486,12 +1806,18 @@ function getBusinessActivityFeed(int $limit = 20): array
     }
 
     try {
+        $docWhere = [];
+        $docParams = [];
+        TenantService::appendScope($docWhere, $docParams, 'cs');
+        $docWhereSql = $docWhere === [] ? '' : (' AND ' . implode(' AND ', $docWhere));
         $documents = Database::fetchAll(
             "SELECT d.original_name, d.file_name, d.created_at, cs.case_number
              FROM documents d
              LEFT JOIN cases cs ON cs.id = d.case_id
+             WHERE 1=1{$docWhereSql}
              ORDER BY d.created_at DESC
-             LIMIT 8"
+             LIMIT 8",
+            $docParams
         );
         foreach ($documents as $row) {
             $fileName = $row['original_name'] ?? $row['file_name'] ?? 'Document';
@@ -1508,12 +1834,16 @@ function getBusinessActivityFeed(int $limit = 20): array
     }
 
     try {
+        $caseWhere = ['updated_at > DATE_ADD(created_at, INTERVAL 2 MINUTE)'];
+        $caseParams = [];
+        TenantService::appendScope($caseWhere, $caseParams, 'cs');
         $caseUpdates = Database::fetchAll(
-            "SELECT case_number, title, status, updated_at, created_at
-             FROM cases
-             WHERE updated_at > DATE_ADD(created_at, INTERVAL 2 MINUTE)
+            'SELECT case_number, title, status, updated_at, created_at
+             FROM cases cs
+             WHERE ' . implode(' AND ', $caseWhere) . '
              ORDER BY updated_at DESC
-             LIMIT 8"
+             LIMIT 8',
+            $caseParams
         );
         foreach ($caseUpdates as $row) {
             $status = ucwords(str_replace('_', ' ', $row['status'] ?? 'updated'));
@@ -1529,11 +1859,17 @@ function getBusinessActivityFeed(int $limit = 20): array
     }
 
     try {
+        $notifWhere = [];
+        $notifParams = [];
+        TenantService::appendNotificationScope($notifWhere, $notifParams);
+        $notifWhereSql = $notifWhere === [] ? '' : (' WHERE ' . implode(' AND ', $notifWhere));
         $notifications = Database::fetchAll(
             "SELECT title, message, created_at
              FROM notifications
+             {$notifWhereSql}
              ORDER BY created_at DESC
-             LIMIT 8"
+             LIMIT 8",
+            $notifParams
         );
         foreach ($notifications as $row) {
             $feed[] = [
@@ -1563,24 +1899,31 @@ function getBusinessActivityFeed(int $limit = 20): array
 
 function getRecentNotifications(int $userId, int $limit = 5, bool $unreadOnly = false): array
 {
-    $sql = 'SELECT * FROM notifications WHERE user_id = ?';
+    $where = ['user_id = ?'];
     $params = [$userId];
+    TenantService::appendNotificationScope($where, $params);
 
     if ($unreadOnly) {
-        $sql .= ' AND is_read = 0';
+        $where[] = 'is_read = 0';
     }
 
-    $sql .= ' ORDER BY created_at DESC LIMIT ?';
     $params[] = $limit;
 
-    return Database::fetchAll($sql, $params);
+    return Database::fetchAll(
+        'SELECT * FROM notifications WHERE ' . implode(' AND ', $where) . ' ORDER BY created_at DESC LIMIT ?',
+        $params
+    );
 }
 
 function markNotificationAsRead(int $id, int $userId): bool
 {
+    $where = ['id = ?', 'user_id = ?', 'is_read = 0'];
+    $params = [$id, $userId];
+    TenantService::appendNotificationScope($where, $params);
+
     $stmt = Database::query(
-        'UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ? AND is_read = 0',
-        [$id, $userId]
+        'UPDATE notifications SET is_read = 1 WHERE ' . implode(' AND ', $where),
+        $params
     );
 
     return $stmt->rowCount() > 0;
@@ -1588,19 +1931,38 @@ function markNotificationAsRead(int $id, int $userId): bool
 
 function markAllNotificationsAsRead(int $userId): void
 {
-    Database::query('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0', [$userId]);
+    $where = ['user_id = ?', 'is_read = 0'];
+    $params = [$userId];
+    TenantService::appendNotificationScope($where, $params);
+
+    Database::query(
+        'UPDATE notifications SET is_read = 1 WHERE ' . implode(' AND ', $where),
+        $params
+    );
 }
 
 function deleteNotification(int $id, int $userId): void
 {
-    Database::query('DELETE FROM notifications WHERE id = ? AND user_id = ?', [$id, $userId]);
+    $where = ['id = ?', 'user_id = ?'];
+    $params = [$id, $userId];
+    TenantService::appendNotificationScope($where, $params);
+
+    Database::query(
+        'DELETE FROM notifications WHERE ' . implode(' AND ', $where),
+        $params
+    );
 }
 
 function getAllNotifications(int $userId, int $limit = 100): array
 {
+    $where = ['user_id = ?'];
+    $params = [$userId];
+    TenantService::appendNotificationScope($where, $params);
+    $params[] = $limit;
+
     return Database::fetchAll(
-        'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
-        [$userId, $limit]
+        'SELECT * FROM notifications WHERE ' . implode(' AND ', $where) . ' ORDER BY created_at DESC LIMIT ?',
+        $params
     );
 }
 
@@ -1610,6 +1972,7 @@ function countNotifications(int $userId, ?string $search = null, ?string $readFi
     $readFilter = normalizeSearchTerm($readFilter);
     $where = ['user_id = ?'];
     $params = [$userId];
+    TenantService::appendNotificationScope($where, $params);
 
     if ($search !== '') {
         $where[] = 'CONCAT_WS(" ", title, message, type) LIKE ?';
@@ -1636,6 +1999,7 @@ function getNotificationsPaginated(int $userId, int $page, int $perPage = 10, ?s
     $offset = paginationOffset($page, $perPage);
     $where = ['user_id = ?'];
     $params = [$userId];
+    TenantService::appendNotificationScope($where, $params);
 
     if ($search !== '') {
         $where[] = 'CONCAT_WS(" ", title, message, type) LIKE ?';
@@ -1660,14 +2024,18 @@ function getPendingInvoices(): array
 {
     syncOverdueInvoices();
     $statusCol = invoiceStatusColumn();
+    $where = ["i.{$statusCol} IN ('pending', 'overdue', 'partially_paid')"];
+    $params = [];
+    TenantService::appendClientScope($where, $params, 'cl');
 
     return Database::fetchAll(
         "SELECT i.*, i.{$statusCol} AS payment_status, cl.first_name, cl.last_name, cl.company_name, cs.case_number, cs.title AS case_title
          FROM invoices i
          JOIN clients cl ON cl.id = i.client_id
          LEFT JOIN cases cs ON cs.id = i.case_id
-         WHERE i.{$statusCol} IN ('pending', 'overdue', 'partially_paid')
-         ORDER BY i.due_date ASC, i.created_at DESC"
+         WHERE " . implode(' AND ', $where) . "
+         ORDER BY i.due_date ASC, i.created_at DESC",
+        $params
     );
 }
 
@@ -1725,9 +2093,13 @@ function notificationRedirectTarget(array $notif): string
 
 function getUnreadNotificationCount(int $userId): int
 {
+    $where = ['user_id = ?', 'is_read = 0'];
+    $params = [$userId];
+    TenantService::appendNotificationScope($where, $params);
+
     return (int) (Database::fetch(
-        'SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND is_read = 0',
-        [$userId]
+        'SELECT COUNT(*) AS count FROM notifications WHERE ' . implode(' AND ', $where),
+        $params
     )['count'] ?? 0);
 }
 
@@ -1735,6 +2107,13 @@ function getUpcomingAppointments(int $limit = 5): array
 {
     $startSql = appointmentStartSql('a');
     $endSql   = appointmentEndSql('a');
+    $where = [
+        "a.status IN ('scheduled', 'confirmed')",
+        "({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))",
+    ];
+    $params = [];
+    TenantService::appendClientScope($where, $params, 'c');
+    $params[] = $limit;
 
     return Database::fetchAll(
         "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
@@ -1742,39 +2121,52 @@ function getUpcomingAppointments(int $limit = 5): array
          FROM appointments a
          JOIN clients c ON c.id = a.client_id
          JOIN users cu ON cu.id = c.user_id
-         WHERE a.status IN ('scheduled', 'confirmed')
-           AND ({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))
+         WHERE " . implode(' AND ', $where) . "
          ORDER BY {$startSql} ASC
          LIMIT ?",
-        [$limit]
+        $params
     );
 }
 
 function getRecentCases(int $limit = 5): array
 {
+    $where = [];
+    $params = [];
+    TenantService::appendScope($where, $params, 'cs');
+    appendAssignedCaseScope($where, $params, 'cs');
+    $params[] = $limit;
+    $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
+
     return Database::fetchAll(
         "SELECT cs.*, cu.first_name, cu.last_name, cl.company_name
          FROM cases cs
          JOIN clients cl ON cl.id = cs.client_id
          JOIN users cu ON cu.id = cl.user_id
+         {$whereSql}
          ORDER BY cs.updated_at DESC
          LIMIT ?",
-        [$limit]
+        $params
     );
 }
 
 function getRevenueChartData(): array
 {
     $paymentStatus = paymentStatusColumn();
+    $where = ["p.{$paymentStatus} = 'completed'", 'p.paid_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)'];
+    $params = [];
+    TenantService::appendClientScope($where, $params, 'cl');
 
     $rows = Database::fetchAll(
-        "SELECT DATE_FORMAT(paid_at, '%b') AS month_label,
-                MONTH(paid_at) AS month_num,
-                COALESCE(SUM(amount), 0) AS total
-         FROM payments
-         WHERE {$paymentStatus} = 'completed' AND paid_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-         GROUP BY MONTH(paid_at), DATE_FORMAT(paid_at, '%b')
-         ORDER BY month_num ASC"
+        "SELECT DATE_FORMAT(p.paid_at, '%b') AS month_label,
+                MONTH(p.paid_at) AS month_num,
+                COALESCE(SUM(p.amount), 0) AS total
+         FROM payments p
+         JOIN invoices i ON i.id = p.invoice_id
+         JOIN clients cl ON cl.id = i.client_id
+         WHERE " . implode(' AND ', $where) . "
+         GROUP BY MONTH(p.paid_at), DATE_FORMAT(p.paid_at, '%b')
+         ORDER BY month_num ASC",
+        $params
     );
 
     $months  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1798,14 +2190,20 @@ function getRevenueChartData(): array
 
 function getInvoiceChartData(): array
 {
+    $where = ['i.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)'];
+    $params = [];
+    TenantService::appendClientScope($where, $params, 'cl');
+
     $rows = Database::fetchAll(
-        "SELECT DATE_FORMAT(created_at, '%b') AS month_label,
-                MONTH(created_at) AS month_num,
-                COALESCE(SUM(total), 0) AS total
-         FROM invoices
-         WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-         GROUP BY MONTH(created_at), DATE_FORMAT(created_at, '%b')
-         ORDER BY month_num ASC"
+        "SELECT DATE_FORMAT(i.created_at, '%b') AS month_label,
+                MONTH(i.created_at) AS month_num,
+                COALESCE(SUM(i.total), 0) AS total
+         FROM invoices i
+         JOIN clients cl ON cl.id = i.client_id
+         WHERE " . implode(' AND ', $where) . "
+         GROUP BY MONTH(i.created_at), DATE_FORMAT(i.created_at, '%b')
+         ORDER BY month_num ASC",
+        $params
     );
 
     $months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1838,12 +2236,18 @@ function getWeeklyPaymentsChartData(): array
         $labels[] = date('D j', strtotime("-{$i} days"));
     }
 
+    $payWhere = ["p.{$paymentStatus} = 'completed'", 'p.paid_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)'];
+    $payParams = [];
+    TenantService::appendClientScope($payWhere, $payParams, 'cl');
+
     $rows = Database::fetchAll(
-        "SELECT DATE(paid_at) AS day_date, COALESCE(SUM(amount), 0) AS total
-         FROM payments
-         WHERE {$paymentStatus} = 'completed'
-           AND paid_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         GROUP BY DATE(paid_at)"
+        "SELECT DATE(p.paid_at) AS day_date, COALESCE(SUM(p.amount), 0) AS total
+         FROM payments p
+         JOIN invoices i ON i.id = p.invoice_id
+         JOIN clients cl ON cl.id = i.client_id
+         WHERE " . implode(' AND ', $payWhere) . "
+         GROUP BY DATE(p.paid_at)",
+        $payParams
     );
 
     foreach ($rows as $row) {
@@ -1853,11 +2257,17 @@ function getWeeklyPaymentsChartData(): array
         }
     }
 
+    $invWhere = ['i.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)'];
+    $invParams = [];
+    TenantService::appendClientScope($invWhere, $invParams, 'cl');
+
     $invoiceRows = Database::fetchAll(
-        "SELECT DATE(created_at) AS day_date, COALESCE(SUM(total), 0) AS total
-         FROM invoices
-         WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         GROUP BY DATE(created_at)"
+        "SELECT DATE(i.created_at) AS day_date, COALESCE(SUM(i.total), 0) AS total
+         FROM invoices i
+         JOIN clients cl ON cl.id = i.client_id
+         WHERE " . implode(' AND ', $invWhere) . "
+         GROUP BY DATE(i.created_at)",
+        $invParams
     );
 
     foreach ($invoiceRows as $row) {
@@ -1888,28 +2298,56 @@ function chartSeriesHasData(array $series): bool
 function getDashboardTrends(array $stats): array
 {
     $paymentStatus = paymentStatusColumn();
+    $companyId = TenantService::id();
 
-    $lastMonthRevenue = (float) (Database::fetch(
-        "SELECT COALESCE(SUM(amount), 0) AS total FROM payments
-         WHERE {$paymentStatus} = 'completed'
-           AND MONTH(paid_at) = MONTH(DATE_SUB(NOW(), INTERVAL 1 MONTH))
-           AND YEAR(paid_at) = YEAR(DATE_SUB(NOW(), INTERVAL 1 MONTH))"
-    )['total'] ?? 0);
+    if (TenantService::isEnabled()) {
+        $lastMonthRevenue = (float) (Database::fetch(
+            "SELECT COALESCE(SUM(p.amount), 0) AS total FROM payments p
+             JOIN invoices i ON i.id = p.invoice_id
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND p.{$paymentStatus} = 'completed'
+               AND MONTH(p.paid_at) = MONTH(DATE_SUB(NOW(), INTERVAL 1 MONTH))
+               AND YEAR(p.paid_at) = YEAR(DATE_SUB(NOW(), INTERVAL 1 MONTH))",
+            [$companyId]
+        )['total'] ?? 0);
+
+        $lastMonthCases = (int) (Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE company_id = ?
+               AND MONTH(created_at) = MONTH(DATE_SUB(NOW(), INTERVAL 1 MONTH))
+               AND YEAR(created_at) = YEAR(DATE_SUB(NOW(), INTERVAL 1 MONTH))",
+            [$companyId]
+        )['count'] ?? 0);
+
+        $thisMonthCases = (int) (Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE company_id = ?
+               AND MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())",
+            [$companyId]
+        )['count'] ?? 0);
+    } else {
+        $lastMonthRevenue = (float) (Database::fetch(
+            "SELECT COALESCE(SUM(amount), 0) AS total FROM payments
+             WHERE {$paymentStatus} = 'completed'
+               AND MONTH(paid_at) = MONTH(DATE_SUB(NOW(), INTERVAL 1 MONTH))
+               AND YEAR(paid_at) = YEAR(DATE_SUB(NOW(), INTERVAL 1 MONTH))"
+        )['total'] ?? 0);
+
+        $lastMonthCases = (int) (Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE MONTH(created_at) = MONTH(DATE_SUB(NOW(), INTERVAL 1 MONTH))
+               AND YEAR(created_at) = YEAR(DATE_SUB(NOW(), INTERVAL 1 MONTH))"
+        )['count'] ?? 0);
+
+        $thisMonthCases = (int) (Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())"
+        )['count'] ?? 0);
+    }
 
     $revenueTrend = $lastMonthRevenue > 0
         ? round((($stats['monthly_revenue'] - $lastMonthRevenue) / $lastMonthRevenue) * 100, 2)
         : ($stats['monthly_revenue'] > 0 ? 100 : 0);
-
-    $lastMonthCases = (int) (Database::fetch(
-        "SELECT COUNT(*) AS count FROM cases
-         WHERE MONTH(created_at) = MONTH(DATE_SUB(NOW(), INTERVAL 1 MONTH))
-           AND YEAR(created_at) = YEAR(DATE_SUB(NOW(), INTERVAL 1 MONTH))"
-    )['count'] ?? 0);
-
-    $thisMonthCases = (int) (Database::fetch(
-        "SELECT COUNT(*) AS count FROM cases
-         WHERE MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())"
-    )['count'] ?? 0);
 
     $casesTrend = $lastMonthCases > 0
         ? round((($thisMonthCases - $lastMonthCases) / $lastMonthCases) * 100, 2)
@@ -1948,12 +2386,18 @@ function getLast7DaysSparklineData(): array
     $invoices     = array_fill(0, 7, 0);
     $paidInvoices = array_fill(0, 7, 0);
     $payments     = array_fill(0, 7, 0.0);
+    $statusCol    = invoiceStatusColumn();
+    $paymentCol   = paymentStatusColumn();
 
+    $clientWhere = ['c.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)'];
+    $clientParams = [];
+    TenantService::appendScope($clientWhere, $clientParams, 'c');
     foreach (Database::fetchAll(
-        "SELECT DATE(created_at) AS day_date, COUNT(*) AS total
-         FROM clients
-         WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         GROUP BY DATE(created_at)"
+        'SELECT DATE(c.created_at) AS day_date, COUNT(*) AS total
+         FROM clients c
+         WHERE ' . implode(' AND ', $clientWhere) . '
+         GROUP BY DATE(c.created_at)',
+        $clientParams
     ) as $row) {
         $idx = sparklineDayIndex($row['day_date']);
         if ($idx !== null) {
@@ -1961,11 +2405,15 @@ function getLast7DaysSparklineData(): array
         }
     }
 
+    $caseWhere = ['cs.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)'];
+    $caseParams = [];
+    TenantService::appendScope($caseWhere, $caseParams, 'cs');
     foreach (Database::fetchAll(
-        "SELECT DATE(created_at) AS day_date, COUNT(*) AS total
-         FROM cases
-         WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         GROUP BY DATE(created_at)"
+        'SELECT DATE(cs.created_at) AS day_date, COUNT(*) AS total
+         FROM cases cs
+         WHERE ' . implode(' AND ', $caseWhere) . '
+         GROUP BY DATE(cs.created_at)',
+        $caseParams
     ) as $row) {
         $idx = sparklineDayIndex($row['day_date']);
         if ($idx !== null) {
@@ -1973,11 +2421,16 @@ function getLast7DaysSparklineData(): array
         }
     }
 
+    $invWhere = ['i.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)'];
+    $invParams = [];
+    TenantService::appendClientScope($invWhere, $invParams, 'cl');
     foreach (Database::fetchAll(
-        "SELECT DATE(created_at) AS day_date, COUNT(*) AS total
-         FROM invoices
-         WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         GROUP BY DATE(created_at)"
+        'SELECT DATE(i.created_at) AS day_date, COUNT(*) AS total
+         FROM invoices i
+         JOIN clients cl ON cl.id = i.client_id
+         WHERE ' . implode(' AND ', $invWhere) . '
+         GROUP BY DATE(i.created_at)',
+        $invParams
     ) as $row) {
         $idx = sparklineDayIndex($row['day_date']);
         if ($idx !== null) {
@@ -1985,12 +2438,16 @@ function getLast7DaysSparklineData(): array
         }
     }
 
+    $paidWhere = ["i.{$statusCol} = 'paid'", 'i.updated_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)'];
+    $paidParams = [];
+    TenantService::appendClientScope($paidWhere, $paidParams, 'cl');
     foreach (Database::fetchAll(
-        "SELECT DATE(updated_at) AS day_date, COUNT(*) AS total
-         FROM invoices
-         WHERE payment_status = 'paid'
-           AND updated_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         GROUP BY DATE(updated_at)"
+        "SELECT DATE(i.updated_at) AS day_date, COUNT(*) AS total
+         FROM invoices i
+         JOIN clients cl ON cl.id = i.client_id
+         WHERE " . implode(' AND ', $paidWhere) . '
+         GROUP BY DATE(i.updated_at)',
+        $paidParams
     ) as $row) {
         $idx = sparklineDayIndex($row['day_date']);
         if ($idx !== null) {
@@ -1998,12 +2455,17 @@ function getLast7DaysSparklineData(): array
         }
     }
 
+    $payWhere = ["p.{$paymentCol} = 'completed'", 'p.paid_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)'];
+    $payParams = [];
+    TenantService::appendClientScope($payWhere, $payParams, 'cl');
     foreach (Database::fetchAll(
-        "SELECT DATE(paid_at) AS day_date, COALESCE(SUM(amount), 0) AS total
-         FROM payments
-         WHERE payment_status = 'completed'
-           AND paid_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         GROUP BY DATE(paid_at)"
+        "SELECT DATE(p.paid_at) AS day_date, COALESCE(SUM(p.amount), 0) AS total
+         FROM payments p
+         JOIN invoices i ON i.id = p.invoice_id
+         JOIN clients cl ON cl.id = i.client_id
+         WHERE " . implode(' AND ', $payWhere) . '
+         GROUP BY DATE(p.paid_at)',
+        $payParams
     ) as $row) {
         $idx = sparklineDayIndex($row['day_date']);
         if ($idx !== null) {
@@ -2125,6 +2587,61 @@ function paginationOffset(int $page, int $perPage): int
     return max(0, ($page - 1) * $perPage);
 }
 
+/**
+ * Password input with show/hide eye toggle (wired by password-reveal.js).
+ *
+ * @param array{
+ *   class?: string,
+ *   required?: bool,
+ *   disabled?: bool,
+ *   autocomplete?: string,
+ *   placeholder?: string,
+ *   minlength?: int,
+ *   pattern?: string,
+ *   title?: string,
+ *   value?: string,
+ * } $options
+ */
+function renderPasswordRevealField(string $id, string $name, array $options = []): void
+{
+    $inputClass = trim(($options['class'] ?? 'form-control') . ' login-pw-input login-pw-masked');
+    $required = !empty($options['required']);
+    $disabled = !empty($options['disabled']);
+    $autocomplete = (string) ($options['autocomplete'] ?? 'off');
+    $placeholder = (string) ($options['placeholder'] ?? '');
+    $minlength = isset($options['minlength']) ? (int) $options['minlength'] : 0;
+    $pattern = (string) ($options['pattern'] ?? '');
+    $title = (string) ($options['title'] ?? '');
+    $value = (string) ($options['value'] ?? '');
+    ?>
+    <div class="login-pw-field">
+        <div class="login-pw-input-wrap">
+            <input
+                type="text"
+                id="<?= e($id) ?>"
+                name="<?= e($name) ?>"
+                class="<?= e($inputClass) ?>"
+                spellcheck="false"
+                <?= $required ? 'required' : '' ?>
+                <?= $disabled ? 'disabled' : '' ?>
+                autocomplete="<?= e($autocomplete) ?>"
+                <?= $placeholder !== '' ? 'placeholder="' . e($placeholder) . '"' : '' ?>
+                <?= $minlength > 0 ? 'minlength="' . $minlength . '"' : '' ?>
+                <?= $pattern !== '' ? 'pattern="' . e($pattern) . '"' : '' ?>
+                <?= $title !== '' ? 'title="' . e($title) . '"' : '' ?>
+                <?= $value !== '' ? 'value="' . e($value) . '"' : '' ?>
+                data-lpignore="true"
+                data-1p-ignore="true"
+            >
+            <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+    <?php
+}
+
 function buildPaginationUrl(int $page, string $pageParam = 'page', ?string $fragment = null): string
 {
     $query = $_GET;
@@ -2187,10 +2704,17 @@ function countClients(?string $search = null): int
     $search = normalizeSearchTerm($search);
     $sql = 'SELECT COUNT(*) AS c FROM clients c';
     $params = [];
+    $where = [];
+
+    TenantService::appendScope($where, $params, 'c');
 
     if ($search !== '') {
-        $sql .= ' WHERE CONCAT_WS(" ", c.first_name, c.last_name, c.email, c.phone, c.company_name, c.address, c.city, c.state, c.country) LIKE ?';
+        $where[] = 'CONCAT_WS(" ", c.first_name, c.last_name, c.email, c.phone, c.company_name, c.address, c.city, c.state, c.country) LIKE ?';
         $params[] = '%' . $search . '%';
+    }
+
+    if ($where !== []) {
+        $sql .= ' WHERE ' . implode(' AND ', $where);
     }
 
     return (int) (Database::fetch($sql, $params)['c'] ?? 0);
@@ -2201,12 +2725,16 @@ function getClientsPaginated(int $page, int $perPage = 10, ?string $search = nul
     $search = normalizeSearchTerm($search);
     $offset = paginationOffset($page, $perPage);
     $params = [];
-    $whereSql = '';
+    $where = [];
+
+    TenantService::appendScope($where, $params, 'c');
 
     if ($search !== '') {
-        $whereSql = ' WHERE CONCAT_WS(" ", c.first_name, c.last_name, c.email, c.phone, c.company_name, c.address, c.city, c.state, c.country) LIKE ?';
+        $where[] = 'CONCAT_WS(" ", c.first_name, c.last_name, c.email, c.phone, c.company_name, c.address, c.city, c.state, c.country) LIKE ?';
         $params[] = '%' . $search . '%';
     }
+
+    $whereSql = $where !== [] ? ' WHERE ' . implode(' AND ', $where) : '';
 
     $params[] = $perPage;
     $params[] = $offset;
@@ -2220,6 +2748,19 @@ function getClientsPaginated(int $page, int $perPage = 10, ?string $search = nul
          LIMIT ? OFFSET ?',
         $params
     );
+}
+
+function appendAssignedCaseScope(array &$where, array &$params, string $alias = 'cs'): void
+{
+    if (!Auth::restrictsToAssignedCases()) {
+        return;
+    }
+
+    $userId = Auth::id();
+    if ($userId) {
+        $where[] = $alias . '.assigned_admin_id = ?';
+        $params[] = $userId;
+    }
 }
 
 function countCases(?string $search = null, ?string $status = null, ?string $priority = null): int
@@ -2242,6 +2783,9 @@ function countCases(?string $search = null, ?string $status = null, ?string $pri
         $where[] = 'cs.priority = ?';
         $params[] = $priority;
     }
+
+    TenantService::appendScope($where, $params, 'cs');
+    appendAssignedCaseScope($where, $params, 'cs');
 
     $sql = 'SELECT COUNT(*) AS c FROM cases cs JOIN clients cl ON cl.id = cs.client_id';
     if ($where !== []) {
@@ -2272,6 +2816,10 @@ function getCasesPaginated(int $page, int $perPage = 10, ?string $search = null,
         $where[] = 'cs.priority = ?';
         $params[] = $priority;
     }
+
+    TenantService::appendScope($where, $params, 'cs');
+    appendAssignedCaseScope($where, $params, 'cs');
+
     $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
     $params[] = $perPage;
     $params[] = $offset;
@@ -2316,6 +2864,7 @@ function countPayments(?string $search = null, ?string $status = null, ?string $
         $where[] = 'MONTH(COALESCE(p.paid_at, p.created_at)) = ?';
         $params[] = (int) $month;
     }
+    TenantService::appendClientScope($where, $params, 'cl');
 
     $sql = "SELECT COUNT(*) AS c
             FROM payments p
@@ -2357,6 +2906,7 @@ function getPaymentsPaginated(int $page, int $perPage = 10, ?string $search = nu
         $where[] = 'MONTH(COALESCE(p.paid_at, p.created_at)) = ?';
         $params[] = (int) $month;
     }
+    TenantService::appendClientScope($where, $params, 'cl');
     $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
     $params[] = $perPage;
     $params[] = $offset;
@@ -2397,6 +2947,10 @@ function getAllAppointments(): array
 {
     $startSql = appointmentStartSql('a');
     $endSql   = appointmentEndSql('a');
+    $where = [];
+    $params = [];
+    TenantService::appendClientScope($where, $params, 'cl');
+    $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
 
     $appointments = Database::fetchAll(
         "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
@@ -2405,7 +2959,9 @@ function getAllAppointments(): array
          FROM appointments a
          JOIN clients cl ON cl.id = a.client_id
          LEFT JOIN cases cs ON cs.id = a.case_id
-         ORDER BY {$startSql} DESC"
+         {$whereSql}
+         ORDER BY {$startSql} DESC",
+        $params
     );
 
     foreach ($appointments as &$appointment) {
@@ -2420,21 +2976,41 @@ function getChatbotContext(): array
 {
     $stats = getDashboardStats();
 
+    $caseWhere = [];
+    $caseParams = [];
+    TenantService::appendScope($caseWhere, $caseParams, 'cs');
+    $caseWhereSql = $caseWhere === [] ? '' : (' WHERE ' . implode(' AND ', $caseWhere));
+
     $recentCases = Database::fetchAll(
-        "SELECT case_number, title, status FROM cases ORDER BY updated_at DESC LIMIT 5"
+        "SELECT case_number, title, status FROM cases cs{$caseWhereSql} ORDER BY updated_at DESC LIMIT 5",
+        $caseParams
     );
 
+    $statusCol = invoiceStatusColumn();
+    $invWhere = ["i.{$statusCol} IN ('pending', 'overdue', 'partially_paid')"];
+    $invParams = [];
+    TenantService::appendClientScope($invWhere, $invParams, 'cl');
+
     $pendingPayments = Database::fetch(
-        "SELECT COUNT(*) AS count FROM invoices WHERE payment_status IN ('pending', 'overdue', 'partially_paid')"
+        'SELECT COUNT(*) AS count FROM invoices i JOIN clients cl ON cl.id = i.client_id WHERE ' . implode(' AND ', $invWhere),
+        $invParams
     )['count'] ?? 0;
 
-    $startSql = appointmentStartSql();
-    $endSql   = appointmentEndSql();
+    $startSql = appointmentStartSql('a');
+    $endSql   = appointmentEndSql('a');
+    $apptWhere = [
+        "a.status IN ('scheduled', 'confirmed')",
+        "({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))",
+    ];
+    $apptParams = [];
+    TenantService::appendClientScope($apptWhere, $apptParams, 'cl');
+
     $nextAppointment = Database::fetch(
-        "SELECT title, {$startSql} AS start_time FROM appointments
-         WHERE status IN ('scheduled', 'confirmed')
-           AND ({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))
-         ORDER BY {$startSql} ASC LIMIT 1"
+        "SELECT a.title, {$startSql} AS start_time FROM appointments a
+         JOIN clients cl ON cl.id = a.client_id
+         WHERE " . implode(' AND ', $apptWhere) . "
+         ORDER BY {$startSql} ASC LIMIT 1",
+        $apptParams
     );
 
     return [
@@ -2447,14 +3023,19 @@ function getChatbotContext(): array
 
 function getActiveCasesForChat(int $limit = 10): array
 {
+    $where = ["cs.status IN ('pending', 'in_progress', 'waiting_for_client')"];
+    $params = [];
+    TenantService::appendScope($where, $params, 'cs');
+    $params[] = $limit;
+
     return Database::fetchAll(
         "SELECT cs.id, cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
          FROM cases cs
          JOIN clients cl ON cl.id = cs.client_id
-         WHERE cs.status IN ('pending', 'in_progress', 'waiting_for_client')
+         WHERE " . implode(' AND ', $where) . "
          ORDER BY cs.updated_at DESC
          LIMIT ?",
-        [$limit]
+        $params
     );
 }
 
@@ -2670,19 +3251,25 @@ function findClientsForChatbot(string $term, int $limit = 8): array
     }
 
     $like = '%' . $term . '%';
+    $where = [
+        '(LOWER(c.first_name) LIKE LOWER(?)
+            OR LOWER(c.last_name) LIKE LOWER(?)
+            OR LOWER(CONCAT(c.first_name, \' \', c.last_name)) LIKE LOWER(?)
+            OR LOWER(c.company_name) LIKE LOWER(?)
+            OR LOWER(c.email) LIKE LOWER(?))',
+    ];
+    $params = [$like, $like, $like, $like, $like];
+    TenantService::appendClientScope($where, $params, 'c');
+    $params[] = $limit;
 
     return Database::fetchAll(
         'SELECT c.*,
                 (SELECT COUNT(*) FROM cases cs WHERE cs.client_id = c.id) AS case_count
          FROM clients c
-         WHERE LOWER(c.first_name) LIKE LOWER(?)
-            OR LOWER(c.last_name) LIKE LOWER(?)
-            OR LOWER(CONCAT(c.first_name, \' \', c.last_name)) LIKE LOWER(?)
-            OR LOWER(c.company_name) LIKE LOWER(?)
-            OR LOWER(c.email) LIKE LOWER(?)
+         WHERE ' . implode(' AND ', $where) . '
          ORDER BY c.updated_at DESC
          LIMIT ?',
-        [$like, $like, $like, $like, $like, $limit]
+        $params
     );
 }
 
@@ -2694,20 +3281,26 @@ function findCasesForChatbot(string $term, int $limit = 10): array
     }
 
     $like = '%' . $term . '%';
+    $where = [
+        '(LOWER(cs.case_number) LIKE LOWER(?)
+            OR LOWER(cs.title) LIKE LOWER(?)
+            OR LOWER(cl.first_name) LIKE LOWER(?)
+            OR LOWER(cl.last_name) LIKE LOWER(?)
+            OR LOWER(CONCAT(cl.first_name, \' \', cl.last_name)) LIKE LOWER(?))',
+    ];
+    $params = [$like, $like, $like, $like, $like];
+    TenantService::appendScope($where, $params, 'cs');
+    $params[] = $limit;
 
     return Database::fetchAll(
         'SELECT cs.id, cs.case_number, cs.title, cs.status, cs.description, cs.service_type, cs.deadline,
                 cl.first_name, cl.last_name, cl.company_name, cl.email, cl.phone
          FROM cases cs
          JOIN clients cl ON cl.id = cs.client_id
-         WHERE LOWER(cs.case_number) LIKE LOWER(?)
-            OR LOWER(cs.title) LIKE LOWER(?)
-            OR LOWER(cl.first_name) LIKE LOWER(?)
-            OR LOWER(cl.last_name) LIKE LOWER(?)
-            OR LOWER(CONCAT(cl.first_name, \' \', cl.last_name)) LIKE LOWER(?)
+         WHERE ' . implode(' AND ', $where) . '
          ORDER BY cs.updated_at DESC
          LIMIT ?',
-        [$like, $like, $like, $like, $like, $limit]
+        $params
     );
 }
 
@@ -2716,14 +3309,18 @@ function findCaseByNumberForChatbot(string $raw): ?array
     $search = strtoupper(preg_replace('/[^A-Z0-9-]/', '-', trim($raw)));
     $search = preg_replace('/-+/', '-', trim($search, '-'));
 
+    $where = ["UPPER(REPLACE(cs.case_number, ' ', '-')) LIKE ?"];
+    $params = ['%' . $search . '%'];
+    TenantService::appendScope($where, $params, 'cs');
+
     return Database::fetch(
         'SELECT cs.*, cl.first_name, cl.last_name, cl.company_name, cl.email, cl.phone
          FROM cases cs
          JOIN clients cl ON cl.id = cs.client_id
-         WHERE UPPER(REPLACE(cs.case_number, \' \', \'-\')) LIKE ?
+         WHERE ' . implode(' AND ', $where) . '
          ORDER BY cs.updated_at DESC
          LIMIT 1',
-        ['%' . $search . '%']
+        $params
     ) ?: null;
 }
 

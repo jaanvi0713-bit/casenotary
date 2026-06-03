@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::guardAction();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(403);

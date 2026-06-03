@@ -9,6 +9,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?= e(CSRF::generateToken()) ?>">
     <title><?= e($pageTitle ?? 'Dashboard') ?> — <?= e(companyBrandName($company)) ?></title>
     <?= renderFaviconTags($company) ?>
     <?= renderCompanyFontStylesheet($company) ?>
@@ -46,9 +47,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                     <?php endif; ?>
                     <div class="topbar-title-text">
                         <div class="topbar-page-title"><?= e($pageTitle ?? 'Dashboard') ?></div>
-                        <?php if (!empty($pageSubtitle)): ?>
-                            <p class="topbar-page-subtitle"><?= e($pageSubtitle) ?></p>
-                        <?php endif; ?>
+                        <p class="topbar-page-subtitle<?= empty($pageSubtitle) ? ' topbar-page-subtitle--placeholder' : '' ?>"><?= !empty($pageSubtitle) ? e($pageSubtitle) : "\u{00a0}" ?></p>
                     </div>
                 </div>
                 </div>
@@ -94,7 +93,7 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                             <div class="profile-avatar"><?= e(userInitials($user)) ?></div>
                             <div class="profile-info d-none d-md-block">
                                 <span class="profile-name"><?= e(userFullName($user)) ?></span>
-                                <span class="profile-role">Administrator</span>
+                                <span class="profile-role"><?= e(RoleAccess::roleLabel(Auth::role())) ?></span>
                             </div>
                             <i class="bi bi-chevron-down profile-chevron d-none d-md-block"></i>
                         </button>
@@ -105,7 +104,9 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="<?= url('pages/settings.php?tab=profile') ?>"><i class="bi bi-person me-2"></i>My Profile</a></li>
-                            <li><a class="dropdown-item" href="<?= url('pages/settings.php') ?>"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                            <?php if (Auth::can(RoleAccess::PERMISSION_SETTINGS)): ?>
+                                <li><a class="dropdown-item" href="<?= url('pages/settings.php') ?>"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                            <?php endif; ?>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="<?= url('auth/logout.php') ?>"><i class="bi bi-box-arrow-right me-2"></i>Sign Out</a></li>
                         </ul>
@@ -117,6 +118,12 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                 <?php if ($msg = flash('success')): ?>
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <i class="bi bi-check-circle me-2"></i><?= e($msg) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+                <?php if ($msg = flash('warning')): ?>
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle me-2"></i><?= e($msg) ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 <?php endif; ?>

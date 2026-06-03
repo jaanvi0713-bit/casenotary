@@ -1,10 +1,13 @@
 <?php
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::requirePage('cases');
 
 $pageTitle = 'Cases';
-$pageSubtitle = 'Legal case workspaces — manage clients, documents, billing & more';
+$pageSubtitle = Auth::restrictsToAssignedCases()
+    ? 'Cases assigned to you'
+    : 'Legal case workspaces — manage clients, documents, billing & more';
+$canManageCases = Auth::canManage(RoleAccess::PERMISSION_CASES);
 $q = trim((string) ($_GET['q'] ?? ''));
 $statusFilter = trim((string) ($_GET['status'] ?? ''));
 $priorityFilter = trim((string) ($_GET['priority'] ?? ''));
@@ -26,9 +29,11 @@ require __DIR__ . '/../includes/header.php';
             <h2 class="saas-card-title">Case Management</h2>
             <p class="saas-card-subtitle"><?= $totalCases ?> total cases</p>
         </div>
+        <?php if ($canManageCases): ?>
         <a href="<?= url('pages/case-form.php') ?>" class="btn btn-primary btn-sm">
             <i class="bi bi-plus-lg"></i> New Case
         </a>
+        <?php endif; ?>
     </div>
     <form method="get" class="table-toolbar">
         <div class="table-search">

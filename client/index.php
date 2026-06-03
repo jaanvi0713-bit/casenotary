@@ -10,5 +10,5 @@ if (Auth::check()) {
     exit;
 }
 
-header('Location: ' . adminUrl('auth/login.php?portal=client'));
+header('Location: ' . clientLoginUrl(TenantService::resolveLoginCompanyFromRequest() ?: null));
 exit;

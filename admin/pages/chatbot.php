@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::requirePage('chatbot');
 
 $pageTitle = 'AI Assistant';
 $pageSubtitle = 'Ask naturally about clients, cases, payments & appointments';

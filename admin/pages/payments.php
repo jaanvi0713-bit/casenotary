@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::requirePage('payments');
 
 $pageTitle = 'Payments';
 $q = trim((string) ($_GET['q'] ?? ''));

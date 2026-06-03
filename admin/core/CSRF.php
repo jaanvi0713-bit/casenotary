@@ -43,7 +43,6 @@ class CSRF
             return false;
         }
 
-        unset($_SESSION['csrf_token']);
         return true;
     }
 }

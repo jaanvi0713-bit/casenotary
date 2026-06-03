@@ -567,31 +567,7 @@ class CaseService
      */
     public static function billingToInvoiceLineItems(array $billing): array
     {
-        $items = [];
-
-        $nonVatRate = (float) ($billing['non_vat_rate'] ?? 0);
-        foreach ($billing['non_vat'] ?? [] as $row) {
-            $net   = (float) ($row['net'] ?? 0);
-            $gross = round($net + round($net * $nonVatRate / 100, 2), 2);
-            $items[] = [
-                'description' => (string) ($row['type'] ?? 'Service') . ' (Non-VAT)',
-                'quantity'    => 1.0,
-                'unit_price'  => $gross,
-                'line_total'  => $gross,
-            ];
-        }
-
-        foreach ($billing['vat'] ?? [] as $row) {
-            $net = (float) ($row['net'] ?? 0);
-            $items[] = [
-                'description' => (string) ($row['type'] ?? 'Service') . ' (VAT net)',
-                'quantity'    => 1.0,
-                'unit_price'  => $net,
-                'line_total'  => $net,
-            ];
-        }
-
-        return $items;
+        return InvoiceService::lineItemsFromBilling($billing);
     }
 
     private static function insertCaseRow(array $row): int
@@ -638,10 +614,17 @@ class CaseService
         [$table, $column] = $tableMap[$prefix] ?? ['cases', 'case_number'];
 
         try {
+            $params = [$pattern];
+            $scope  = '';
+            if (TenantService::isEnabled() && Database::columnExists($table, 'company_id')) {
+                $scope = ' AND company_id = ?';
+                $params[] = TenantService::id();
+            }
+
             $row = Database::fetch(
                 "SELECT MAX(CAST(SUBSTRING_INDEX({$column}, '-', -1) AS UNSIGNED)) AS max_num
-                 FROM {$table} WHERE {$column} LIKE ?",
-                [$pattern]
+                 FROM {$table} WHERE {$column} LIKE ?{$scope}",
+                $params
             );
             $count = (int) ($row['max_num'] ?? 0);
         } catch (Throwable $e) {
@@ -655,16 +638,33 @@ class CaseService
     {
         $postalSelect = self::clientPostalSelectSql();
 
-        return Database::fetch(
+        $case = Database::fetch(
             "SELECT cs.*, cl.first_name, cl.last_name, cl.email, cl.phone, cl.company_name,
                     cl.address, cl.city, cl.state, {$postalSelect}, cl.country,
                     cl.user_id AS client_user_id, adm.name AS admin_name
              FROM cases cs
              JOIN clients cl ON cl.id = cs.client_id
              LEFT JOIN users adm ON adm.id = cs.assigned_admin_id
-             WHERE cs.id = ?",
-            [$id]
+             WHERE cs.id = ?" . (TenantService::isEnabled() ? ' AND cs.company_id = ?' : ''),
+            TenantService::isEnabled() ? [$id, TenantService::id()] : [$id]
         );
+
+        if (!$case) {
+            return null;
+        }
+
+        if (Auth::restrictsToAssignedCases() && (int) ($case['assigned_admin_id'] ?? 0) !== (int) Auth::id()) {
+            return null;
+        }
+
+        return $case;
+    }
+
+    public static function assertCaseAccess(int $caseId): void
+    {
+        if ($caseId <= 0 || !self::getCaseById($caseId)) {
+            throw new RuntimeException('Case not found or you do not have access to it.');
+        }
     }
 
     public static function getCaseForClient(int $caseId, int $clientId): ?array
@@ -676,8 +676,8 @@ class CaseService
                     cl.address, cl.city, cl.state, {$postalSelect}, cl.country
              FROM cases cs
              JOIN clients cl ON cl.id = cs.client_id
-             WHERE cs.id = ? AND cs.client_id = ?",
-            [$caseId, $clientId]
+             WHERE cs.id = ? AND cs.client_id = ?" . (TenantService::isEnabled() ? ' AND cs.company_id = ?' : ''),
+            TenantService::isEnabled() ? [$caseId, $clientId, TenantService::id()] : [$caseId, $clientId]
         );
     }
 
@@ -719,6 +719,26 @@ class CaseService
         ];
     }
 
+    private static function resolveAssignedAdminId(array $data, int $adminId): int
+    {
+        if (Auth::restrictsToAssignedCases()) {
+            return $adminId;
+        }
+
+        return !empty($data['assigned_admin_id']) ? (int) $data['assigned_admin_id'] : $adminId;
+    }
+
+    private static function resolveAssignedAdminIdForUpdate(array $data, array $existing): ?int
+    {
+        if (Auth::restrictsToAssignedCases()) {
+            $assigned = (int) ($existing['assigned_admin_id'] ?? 0);
+
+            return $assigned > 0 ? $assigned : Auth::id();
+        }
+
+        return !empty($data['assigned_admin_id']) ? (int) $data['assigned_admin_id'] : null;
+    }
+
     public static function createCase(array $data, int $adminId): int
     {
         self::ensureCasesSchema();
@@ -732,6 +752,11 @@ class CaseService
         }
 
         $resolved = self::resolveCaseServices($data);
+        $client   = ClientService::getById((int) $data['client_id']);
+        if (!$client) {
+            throw new RuntimeException('Client not found.');
+        }
+
         $row      = [
             'case_number'       => $caseNumber,
             'title'             => trim($data['title']),
@@ -739,11 +764,15 @@ class CaseService
             'service_type'      => $resolved['service_type'],
             'service_fee'       => $resolved['service_fee'],
             'client_id'         => (int) $data['client_id'],
-            'assigned_admin_id' => !empty($data['assigned_admin_id']) ? (int) $data['assigned_admin_id'] : $adminId,
+            'assigned_admin_id' => self::resolveAssignedAdminId($data, $adminId),
             'priority'          => $data['priority'] ?? 'medium',
             'deadline'          => !empty($data['deadline']) ? $data['deadline'] : null,
             'status'            => $status,
         ];
+
+        if (TenantService::isEnabled() && Database::columnExists('cases', 'company_id')) {
+            $row['company_id'] = (int) ($client['company_id'] ?? TenantService::id());
+        }
 
         if (Database::columnExists('cases', 'client_instructions')) {
             $row['client_instructions'] = $instructions;
@@ -888,7 +917,7 @@ class CaseService
             'service_type'      => $resolved['service_type'],
             'service_fee'       => $resolved['service_fee'],
             'client_id'         => (int) $data['client_id'],
-            'assigned_admin_id' => !empty($data['assigned_admin_id']) ? (int) $data['assigned_admin_id'] : null,
+            'assigned_admin_id' => self::resolveAssignedAdminIdForUpdate($data, $existing),
             'priority'          => $data['priority'] ?? 'medium',
             'deadline'          => !empty($data['deadline']) ? $data['deadline'] : null,
             'status'            => $newStatus,
@@ -1271,34 +1300,60 @@ class CaseService
 
     public static function generateInvoice(int $caseId, array $data): int
     {
-        $case   = self::getCaseById($caseId);
-        $number = self::generateNumber('INV');
-        $billing = self::getCaseBilling($case ?: []);
+        $case      = self::getCaseById($caseId);
+        $number    = self::generateNumber('INV');
+        $billing   = self::getCaseBilling($case ?: []);
+        $bt        = $billing['totals'] ?? [];
         $lineItems = self::parseInvoiceLineItems($data, $case ?: []);
-        $subtotal  = array_reduce($lineItems, static fn(float $sum, array $row): float => $sum + (float) ($row['line_total'] ?? 0), 0.0);
+        $lineGross = round(array_reduce(
+            $lineItems,
+            static fn(float $sum, array $row): float => $sum + (float) ($row['line_total'] ?? 0),
+            0.0
+        ), 2);
 
-        if ($subtotal <= 0) {
+        if ($lineGross <= 0) {
             $lineItems = self::billingToInvoiceLineItems($billing);
-            $bt        = $billing['totals'];
-            $subtotal  = (float) (($bt['non_vat_net_subtotal'] ?? $bt['non_vat_subtotal']) + $bt['vat_net_subtotal']);
+            $lineGross = round(array_reduce(
+                $lineItems,
+                static fn(float $sum, array $row): float => $sum + (float) ($row['line_total'] ?? 0),
+                0.0
+            ), 2);
         }
 
-        if ($subtotal <= 0) {
-            $subtotal = (float) ($data['amount'] ?? $case['service_fee'] ?? 0);
-        }
+        $grand         = (float) ($bt['grand_total'] ?? 0);
+        $vatAmt        = (float) ($bt['vat_amount'] ?? 0);
+        $nonVatRateAmt = (float) ($bt['non_vat_rate_amount'] ?? 0);
+        $vatNet        = (float) ($bt['vat_net_subtotal'] ?? 0);
+        $nonVatNet     = (float) ($bt['non_vat_net_subtotal'] ?? 0);
+        $taxTotal      = round($vatAmt + $nonVatRateAmt, 2);
+        $matchesBilling = $grand > 0 && ($lineGross <= 0 || abs($lineGross - $grand) < 0.02);
 
-        $caseVatAmount = (float) ($billing['totals']['vat_amount'] ?? 0);
-        $vatEnabled    = !empty($data['include_vat']) ? 1 : ($caseVatAmount > 0 ? 1 : 0);
-        if ($caseVatAmount > 0 && empty($data['item_description'])) {
-            $taxAmt = $caseVatAmount;
-            $total  = (float) ($billing['totals']['grand_total'] ?? ($subtotal + $taxAmt));
-            $tax    = $subtotal > 0 ? round($taxAmt / $subtotal * 100, 2) : self::vatRate();
+        $vatEnabled = !empty($data['include_vat']) ? 1 : ($taxTotal > 0 ? 1 : 0);
+
+        if ($matchesBilling) {
+            $total    = $grand;
+            $taxAmt   = $taxTotal;
+            $subtotal = round($nonVatNet + $vatNet, 2);
+            $tax      = $vatNet > 0 && $vatAmt > 0 ? round($vatAmt / $vatNet * 100, 2) : 0.0;
+        } elseif ($lineGross > 0) {
+            $subtotal = $lineGross;
+            if ($vatEnabled) {
+                $tax    = self::vatRate();
+                $taxAmt = round($subtotal * $tax / 100, 2);
+                $total  = round($subtotal + $taxAmt, 2);
+            } else {
+                $tax    = 0.0;
+                $taxAmt = 0.0;
+                $total  = $subtotal;
+            }
         } else {
-            $tax    = $vatEnabled ? self::vatRate() : 0.0;
-            $taxAmt = round($subtotal * $tax / 100, 2);
-            $total  = round($subtotal + $taxAmt, 2);
+            $subtotal = (float) ($data['amount'] ?? $case['service_fee'] ?? 0);
+            $tax      = $vatEnabled ? self::vatRate() : 0.0;
+            $taxAmt   = round($subtotal * $tax / 100, 2);
+            $total    = round($subtotal + $taxAmt, 2);
         }
-        $due    = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
+
+        $due = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
 
         $id = insertTableRow('invoices', [
             'invoice_number'  => $number,
@@ -1716,8 +1771,38 @@ class CaseService
 
     public static function getAdmins(): array
     {
+        $nameExpr = Database::columnExists('users', 'name')
+            ? 'COALESCE(NULLIF(TRIM(name), ""), TRIM(CONCAT(COALESCE(first_name, ""), " ", COALESCE(last_name, "")))) AS name'
+            : 'TRIM(CONCAT(COALESCE(first_name, ""), " ", COALESCE(last_name, ""))) AS name';
+
+        $companyId = TenantService::isEnabled() ? TenantService::id() : 1;
+        $assignSlugs = array_values(array_filter(
+            CompanyRoleService::activeSlugsForCompany($companyId),
+            static fn(string $slug): bool => $slug !== 'viewer'
+        ));
+        if ($assignSlugs === []) {
+            $assignSlugs = ['admin', 'manager', 'staff'];
+        }
+
+        $slugPlaceholders = implode(',', array_fill(0, count($assignSlugs), '?'));
+        $where  = ["status = 'active'", "(role = 'super_admin' OR role IN ({$slugPlaceholders}))"];
+        $params = $assignSlugs;
+
+        if (Database::columnExists('users', 'is_active')) {
+            $where[] = '(is_active IS NULL OR is_active = 1)';
+        }
+
+        if (TenantService::isEnabled() && Database::columnExists('users', 'company_id')) {
+            $where[] = '(role = \'super_admin\' OR company_id = ?)';
+            $params[] = $companyId;
+        }
+
         return Database::fetchAll(
-            "SELECT id, name, email FROM users WHERE role = 'admin' AND status = 'active' ORDER BY name ASC"
+            'SELECT id, ' . $nameExpr . ', email
+             FROM users
+             WHERE ' . implode(' AND ', $where) . '
+             ORDER BY name ASC',
+            $params
         );
     }
 
@@ -1728,28 +1813,40 @@ class CaseService
             return;
         }
 
+        $companyId = (int) ($case['company_id'] ?? 0);
         $userIds = [];
 
         if (!empty($case['client_user_id'])) {
             $userIds[] = (int) $case['client_user_id'];
         }
 
-        foreach (Database::fetchAll("SELECT id FROM users WHERE role = 'admin' AND status = 'active'") as $admin) {
-            $userIds[] = (int) $admin['id'];
+        foreach (TenantService::adminNotifierUserIds($companyId) as $adminId) {
+            $userIds[] = $adminId;
         }
 
         $userIds = array_unique($userIds);
+        $resolvedLink = $link ? url($link) : null;
 
         foreach ($userIds as $userId) {
-            try {
-                Database::insert(
-                    'INSERT INTO notifications (user_id, title, message, type, is_read, link, created_at) VALUES (?, ?, ?, ?, 0, ?, NOW())',
-                    [$userId, $title, $message, $type, $link ? url($link) : null]
-                );
-            } catch (Throwable $e) {
-                // notifications optional
-            }
+            createNotification(
+                $userId,
+                $title,
+                $message,
+                $type,
+                $resolvedLink,
+                $companyId > 0 ? $companyId : null
+            );
         }
+    }
+
+    public static function regenerateInvoiceHtml(int $caseId, int $invoiceId): void
+    {
+        $inv = Database::fetch('SELECT id, case_id FROM invoices WHERE id = ?', [$invoiceId]);
+        if (!$inv || (int) $inv['case_id'] !== $caseId) {
+            throw new RuntimeException('Invoice not found for this case.');
+        }
+
+        self::saveHtmlDocument($caseId, 'invoice', $invoiceId);
     }
 
     private static function saveHtmlDocument(int $caseId, string $kind, int $docId): void

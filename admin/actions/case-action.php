@@ -15,6 +15,10 @@ if (!$isAdmin && !$isClient) {
     redirect('auth/login.php');
 }
 
+if ($isAdmin) {
+    Auth::guardAction();
+}
+
 if (!CSRF::verifyRequest()) {
     flash('error', 'Invalid security token. Please try again.');
     redirect('pages/cases.php');
@@ -37,9 +41,15 @@ function redirectClientCase(int $caseId, string $tab = ''): void
 }
 
 try {
+    if ($isAdmin && $caseId > 0 && $action !== 'create_case') {
+        CaseService::assertCaseAccess($caseId);
+    }
+
     switch ($action) {
         case 'create_case':
-            Auth::requireAdmin();
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
             $id = CaseService::createCase($_POST, Auth::id());
             $caseId = $id;
 
@@ -75,7 +85,9 @@ try {
             break;
 
         case 'update_case':
-            Auth::requireAdmin();
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
             if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
@@ -85,7 +97,9 @@ try {
             break;
 
         case 'update_status':
-            Auth::requireAdmin();
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
             $newStatus = $_POST['status'] ?? 'pending';
             CaseService::updateStatus($caseId, $newStatus, Auth::id());
             flash('success', 'Case status updated.');
@@ -110,7 +124,9 @@ try {
             break;
 
         case 'add_note':
-            Auth::requireAdmin();
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
             $note = trim($_POST['note'] ?? '');
             if ($note === '') {
                 throw new RuntimeException('Note cannot be empty.');
@@ -120,23 +136,17 @@ try {
             redirectCase($caseId, 'notes');
             break;
 
-        case 'generate_quotation':
-            Auth::requireAdmin();
-            CaseService::generateQuotation($caseId, $_POST);
+        case 'generate_quotation':            CaseService::generateQuotation($caseId, $_POST);
             flash('success', 'Quotation generated.');
             redirectCase($caseId, 'quotations');
             break;
 
-        case 'generate_proposal':
-            Auth::requireAdmin();
-            CaseService::generateProposal($caseId, $_POST);
+        case 'generate_proposal':            CaseService::generateProposal($caseId, $_POST);
             flash('success', 'Proposal generated.');
             redirectCase($caseId, 'quotations');
             break;
 
-        case 'save_client_letter_draft':
-            Auth::requireAdmin();
-            if ($caseId <= 0) {
+        case 'save_client_letter_draft':            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             $instructions = trim($_POST['client_instructions'] ?? '');
@@ -151,9 +161,7 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'save_letter_template':
-            Auth::requireAdmin();
-            if ($caseId <= 0) {
+        case 'save_letter_template':            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             ClientLetterService::saveNamedTemplate(
@@ -165,9 +173,7 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'generate_client_letter':
-            Auth::requireAdmin();
-            if ($caseId <= 0) {
+        case 'generate_client_letter':            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             $instructions = trim($_POST['client_instructions'] ?? '');
@@ -183,9 +189,7 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'save_client_letter_record':
-            Auth::requireAdmin();
-            if ($caseId <= 0) {
+        case 'save_client_letter_record':            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             $instructions = trim($_POST['client_instructions'] ?? '');
@@ -197,9 +201,7 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'publish_client_letter':
-            Auth::requireAdmin();
-            if ($caseId <= 0) {
+        case 'publish_client_letter':            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             $letterId = (int) ($_POST['letter_id'] ?? 0);
@@ -214,9 +216,7 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'unpublish_client_letter':
-            Auth::requireAdmin();
-            $letterId = (int) ($_POST['letter_id'] ?? 0);
+        case 'unpublish_client_letter':            $letterId = (int) ($_POST['letter_id'] ?? 0);
             if ($letterId > 0) {
                 ClientLetterService::unpublishFromPortal($letterId);
                 flash('success', 'Letter removed from client portal.');
@@ -224,9 +224,7 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'delete_client_letter':
-            Auth::requireAdmin();
-            $letterId = (int) ($_POST['letter_id'] ?? 0);
+        case 'delete_client_letter':            $letterId = (int) ($_POST['letter_id'] ?? 0);
             if ($letterId > 0) {
                 $letter = ClientLetterService::getById($letterId);
                 if ($letter && (int) $letter['case_id'] === $caseId) {
@@ -237,9 +235,7 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'send_client_letter':
-            Auth::requireAdmin();
-            if ($caseId <= 0) {
+        case 'send_client_letter':            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             CaseService::sendClientLetterToClient($caseId);
@@ -248,23 +244,38 @@ try {
             break;
 
         case 'generate_invoice':
-            Auth::requireAdmin();
+            if ($isClient || !Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+                throw new RuntimeException('You do not have permission to manage invoices.');
+            }
             CaseService::generateInvoice($caseId, $_POST);
             flash('success', 'Invoice generated.');
             redirectCase($caseId, 'invoices');
             break;
 
+        case 'regenerate_invoice':
+            if ($isClient || !Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+                throw new RuntimeException('You do not have permission to manage invoices.');
+            }
+            $invoiceId = (int) ($_POST['invoice_id'] ?? 0);
+            if ($invoiceId <= 0) {
+                throw new RuntimeException('Invalid invoice.');
+            }
+            CaseService::regenerateInvoiceHtml($caseId, $invoiceId);
+            flash('success', 'Invoice layout updated.');
+            redirectCase($caseId, 'invoices');
+            break;
+
         case 'record_payment':
-            Auth::requireAdmin();
+            if ($isClient || !Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+                throw new RuntimeException('You do not have permission to record payments.');
+            }
             $invoiceId = (int) ($_POST['invoice_id'] ?? 0);
             CaseService::recordPayment($invoiceId, $_POST, Auth::id());
             flash('success', 'Payment recorded and receipt generated.');
             redirectCase($caseId, 'invoice-payments');
             break;
 
-        case 'delete_case':
-            Auth::requireAdmin();
-            if ($caseId <= 0) {
+        case 'delete_case':            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             CaseService::deleteCase($caseId);
@@ -272,9 +283,7 @@ try {
             redirect('pages/cases.php');
             break;
 
-        case 'delete_document':
-            Auth::requireAdmin();
-            $documentId = (int) ($_POST['document_id'] ?? 0);
+        case 'delete_document':            $documentId = (int) ($_POST['document_id'] ?? 0);
             if ($caseId <= 0 || $documentId <= 0) {
                 throw new RuntimeException('Invalid document.');
             }
@@ -293,7 +302,11 @@ try {
         $config = require __DIR__ . '/../config/config.php';
         $error  = 'Database error while processing this request.';
         if ($action === 'create_case' || $action === 'update_case') {
-            $error = 'Could not save the case. If this is a new install, run: php admin/sql/migrate_cases.php';
+            if (str_contains($message, 'Duplicate') || str_contains($message, '1062')) {
+                $error = 'Could not save the case because a reference number already exists. Run: php admin/sql/migrate_fix_global_number_indexes.php';
+            } else {
+                $error = 'Could not save the case. If this is a new install, run: php admin/sql/migrate_cases.php';
+            }
         }
         if (!empty($config['debug'])) {
             $error .= ' Details: ' . $message;

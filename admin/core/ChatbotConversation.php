@@ -92,7 +92,14 @@ function chatbotReplyForMetaQuestions(string $message): ?string
 
 function chatbotReplyForClientFocus(int $clientId, string $message): ?string
 {
-    $client = Database::fetch('SELECT * FROM clients WHERE id = ?', [$clientId]);
+    if (TenantService::isEnabled()) {
+        $client = Database::fetch(
+            'SELECT * FROM clients WHERE id = ? AND company_id = ?',
+            [$clientId, TenantService::id()]
+        );
+    } else {
+        $client = Database::fetch('SELECT * FROM clients WHERE id = ?', [$clientId]);
+    }
     if (!$client) {
         return null;
     }

@@ -14,6 +14,16 @@ class ChatbotChatStore
         return 'Chat history is not set up yet. Run: php admin/sql/migrate_chatbot.php';
     }
 
+    /** @return array{0: string, 1: list<mixed>} */
+    private static function companyScope(): array
+    {
+        if (!TenantService::hasChatScope()) {
+            return ['', []];
+        }
+
+        return [' AND company_id = ?', [TenantService::id()]];
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
@@ -23,13 +33,15 @@ class ChatbotChatStore
             return [];
         }
 
+        [$scopeSql, $scopeParams] = self::companyScope();
+
         $rows = Database::fetchAll(
             'SELECT id, title, messages, created_at, updated_at
              FROM chatbot_conversations
-             WHERE user_id = ?
+             WHERE user_id = ?' . $scopeSql . '
              ORDER BY updated_at DESC
              LIMIT ?',
-            [$userId, $limit]
+            array_merge([$userId], $scopeParams, [$limit])
         );
 
         return array_map([self::class, 'formatListItem'], $rows);
@@ -44,11 +56,13 @@ class ChatbotChatStore
             return null;
         }
 
+        [$scopeSql, $scopeParams] = self::companyScope();
+
         $row = Database::fetch(
             'SELECT id, title, messages, created_at, updated_at
              FROM chatbot_conversations
-             WHERE id = ? AND user_id = ?',
-            [$conversationId, $userId]
+             WHERE id = ? AND user_id = ?' . $scopeSql,
+            array_merge([$conversationId, $userId], $scopeParams)
         );
 
         return $row ? self::formatConversation($row) : null;
@@ -60,11 +74,17 @@ class ChatbotChatStore
             return 0;
         }
 
-        return insertTableRow('chatbot_conversations', [
+        $data = [
             'user_id'  => $userId,
             'title'    => self::sanitizeTitle($title),
             'messages' => json_encode([], JSON_UNESCAPED_UNICODE),
-        ]);
+        ];
+
+        if (TenantService::hasChatScope()) {
+            $data['company_id'] = TenantService::id();
+        }
+
+        return insertTableRow('chatbot_conversations', $data);
     }
 
     /**
@@ -86,16 +106,16 @@ class ChatbotChatStore
             ? self::sanitizeTitle($title)
             : self::titleFromMessages($normalized, (string) ($existing['title'] ?? 'New chat'));
 
+        [$scopeSql, $scopeParams] = self::companyScope();
+
         Database::query(
             'UPDATE chatbot_conversations
              SET title = ?, messages = ?, updated_at = NOW()
-             WHERE id = ? AND user_id = ?',
-            [
-                $resolvedTitle,
-                json_encode($normalized, JSON_UNESCAPED_UNICODE),
-                $conversationId,
-                $userId,
-            ]
+             WHERE id = ? AND user_id = ?' . $scopeSql,
+            array_merge(
+                [$resolvedTitle, json_encode($normalized, JSON_UNESCAPED_UNICODE), $conversationId, $userId],
+                $scopeParams
+            )
         );
 
         return true;
@@ -112,9 +132,11 @@ class ChatbotChatStore
             return false;
         }
 
+        [$scopeSql, $scopeParams] = self::companyScope();
+
         Database::query(
-            'UPDATE chatbot_conversations SET title = ?, updated_at = NOW() WHERE id = ? AND user_id = ?',
-            [$title, $conversationId, $userId]
+            'UPDATE chatbot_conversations SET title = ?, updated_at = NOW() WHERE id = ? AND user_id = ?' . $scopeSql,
+            array_merge([$title, $conversationId, $userId], $scopeParams)
         );
 
         return true;
@@ -126,9 +148,11 @@ class ChatbotChatStore
             return false;
         }
 
+        [$scopeSql, $scopeParams] = self::companyScope();
+
         Database::query(
-            'DELETE FROM chatbot_conversations WHERE id = ? AND user_id = ?',
-            [$conversationId, $userId]
+            'DELETE FROM chatbot_conversations WHERE id = ? AND user_id = ?' . $scopeSql,
+            array_merge([$conversationId, $userId], $scopeParams)
         );
 
         return true;

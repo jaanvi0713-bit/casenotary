@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::requirePage('dashboard');
 
 $pageTitle    = 'Dashboard';
 $pageSubtitle = 'Welcome back, ' . userFullName(Auth::user());

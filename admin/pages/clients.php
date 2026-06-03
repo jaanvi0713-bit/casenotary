@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::requirePage('clients');
 
 $pageTitle = 'Clients';
 $q = trim((string) ($_GET['q'] ?? ''));
@@ -14,6 +14,7 @@ if ($page > $totalPages) {
 }
 $clients = getClientsPaginated($page, $perPage, $q);
 $pageSubtitle = $totalClients . ' registered clients';
+$canManageClients = Auth::canManage(RoleAccess::PERMISSION_CLIENTS);
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -24,7 +25,9 @@ require __DIR__ . '/../includes/header.php';
             <h2 class="saas-card-title">Client Directory</h2>
             <p class="saas-card-subtitle">All registered client profiles</p>
         </div>
+        <?php if ($canManageClients): ?>
         <a href="<?= url('pages/client-form.php') ?>" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add Client</a>
+        <?php endif; ?>
     </div>
     <form method="get" class="table-toolbar">
         <div class="table-search">

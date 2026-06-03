@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../core/bootstrap.php';
 
-Auth::requireAdmin();
+Auth::requirePage('cases');
 
 $caseId = (int) ($_GET['id'] ?? 0);
 $workspace = CaseService::getWorkspace($caseId);
@@ -57,6 +57,7 @@ $pagedActivity = array_slice(
 );
 $activityShowingFrom = $totalActivity > 0 ? paginationOffset($activityPage, $activityPerPage) + 1 : 0;
 $activityShowingTo   = min($totalActivity, $activityPage * $activityPerPage);
+$canEditCases        = Auth::canManage(RoleAccess::PERMISSION_CASES);
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -74,7 +75,11 @@ require __DIR__ . '/../includes/header.php';
     </div>
 <?php endif; ?>
 
-<div class="case-workspace">
+<?php if (!$canEditCases): ?>
+    <div class="alert alert-info mb-3"><i class="bi bi-eye me-2"></i>Read-only access — you can view this case but cannot make changes.</div>
+<?php endif; ?>
+
+<div class="case-workspace<?= $canEditCases ? '' : ' case-workspace--view-only' ?>">
     <!-- Case header -->
     <div class="case-workspace-header">
         <div class="case-workspace-header-left">
@@ -86,6 +91,7 @@ require __DIR__ . '/../includes/header.php';
             </div>
             <p class="case-workspace-subtitle"><?= e($case['title']) ?></p>
         </div>
+        <?php if ($canEditCases): ?>
         <div class="case-workspace-actions">
             <form method="post" action="<?= url('actions/case-action.php') ?>" class="case-status-form">
                 <?= CSRF::field() ?>
@@ -130,6 +136,7 @@ require __DIR__ . '/../includes/header.php';
                 </ul>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 
     <!-- Tabs -->
@@ -370,9 +377,9 @@ require __DIR__ . '/../includes/header.php';
                                         <td><?= formatCurrency((float) $inv['total']) ?></td>
                                         <td><?= formatDate($inv['due_date']) ?></td>
                                         <td><?= statusBadge($invStatus) ?></td>
-                                        <td>
+                                        <td class="text-nowrap">
                                             <?php if (!empty($inv['pdf_path'])): ?>
-                                                <a href="<?= url('actions/document-download.php?path=' . urlencode($inv['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
+                                                <a href="<?= url('actions/document-download.php?path=' . urlencode($inv['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener"><i class="bi bi-receipt"></i> View</a>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -746,8 +753,9 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
                 <div class="mb-3"><label class="form-label">Due Date</label><input type="date" name="due_date" class="form-control" value="<?= date('Y-m-d', strtotime('+14 days')) ?>"></div>
-                <div class="mb-3"><label class="form-label">Payment Terms</label><input type="text" name="payment_terms" class="form-control" value="Payment due within 14 days"></div>
-                <div class="mb-3"><label class="form-label">Payment Instructions</label><textarea name="payment_instructions" class="form-control" rows="2" placeholder="Bank details / payment method details"></textarea></div>
+                <?php $defaultPayTerms = trim((string) (getCompanySettings()['default_invoice_payment_terms'] ?? '')); ?>
+                <div class="mb-3"><label class="form-label">Payment Terms</label><input type="text" name="payment_terms" class="form-control" value="<?= e($defaultPayTerms !== '' ? $defaultPayTerms : 'Payment due within 14 days') ?>"></div>
+                <div class="mb-3"><label class="form-label">Payment Instructions</label><textarea name="payment_instructions" class="form-control" rows="2" placeholder="Optional override — bank details from Settings are used when empty"></textarea></div>
                 <div class="mb-3"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Generate</button></div>

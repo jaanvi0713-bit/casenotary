@@ -72,7 +72,7 @@ class MailService
             . '<p><strong>Services:</strong><br>' . $serviceHtml
             . '<strong>Total fee:</strong> ' . formatCurrency((float) $billing['totals']['grand_total']) . '</p>'
             . '<p>Log in to your client portal to review documents and next steps.</p>'
-            . '<p><a href="' . e(clientUrl('auth/login.php')) . '" style="color:#3aafa9;">Open Client Portal</a></p>'
+            . '<p><a href="' . e(clientLoginUrl()) . '" style="color:#3aafa9;">Open Client Portal</a></p>'
         );
 
         $attachments = $documentPath && is_file($documentPath) ? [$documentPath] : [];
@@ -89,7 +89,7 @@ class MailService
             '<p>Dear ' . e($name) . ',</p>'
             . '<p>Please find your client letter for case <strong>' . e($case['case_number']) . '</strong> attached.</p>'
             . '<p>This letter confirms your case details and accompanies your quotation. Log in to your client portal to review documents and next steps.</p>'
-            . '<p><a href="' . e(clientUrl('auth/login.php')) . '" style="color:#3aafa9;">Open Client Portal</a></p>'
+            . '<p><a href="' . e(clientLoginUrl()) . '" style="color:#3aafa9;">Open Client Portal</a></p>'
         );
 
         $attachments = $documentPath && is_file($documentPath) ? [$documentPath] : [];
@@ -100,7 +100,7 @@ class MailService
     public static function sendLoginEmail(array $client, string $instructions, ?string $plainPassword = null): bool
     {
         $name = clientFullName($client) ?: 'Client';
-        $loginUrl = clientUrl('auth/login.php');
+        $loginUrl = clientLoginUrl((int) ($client['company_id'] ?? 0) ?: null);
 
         $credentials = $plainPassword
             ? '<p><strong>Email:</strong> ' . e($client['email']) . '<br><strong>Temporary password:</strong> ' . e($plainPassword) . '</p>'

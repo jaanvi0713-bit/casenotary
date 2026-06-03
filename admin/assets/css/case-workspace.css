@@ -710,12 +710,58 @@ textarea.case-form-control {
     font-size: 0.875rem;
 }
 
+.case-workspace--view-only form[method="post"],
+.case-workspace--view-only .modal {
+    display: none !important;
+}
+
 .case-form-password-wrap {
     position: relative;
 }
 
+.case-form .login-pw-input-wrap .login-pw-input.case-form-control {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    padding: 0.5625rem 0.75rem;
+    min-height: 42px;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    border-width: 1px;
+    border-color: #cbd5e1;
+    border-radius: 8px 0 0 8px;
+    box-sizing: border-box;
+}
+
+.case-form .login-pw-field .login-pw-reveal {
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    border: 1px solid #cbd5e1;
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    background: #f8fafc;
+}
+
+.login-pw-field input::-webkit-credentials-auto-fill-button,
+.login-pw-field input::-webkit-textfield-decoration-container,
+.case-form-password-wrap input[type="password"]::-ms-reveal,
+.case-form-password-wrap input[type="password"]::-ms-clear {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
 .case-form-password-wrap .form-control {
     padding-right: 2.75rem;
+}
+
+.case-form-password-wrap .password-toggle {
+    z-index: 5;
+}
+
+.case-form-password-wrap input[type="password"]::-ms-reveal,
+.case-form-password-wrap input[type="password"]::-ms-clear {
+    display: none;
 }
 
 .case-services-list {

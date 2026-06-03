@@ -53,29 +53,41 @@ require __DIR__ . '/../includes/header.php';
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Current password</label>
-                    <div class="password-field-wrap">
-                        <input type="password" name="current_password" id="current_password" class="form-control" required autocomplete="current-password">
-                        <button type="button" class="password-toggle js-password-toggle" data-target="current_password" tabindex="-1" aria-label="Show password">
-                            <i class="bi bi-eye" aria-hidden="true"></i>
-                        </button>
+                    <div class="login-pw-field">
+                        <div class="login-pw-input-wrap">
+                            <input type="text" name="current_password" id="current_password"
+                                   class="form-control login-pw-input login-pw-masked" required autocomplete="current-password" spellcheck="false">
+                            <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">New password</label>
-                    <div class="password-field-wrap">
-                        <input type="password" name="new_password" id="new_password" class="form-control" required autocomplete="new-password">
-                        <button type="button" class="password-toggle js-password-toggle" data-target="new_password" tabindex="-1" aria-label="Show password">
-                            <i class="bi bi-eye" aria-hidden="true"></i>
-                        </button>
+                    <div class="login-pw-field">
+                        <div class="login-pw-input-wrap">
+                            <input type="text" name="new_password" id="new_password"
+                                   class="form-control login-pw-input login-pw-masked" required autocomplete="new-password" spellcheck="false">
+                            <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Confirm new password</label>
-                    <div class="password-field-wrap">
-                        <input type="password" name="new_password_confirmation" id="new_password_confirmation" class="form-control" required autocomplete="new-password">
-                        <button type="button" class="password-toggle js-password-toggle" data-target="new_password_confirmation" tabindex="-1" aria-label="Show password">
-                            <i class="bi bi-eye" aria-hidden="true"></i>
-                        </button>
+                    <div class="login-pw-field">
+                        <div class="login-pw-input-wrap">
+                            <input type="text" name="new_password_confirmation" id="new_password_confirmation"
+                                   class="form-control login-pw-input login-pw-masked" required autocomplete="new-password" spellcheck="false">
+                            <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

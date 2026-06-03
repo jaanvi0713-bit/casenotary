@@ -6,6 +6,9 @@ if (!in_array($portal, ['admin', 'client'], true)) {
     $portal = 'admin';
 }
 
+$loginCompanyId = TenantService::resolveLoginCompanyFromRequest();
+$loginCompanySlug = $loginCompanyId > 0 ? TenantService::slug($loginCompanyId) : '';
+
 Auth::guest($portal);
 
 $error = '';
@@ -18,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email    = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $portal   = $_POST['portal'] ?? 'admin';
+        $loginCompanyId = TenantService::resolveLoginCompanyFromRequest();
 
         if (!in_array($portal, ['admin', 'client'], true)) {
             $portal = 'admin';
@@ -27,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please enter both email and password.';
             setOld(['email' => $email]);
         } else {
-            $result = Auth::attempt($email, $password, $portal);
+            $result = Auth::attempt($email, $password, $portal, $loginCompanyId);
 
             if ($result['success']) {
                 clearOld();
@@ -44,9 +48,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$company = getCompanySettings();
-$pageTitle = 'Sign In';
 $isClientPortal = $portal === 'client';
+if ($isClientPortal && $loginCompanyId > 0) {
+    $company = SettingsService::forCompany($loginCompanyId);
+} elseif ($isClientPortal) {
+    $company = SettingsService::neutralClientBranding();
+} else {
+    $company = getCompanySettings();
+}
+$pageTitle = 'Sign In';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -133,6 +143,9 @@ $isClientPortal = $portal === 'client';
                 <form method="POST" action="" class="auth-form" id="loginForm" novalidate>
                     <?= CSRF::field() ?>
                     <input type="hidden" name="portal" id="portalInput" value="<?= e($portal) ?>">
+                    <?php if ($isClientPortal && $loginCompanySlug !== ''): ?>
+                        <input type="hidden" name="company" value="<?= e($loginCompanySlug) ?>">
+                    <?php endif; ?>
 
                     <div class="form-floating mb-3">
                         <input type="email" class="form-control" id="email" name="email"
@@ -140,10 +153,19 @@ $isClientPortal = $portal === 'client';
                         <label for="email"><i class="bi bi-envelope me-2"></i>Email Address</label>
                     </div>
 
-                    <div class="form-floating mb-3">
-                        <input type="password" class="form-control" id="password" name="password"
-                               placeholder="Password" required autocomplete="current-password">
-                        <label for="password"><i class="bi bi-lock me-2"></i>Password</label>
+                    <div class="mb-3">
+                        <label for="login_password" class="form-label auth-field-label"><i class="bi bi-lock me-2"></i>Password</label>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" class="form-control login-pw-input login-pw-masked" id="login_password" name="password"
+                                       required autocomplete="current-password" spellcheck="false"
+                                       data-lpignore="true" data-1p-ignore="true">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-4" id="adminExtras" style="<?= $isClientPortal ? 'display:none;' : '' ?>">
@@ -169,6 +191,7 @@ $isClientPortal = $portal === 'client';
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?= asset('js/app.js') ?>"></script>
+    <script src="<?= asset('js/password-reveal.js') ?>"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         var portalInput = document.getElementById('portalInput');

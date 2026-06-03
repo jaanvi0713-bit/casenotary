@@ -4,19 +4,132 @@ declare(strict_types=1);
 
 class Auth
 {
-    public static function attempt(string $email, string $password, string $requiredRole = 'admin'): array
+    /** @return list<string> */
+    public static function staffRoles(?int $companyId = null): array
     {
-        $user = Database::fetch(
-            'SELECT * FROM users WHERE email = ? AND role = ? LIMIT 1',
-            [$email, $requiredRole]
-        );
+        $roles = ['super_admin'];
+        $companyId = $companyId ?? (TenantService::isEnabled() ? TenantService::id() : 1);
+
+        return array_values(array_unique(array_merge($roles, CompanyRoleService::activeSlugsForCompany($companyId))));
+    }
+
+    public static function role(): string
+    {
+        return (string) ($_SESSION['user_role'] ?? '');
+    }
+
+    public static function can(string $permission): bool
+    {
+        return self::isStaff() && RoleAccess::allows(self::role(), $permission);
+    }
+
+    public static function requirePermission(string $permission): void
+    {
+        self::requireAdmin();
+
+        if (!self::can($permission)) {
+            flash('error', 'You do not have permission to access that area.');
+            redirect(self::defaultLandingPath());
+        }
+    }
+
+    public static function requirePage(string $pageKey): void
+    {
+        self::requireAdmin();
+
+        if (!RoleAccess::canAccessPage(self::role(), $pageKey)) {
+            flash('error', 'You do not have permission to access that page.');
+            redirect(self::defaultLandingPath());
+        }
+    }
+
+    public static function isReadOnly(): bool
+    {
+        return self::isStaff() && RoleAccess::isReadOnlyRole(self::role());
+    }
+
+    public static function restrictsToAssignedCases(): bool
+    {
+        return self::isStaff() && RoleAccess::restrictsToAssignedCases(self::role());
+    }
+
+    public static function canManage(string $permission): bool
+    {
+        return self::can($permission) && !self::isReadOnly();
+    }
+
+    public static function guardAction(): void
+    {
+        self::requireAdmin();
+
+        $script = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        $permission = RoleAccess::permissionForAction($script);
+
+        if ($permission !== null && !self::can($permission)) {
+            flash('error', 'You do not have permission to perform that action.');
+            redirect(self::defaultLandingPath());
+        }
+
+        if (
+            self::isReadOnly()
+            && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+            && !RoleAccess::isReadOnlyPostAction($script)
+        ) {
+            flash('error', 'Your account is read-only. You cannot save or change data.');
+            redirect(self::defaultLandingPath());
+        }
+    }
+
+    public static function defaultLandingPath(): string
+    {
+        return RoleAccess::defaultLandingPath(self::role());
+    }
+
+    public static function attempt(string $email, string $password, string $requiredRole = 'admin', int $loginCompanyId = 0): array
+    {
+        if ($requiredRole === 'admin') {
+            $user = Database::fetch(
+                'SELECT * FROM users WHERE email = ? LIMIT 1',
+                [$email]
+            );
+        } elseif (
+            $requiredRole === 'client'
+            && $loginCompanyId > 0
+            && TenantService::isEnabled()
+            && Database::columnExists('users', 'company_id')
+        ) {
+            $user = Database::fetch(
+                'SELECT * FROM users WHERE email = ? AND role = ? AND company_id = ? LIMIT 1',
+                [$email, $requiredRole, $loginCompanyId]
+            );
+        } else {
+            $user = Database::fetch(
+                'SELECT * FROM users WHERE email = ? AND role = ? LIMIT 1',
+                [$email, $requiredRole]
+            );
+        }
 
         if (!$user || !password_verify($password, $user['password'])) {
             return ['success' => false, 'message' => 'Invalid email or password.'];
         }
 
+        if (trim((string) ($user['role'] ?? '')) === '') {
+            Database::query(
+                "UPDATE users SET role = 'admin' WHERE id = ? AND (role IS NULL OR role = '')",
+                [(int) $user['id']]
+            );
+            $user['role'] = 'admin';
+        }
+
         if (!self::isUserActive($user)) {
             return ['success' => false, 'message' => 'This account is inactive. Contact support.'];
+        }
+
+        if ($requiredRole === 'admin') {
+            $userCompanyId = (int) ($user['company_id'] ?? 0);
+            if (!RoleAccess::isStaffRole((string) ($user['role'] ?? ''), $userCompanyId > 0 ? $userCompanyId : null)) {
+                return ['success' => false, 'message' => 'Invalid email or password.'];
+            }
         }
 
         if ($requiredRole === 'client' && !self::ensureClientProfileLink($user)) {
@@ -40,6 +153,8 @@ class Auth
         $_SESSION['user_name']  = userFullName($user);
         $_SESSION['logged_in']  = true;
         $_SESSION['login_time'] = time();
+
+        TenantService::resolveOnLogin($user);
     }
 
     public static function logout(): void
@@ -90,16 +205,41 @@ class Auth
         return self::check() ? (int) $_SESSION['user_id'] : null;
     }
 
+    public static function isStaff(): bool
+    {
+        if (!self::check()) {
+            return false;
+        }
+
+        $companyId = TenantService::isEnabled() ? TenantService::id() : (int) ($_SESSION['company_id'] ?? 1);
+
+        return RoleAccess::isStaffRole((string) ($_SESSION['user_role'] ?? ''), $companyId);
+    }
+
+    /** Admin portal access (admin and super_admin). */
     public static function isAdmin(): bool
     {
-        return self::check() && ($_SESSION['user_role'] ?? '') === 'admin';
+        return self::isStaff();
+    }
+
+    public static function isSuperAdmin(): bool
+    {
+        return self::check() && ($_SESSION['user_role'] ?? '') === 'super_admin';
     }
 
     public static function requireAdmin(): void
     {
-        if (!self::isAdmin()) {
+        if (!self::isStaff()) {
             header('Location: ' . url('auth/login.php'));
             exit;
+        }
+    }
+
+    public static function requireSuperAdmin(): void
+    {
+        if (!self::isSuperAdmin()) {
+            flash('error', 'Super admin access required.');
+            redirect('pages/dashboard.php');
         }
     }
 
@@ -254,12 +394,15 @@ class Auth
 
     public static function createPasswordReset(string $email): array
     {
-        $user = Database::fetch(
-            'SELECT id, email, role FROM users WHERE email = ? AND role = ? LIMIT 1',
-            [$email, 'admin']
-        );
+        $user = Database::fetch('SELECT id, email, role, company_id FROM users WHERE email = ? LIMIT 1', [$email]);
 
-        if (!$user) {
+        if (
+            !$user
+            || !RoleAccess::isStaffRole(
+                (string) ($user['role'] ?? ''),
+                (int) ($user['company_id'] ?? 0) > 0 ? (int) $user['company_id'] : null
+            )
+        ) {
             return ['success' => true, 'message' => 'If that email exists, a reset link has been sent.'];
         }
 
