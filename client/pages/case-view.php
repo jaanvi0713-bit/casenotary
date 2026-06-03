@@ -198,8 +198,10 @@ require __DIR__ . '/../includes/header.php';
 
         <div class="tab-pane fade" id="letters">
             <div class="case-panel">
-                <h3 class="case-panel-title mb-0">Client Letters</h3>
-                <p class="case-panel-hint small text-muted">Engagement and correspondence letters shared with you for this matter.</p>
+                <div class="case-panel-header case-panel-header--stacked">
+                    <h3 class="case-panel-title mb-0">Client Letters</h3>
+                    <p class="case-panel-hint small text-muted mb-0">Engagement and correspondence letters shared with you for this matter.</p>
+                </div>
                 <?php if (empty($publishedLetters)): ?>
                     <div class="empty-state py-4">
                         <i class="bi bi-envelope-paper"></i>

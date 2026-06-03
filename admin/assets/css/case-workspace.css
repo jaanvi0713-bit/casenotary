@@ -168,6 +168,17 @@
 
 .case-panel-header .case-panel-title { margin-bottom: 0; }
 
+.case-panel-header--stacked {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.case-panel-header--stacked .case-panel-hint {
+    margin: 0;
+}
+
 .case-panel-subtitle {
     font-size: 0.8125rem;
     font-weight: 600;

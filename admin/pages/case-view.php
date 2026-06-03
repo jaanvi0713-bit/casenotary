@@ -141,7 +141,7 @@ require __DIR__ . '/../includes/header.php';
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoice-payments" type="button">Invoice & Payments</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#notes" type="button">Notes</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#activity" type="button">Activity</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#client-letter" type="button">Create Letter</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#client-letter" type="button">Client Letter</button></li>
     </ul>
 
     <div class="tab-content case-tab-content">
@@ -556,11 +556,11 @@ require __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
-        <!-- Create Letter -->
+        <!-- Client Letter -->
         <div class="tab-pane fade" id="client-letter">
             <div class="case-panel client-letter-panel">
                 <div class="case-panel-header">
-                    <h3 class="case-panel-title mb-0">Create Letter</h3>
+                    <h3 class="case-panel-title mb-0">Client Letter</h3>
                 </div>
 
                 <p class="case-panel-hint mb-3">
