@@ -765,7 +765,7 @@ body.sidebar-collapsed .main-content {
     gap: 1.25rem;
     position: sticky;
     top: 0;
-    z-index: 1030;
+    z-index: 1040;
     overflow: visible;
     box-sizing: border-box;
 }
@@ -887,7 +887,17 @@ body.sidebar-collapsed .main-content {
 }
 
 .topbar-actions .dropdown-menu {
-    z-index: 1050;
+    z-index: 1060;
+}
+
+.topbar-actions .dropdown-menu.show {
+    display: block;
+}
+
+#notificationDropdownList {
+    max-height: min(50vh, 320px);
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .topbar-btn {
@@ -916,6 +926,7 @@ body.sidebar-collapsed .main-content {
     position: absolute;
     top: -2px;
     right: -2px;
+    pointer-events: none;
     min-width: 16px;
     height: 16px;
     padding: 0 4px;

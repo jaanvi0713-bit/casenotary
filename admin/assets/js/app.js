@@ -45,18 +45,58 @@
         });
     });
 
-    // Topbar dropdowns — fixed positioning escapes sticky/overflow clipping
-    document.querySelectorAll('.topbar-dropdown [data-bs-toggle="dropdown"]').forEach(function (toggle) {
-        if (typeof bootstrap === 'undefined' || !bootstrap.Dropdown) {
-            return;
-        }
+    // Topbar dropdowns — pin with fixed coords so menus aren't clipped by .main-content
+    function pinTopbarDropdownMenu(toggle, menu) {
+        var rect = toggle.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.inset = 'auto';
+        menu.style.top = Math.round(rect.bottom + 8) + 'px';
+        menu.style.left = 'auto';
+        menu.style.right = Math.round(window.innerWidth - rect.right) + 'px';
+        menu.style.bottom = 'auto';
+        menu.style.zIndex = '1060';
+        menu.style.transform = 'none';
+    }
 
-        bootstrap.Dropdown.getOrCreateInstance(toggle, {
-            popperConfig: function (defaultBsPopperConfig) {
-                return Object.assign({}, defaultBsPopperConfig, { strategy: 'fixed' });
+    function clearTopbarDropdownMenu(menu) {
+        menu.style.position = '';
+        menu.style.inset = '';
+        menu.style.top = '';
+        menu.style.left = '';
+        menu.style.right = '';
+        menu.style.bottom = '';
+        menu.style.zIndex = '';
+        menu.style.transform = '';
+    }
+
+    if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+        document.querySelectorAll('.topbar-dropdown').forEach(function (container) {
+            var toggle = container.querySelector('[data-bs-toggle="dropdown"]');
+            var menu = container.querySelector('.dropdown-menu');
+            if (!toggle || !menu) {
+                return;
             }
+
+            container.addEventListener('shown.bs.dropdown', function () {
+                window.requestAnimationFrame(function () {
+                    pinTopbarDropdownMenu(toggle, menu);
+                });
+            });
+            container.addEventListener('hidden.bs.dropdown', function () {
+                clearTopbarDropdownMenu(menu);
+            });
         });
-    });
+
+        window.addEventListener('resize', function () {
+            document.querySelectorAll('.topbar-dropdown .dropdown-menu.show').forEach(function (menu) {
+                var container = menu.closest('.topbar-dropdown');
+                var toggle = container ? container.querySelector('[data-bs-toggle="dropdown"]') : null;
+                if (toggle) {
+                    pinTopbarDropdownMenu(toggle, menu);
+                }
+            });
+        });
+    }
 
     // Auto-dismiss alerts
     document.querySelectorAll('.alert-dismissible').forEach(function (alert) {

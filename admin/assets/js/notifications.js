@@ -11,7 +11,8 @@
 
     var apiUrl = root.getAttribute('data-api-url') || '';
     var csrfName = root.getAttribute('data-csrf-name') || '_csrf_token';
-    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') || '' : '';
     var bellBtn = root.querySelector('.topbar-btn');
     var listEl = document.getElementById('notificationDropdownList');
     var badgeEl = document.getElementById('notificationHeaderBadge');

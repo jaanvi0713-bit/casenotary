@@ -61,7 +61,7 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
                     data-api-url="<?= e(adminUrl('api/notifications.php')) ?>"
                     data-csrf-name="<?= e($headerCsrfName) ?>"
                 >
-                    <button type="button" class="topbar-btn" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Notifications">
+                    <button type="button" class="topbar-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
                         <i class="bi bi-bell"></i>
                         <?php if ($unreadCount > 0): ?>
                             <span class="notification-dot"><?= $unreadCount > 9 ? '9+' : $unreadCount ?></span>
@@ -103,7 +103,7 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
                 </div>
 
                 <div class="dropdown topbar-dropdown">
-                    <button type="button" class="topbar-profile" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                    <button type="button" class="topbar-profile" data-bs-toggle="dropdown" aria-expanded="false">
                         <div class="profile-avatar"><?= e(userInitials($user)) ?></div>
                         <div class="profile-info d-none d-md-block">
                             <span class="profile-name"><?= e(userFullName($user)) ?></span>
