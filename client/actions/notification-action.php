@@ -12,12 +12,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !CSRF::verifyRequest()) {
 
 $action = $_POST['action'] ?? '';
 $userId = Auth::id();
+$redirectTo = $action === 'save_preferences'
+    ? clientUrl('pages/profile.php')
+    : clientUrl('pages/notifications.php');
 
 try {
     switch ($action) {
         case 'mark_all_read':
             markAllNotificationsAsRead($userId);
             flash('success', 'All notifications marked as read.');
+            break;
+
+        case 'save_preferences':
+            NotificationPreferenceService::save($userId, $_POST['preferences'] ?? []);
+            flash('success', 'Notification preferences saved.');
             break;
 
         case 'delete':
@@ -36,5 +44,5 @@ try {
     flash('error', $e->getMessage());
 }
 
-header('Location: ' . clientUrl('pages/notifications.php'));
+header('Location: ' . $redirectTo);
 exit;

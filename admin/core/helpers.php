@@ -880,19 +880,69 @@ function getOverdueInvoices(int $limit = 50): array
 function createNotification(int $userId, string $title, string $message, string $type, ?string $link = null, ?int $companyId = null): void
 {
     try {
+        $normalizedType = NotificationPreferenceService::normalizeType($type);
+        $wantsInApp = NotificationPreferenceService::wantsInApp($userId, $normalizedType);
+        $wantsEmail = NotificationPreferenceService::wantsEmail($userId, $normalizedType);
+
+        if ($wantsEmail) {
+            sendNotificationEmail($userId, $title, $message, $link);
+        }
+
+        if (!$wantsInApp) {
+            return;
+        }
+
         $companyId = $companyId ?? (TenantService::isEnabled() ? TenantService::id() : null);
 
         if (TenantService::hasNotificationScope() && $companyId !== null && $companyId > 0) {
             Database::insert(
                 'INSERT INTO notifications (user_id, company_id, title, message, type, is_read, link, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, NOW())',
-                [$userId, $companyId, $title, $message, $type, $link]
+                [$userId, $companyId, $title, $message, $normalizedType, $link]
             );
         } else {
             Database::insert(
                 'INSERT INTO notifications (user_id, title, message, type, is_read, link, created_at) VALUES (?, ?, ?, ?, 0, ?, NOW())',
-                [$userId, $title, $message, $type, $link]
+                [$userId, $title, $message, $normalizedType, $link]
             );
         }
+    } catch (Throwable $e) {
+        // optional
+    }
+}
+
+function sendNotificationEmail(int $userId, string $title, string $message, ?string $link = null): void
+{
+    try {
+        $user = Database::fetch('SELECT email, first_name, last_name FROM users WHERE id = ? LIMIT 1', [$userId]);
+        if (!$user || trim((string) ($user['email'] ?? '')) === '') {
+            return;
+        }
+
+        $name = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+        $greeting = $name !== '' ? e($name) : 'there';
+        $body = '<p>Hi ' . $greeting . ',</p>'
+            . '<p><strong>' . e($title) . '</strong></p>'
+            . '<p>' . nl2br(e($message)) . '</p>';
+
+        if ($link !== null && trim($link) !== '') {
+            $href = $link;
+            if (!str_starts_with($href, 'http://') && !str_starts_with($href, 'https://')) {
+                $href = str_starts_with($href, '/client/')
+                    ? rtrim((require __DIR__ . '/../config/config.php')['client_url'], '/') . '/' . ltrim(substr($href, 8), '/')
+                    : url(ltrim($href, '/'));
+            }
+            $body .= '<p><a href="' . e($href) . '">Open in portal</a></p>';
+        }
+
+        $body .= '<p style="color:#64748b;font-size:12px;">You can change notification preferences under Settings → Notification preferences.</p>';
+
+        $html = '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1e293b;line-height:1.5;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:24px;">'
+            . '<h2 style="margin:0 0 16px;font-size:18px;">' . e($title) . '</h2>'
+            . $body
+            . '</div></body></html>';
+
+        MailService::send((string) $user['email'], $title, $html);
     } catch (Throwable $e) {
         // optional
     }

@@ -34,6 +34,10 @@ foreach ($editableRoleKeys as $roleKey) {
     $companyRoleConfigs[$roleKey] = CompanyRoleAccessService::get($companyIdForRoles, $roleKey);
 }
 
+$roleUserCounts = CompanyRoleService::userCountsForCompany($companyIdForRoles);
+$roleOrderValue = implode(',', $editableRoleKeys);
+$roleColumnTotal = count($editableRoleKeys);
+
 $copyFromOptions = array_values(array_filter(
     $editableRoleKeys,
     static fn(string $slug): bool => in_array($slug, ['staff', 'manager', 'viewer', 'admin'], true)
@@ -138,7 +142,7 @@ require __DIR__ . '/../includes/header.php';
                 <div class="settings-roles-toolbar">
                     <div class="settings-roles-toolbar__copy">
                         <i class="bi bi-building"></i>
-                        <span>Permissions for <strong><?= e(TenantService::name()) ?></strong> only. Use <strong>Edit</strong> to rename roles; built-in roles cannot be deleted.</span>
+                        <span>Permissions for <strong><?= e(TenantService::name()) ?></strong> only. Use <strong>Edit</strong> to rename, <i class="bi bi-copy"></i> to duplicate, and arrows to reorder. Built-in roles cannot be deleted.</span>
                     </div>
                     <div class="settings-roles-toolbar__hint">
                         <i class="bi bi-hand-index"></i> Click any cell to toggle
@@ -151,11 +155,15 @@ require __DIR__ . '/../includes/header.php';
                             <thead>
                                 <tr>
                                     <th class="settings-roles-matrix__corner">Permission</th>
-                                    <?php foreach ($editableRoleKeys as $roleKey): ?>
+                                    <?php foreach ($editableRoleKeys as $roleColumnIndex => $roleKey): ?>
                                         <?php
                                         $roleMeta = $roleMetaBySlug[$roleKey] ?? null;
                                         $isBuiltin = $roleMeta === null || !empty($roleMeta['is_builtin']);
                                         $deleteFormId = 'deleteRole-' . $roleKey;
+                                        $duplicateFormId = 'duplicateRole-' . $roleKey;
+                                        $roleUserCount = (int) ($roleUserCounts[$roleKey] ?? 0);
+                                        $canMoveRoleLeft = $roleColumnIndex > 0;
+                                        $canMoveRoleRight = $roleColumnIndex < $roleColumnTotal - 1;
                                         ?>
                                         <?php
                                         $roleLabel = CompanyRoleService::labelForSlug($roleKey, $companyIdForRoles);
@@ -184,7 +192,11 @@ require __DIR__ . '/../includes/header.php';
                                                         class="settings-roles-role-card__delete"
                                                         title="Delete role"
                                                         aria-label="Delete <?= e($roleLabel) ?> role"
-                                                        onclick="return confirm('Delete this role? Reassign any users with this role first.');"
+                                                        onclick="return confirm(<?= json_encode(
+                                                            $roleUserCount > 0
+                                                                ? 'Delete ' . $roleLabel . '? ' . $roleUserCount . ' user(s) are assigned — reassign them first.'
+                                                                : 'Delete ' . $roleLabel . '? This cannot be undone.'
+                                                        ) ?>);"
                                                     >
                                                         <i class="bi bi-trash" aria-hidden="true"></i>
                                                     </button>
@@ -200,6 +212,46 @@ require __DIR__ . '/../includes/header.php';
                                                     <?php else: ?>
                                                         <span class="settings-roles-role-card__badge settings-roles-role-card__badge--custom">Custom</span>
                                                     <?php endif; ?>
+                                                    <span class="settings-roles-role-card__users">
+                                                        <?php if ($roleUserCount === 0): ?>
+                                                            No users
+                                                        <?php elseif ($roleUserCount === 1): ?>
+                                                            1 user
+                                                        <?php else: ?>
+                                                            <?= $roleUserCount ?> users
+                                                        <?php endif; ?>
+                                                    </span>
+                                                </div>
+                                                <div class="settings-roles-role-card__sort">
+                                                    <button
+                                                        type="submit"
+                                                        form="<?= e($duplicateFormId) ?>"
+                                                        class="settings-roles-role-card__sort-btn settings-roles-role-card__sort-btn--duplicate"
+                                                        title="Duplicate role"
+                                                        aria-label="Duplicate <?= e($roleLabel) ?> role"
+                                                    >
+                                                        <i class="bi bi-copy" aria-hidden="true"></i>
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        form="moveRole-<?= e($roleKey) ?>-left"
+                                                        class="settings-roles-role-card__sort-btn"
+                                                        title="Move left"
+                                                        aria-label="Move <?= e($roleLabel) ?> left"
+                                                        <?= $canMoveRoleLeft ? '' : 'disabled' ?>
+                                                    >
+                                                        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        form="moveRole-<?= e($roleKey) ?>-right"
+                                                        class="settings-roles-role-card__sort-btn"
+                                                        title="Move right"
+                                                        aria-label="Move <?= e($roleLabel) ?> right"
+                                                        <?= $canMoveRoleRight ? '' : 'disabled' ?>
+                                                    >
+                                                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                                                    </button>
                                                 </div>
                                             </div>
                                         </th>
@@ -321,6 +373,16 @@ require __DIR__ . '/../includes/header.php';
                                         <strong class="settings-roles-legend-card__title"><?= e(CompanyRoleService::labelForSlug($roleKey, $companyIdForRoles)) ?></strong>
                                     </header>
                                     <p class="settings-roles-legend-card__desc"><?= e($legendDisplayDesc) ?></p>
+                                    <?php $legendUserCount = (int) ($roleUserCounts[$roleKey] ?? 0); ?>
+                                    <p class="settings-roles-legend-card__users mb-2">
+                                        <?php if ($legendUserCount === 0): ?>
+                                            No users assigned
+                                        <?php elseif ($legendUserCount === 1): ?>
+                                            1 user assigned
+                                        <?php else: ?>
+                                            <?= $legendUserCount ?> users assigned
+                                        <?php endif; ?>
+                                    </p>
                                     <div class="settings-roles-legend-card__tags">
                                         <?php if ($roleConfig['assigned_cases_only']): ?>
                                             <span class="settings-roles-tag">Assigned cases</span>
@@ -349,22 +411,57 @@ require __DIR__ . '/../includes/header.php';
                 <?php
                 $deleteRoleMeta = $roleMetaBySlug[$roleKey] ?? null;
                 $deleteIsBuiltin = $deleteRoleMeta === null || !empty($deleteRoleMeta['is_builtin']);
-
-                if ($deleteIsBuiltin) {
-                    continue;
-                }
                 ?>
                 <form
-                    id="deleteRole-<?= e($roleKey) ?>"
+                    id="duplicateRole-<?= e($roleKey) ?>"
                     method="post"
                     action="<?= url('actions/role-action.php') ?>"
                     class="visually-hidden"
                     aria-hidden="true"
                 >
                     <?= CSRF::field() ?>
-                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="action" value="duplicate">
                     <input type="hidden" name="slug" value="<?= e($roleKey) ?>">
                 </form>
+                <form
+                    id="moveRole-<?= e($roleKey) ?>-left"
+                    method="post"
+                    action="<?= url('actions/role-action.php') ?>"
+                    class="visually-hidden"
+                    aria-hidden="true"
+                >
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="reorder">
+                    <input type="hidden" name="slug" value="<?= e($roleKey) ?>">
+                    <input type="hidden" name="direction" value="left">
+                    <input type="hidden" name="role_order" value="<?= e($roleOrderValue) ?>">
+                </form>
+                <form
+                    id="moveRole-<?= e($roleKey) ?>-right"
+                    method="post"
+                    action="<?= url('actions/role-action.php') ?>"
+                    class="visually-hidden"
+                    aria-hidden="true"
+                >
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="reorder">
+                    <input type="hidden" name="slug" value="<?= e($roleKey) ?>">
+                    <input type="hidden" name="direction" value="right">
+                    <input type="hidden" name="role_order" value="<?= e($roleOrderValue) ?>">
+                </form>
+                <?php if (!$deleteIsBuiltin): ?>
+                    <form
+                        id="deleteRole-<?= e($roleKey) ?>"
+                        method="post"
+                        action="<?= url('actions/role-action.php') ?>"
+                        class="visually-hidden"
+                        aria-hidden="true"
+                    >
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="slug" value="<?= e($roleKey) ?>">
+                    </form>
+                <?php endif; ?>
             <?php endforeach; ?>
 
             <div class="modal fade" id="editRoleModal" tabindex="-1" aria-labelledby="editRoleModalLabel" aria-hidden="true">

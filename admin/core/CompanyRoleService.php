@@ -288,6 +288,153 @@ class CompanyRoleService
         return ['success' => true];
     }
 
+    /** @return array<string, int> */
+    public static function userCountsForCompany(int $companyId): array
+    {
+        if ($companyId <= 0) {
+            return [];
+        }
+
+        $where = ['1=1'];
+        $params = [];
+
+        if (Database::columnExists('users', 'company_id')) {
+            $where[] = 'company_id = ?';
+            $params[] = $companyId;
+        }
+
+        $rows = Database::fetchAll(
+            'SELECT role, COUNT(*) AS cnt FROM users WHERE ' . implode(' AND ', $where) . ' GROUP BY role',
+            $params
+        );
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) ($row['role'] ?? '')] = (int) ($row['cnt'] ?? 0);
+        }
+
+        return $counts;
+    }
+
+    public static function userCountForRole(int $companyId, string $slug): int
+    {
+        return self::userCountsForCompany($companyId)[self::normalizeSlug($slug)] ?? 0;
+    }
+
+    /**
+     * @param list<string> $orderedSlugs
+     * @return array{success: bool, message?: string}
+     */
+    public static function duplicate(int $companyId, string $sourceSlug): array
+    {
+        if (!self::tableExists()) {
+            return ['success' => false, 'message' => 'Role storage is not installed.'];
+        }
+
+        $sourceSlug = self::normalizeSlug($sourceSlug);
+        if (!self::existsForCompany($companyId, $sourceSlug)) {
+            return ['success' => false, 'message' => 'Source role not found.'];
+        }
+
+        foreach (self::listForCompany($companyId) as $row) {
+            if (($row['slug'] ?? '') === $sourceSlug) {
+                $baseLabel = trim((string) ($row['label'] ?? 'Role')) . ' copy';
+                $label = $baseLabel;
+                $suffix = 2;
+
+                while (self::labelExistsForCompany($companyId, $label)) {
+                    $label = $baseLabel . ' ' . $suffix;
+                    $suffix++;
+                }
+
+                $description = trim((string) ($row['description'] ?? ''));
+
+                return self::create(
+                    $companyId,
+                    $label,
+                    $sourceSlug,
+                    $description !== '' ? $description : null
+                );
+            }
+        }
+
+        return ['success' => false, 'message' => 'Source role not found.'];
+    }
+
+    /**
+     * @param list<string> $orderedSlugs Slugs visible to the actor (matrix column order)
+     * @return array{success: bool, message?: string}
+     */
+    public static function moveRole(int $companyId, string $slug, string $direction, array $orderedSlugs): array
+    {
+        if (!self::tableExists()) {
+            return ['success' => false, 'message' => 'Role storage is not installed.'];
+        }
+
+        $slug = self::normalizeSlug($slug);
+        $direction = $direction === 'left' ? 'left' : 'right';
+        $orderedSlugs = array_values(array_map(
+            static fn(string $value): string => self::normalizeSlug($value),
+            $orderedSlugs
+        ));
+
+        if (!in_array($slug, $orderedSlugs, true)) {
+            return ['success' => false, 'message' => 'Invalid role.'];
+        }
+
+        $index = array_search($slug, $orderedSlugs, true);
+        $targetIndex = $direction === 'left' ? $index - 1 : $index + 1;
+
+        if ($targetIndex < 0 || $targetIndex >= count($orderedSlugs)) {
+            return ['success' => false, 'message' => 'Cannot move role further.'];
+        }
+
+        $neighborSlug = $orderedSlugs[$targetIndex];
+
+        $slugRow = Database::fetch(
+            'SELECT sort_order FROM company_roles WHERE company_id = ? AND slug = ? LIMIT 1',
+            [$companyId, $slug]
+        );
+        $neighborRow = Database::fetch(
+            'SELECT sort_order FROM company_roles WHERE company_id = ? AND slug = ? LIMIT 1',
+            [$companyId, $neighborSlug]
+        );
+
+        if (!$slugRow || !$neighborRow) {
+            return ['success' => false, 'message' => 'Role not found.'];
+        }
+
+        $slugOrder = (int) ($slugRow['sort_order'] ?? 0);
+        $neighborOrder = (int) ($neighborRow['sort_order'] ?? 0);
+
+        Database::query(
+            'UPDATE company_roles SET sort_order = ?, updated_at = NOW() WHERE company_id = ? AND slug = ?',
+            [$neighborOrder, $companyId, $slug]
+        );
+        Database::query(
+            'UPDATE company_roles SET sort_order = ?, updated_at = NOW() WHERE company_id = ? AND slug = ?',
+            [$slugOrder, $companyId, $neighborSlug]
+        );
+
+        self::clearCache($companyId);
+
+        return ['success' => true];
+    }
+
+    private static function labelExistsForCompany(int $companyId, string $label): bool
+    {
+        if (!self::tableExists()) {
+            return false;
+        }
+
+        $row = Database::fetch(
+            'SELECT id FROM company_roles WHERE company_id = ? AND label = ? LIMIT 1',
+            [$companyId, $label]
+        );
+
+        return $row !== null;
+    }
+
     /**
      * @return array{success: bool, message?: string}
      */

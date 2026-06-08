@@ -6,6 +6,11 @@ Auth::requireClient();
 $pageTitle = 'My Profile';
 $profile   = ProfileService::getById((int) Auth::id()) ?? Auth::user() ?? [];
 $pageSubtitle = $profile['email'] ?? '';
+$userId = Auth::id();
+$notificationPrefs = NotificationPreferenceService::get($userId);
+$preferencesReady = NotificationPreferenceService::columnExists();
+$preferencesAction = clientUrl('actions/notification-action.php');
+$notificationPrefsEmbedded = true;
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -96,6 +101,12 @@ require __DIR__ . '/../includes/header.php';
                 <button type="submit" class="btn btn-soft btn-sm">Update Password</button>
             </div>
         </form>
+
+        <hr class="my-4">
+
+        <h3 class="h6 mb-3">Notification preferences</h3>
+        <p class="text-muted small mb-3">Choose which alerts you receive in the portal and by email.</p>
+        <?php require __DIR__ . '/../../admin/includes/notification-preferences-panel.php'; ?>
     </div>
 </div>
 

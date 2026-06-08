@@ -17,9 +17,16 @@ $editableRoleKeys = $canManageSettings
     : [];
 
 if (!$canManageSettings) {
-    $tab = 'profile';
-    $pageSubtitle = 'Your profile';
+    if (!in_array($tab, ['profile', 'notifications'], true)) {
+        $tab = 'profile';
+    }
+    $pageSubtitle = $tab === 'notifications' ? 'Notification preferences' : 'Your profile';
 }
+
+$userId = Auth::id();
+$notificationPrefs = NotificationPreferenceService::get($userId);
+$preferencesReady = NotificationPreferenceService::columnExists();
+$preferencesAction = url('actions/notification-action.php');
 $logoUrl    = companyLogoUrl($settings);
 $faviconUrl = companyFaviconUrl($settings);
 
@@ -40,7 +47,9 @@ require __DIR__ . '/../includes/header.php';
             <p class="saas-card-subtitle mb-0">Update your name, email, and password</p>
         </div>
     </div>
-    <div class="card-body p-4">
+    <div class="card-body p-0">
+        <?php require __DIR__ . '/../includes/settings-nav.php'; ?>
+        <div class="p-4">
         <form method="post" action="<?= url('actions/profile-action.php') ?>" class="row g-3">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="update_profile">
@@ -98,12 +107,33 @@ require __DIR__ . '/../includes/header.php';
                 <button type="submit" class="btn btn-outline-primary">Update password</button>
             </div>
         </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($tab === 'notifications'): ?>
+<div class="saas-card">
+    <div class="saas-card-header">
+        <div>
+            <h2 class="saas-card-title">Notification preferences</h2>
+            <p class="saas-card-subtitle mb-0">Choose which alerts you receive in the app and by email</p>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <?php require __DIR__ . '/../includes/settings-nav.php'; ?>
+        <div class="p-4">
+            <?php
+            $notificationPrefsEmbedded = true;
+            require __DIR__ . '/../includes/notification-preferences-panel.php';
+            ?>
+        </div>
     </div>
 </div>
 <?php endif; ?>
 
 <?php if ($canManageSettings): ?>
-<div class="saas-card<?= $tab === 'profile' ? ' mt-4' : '' ?>">
+<div class="saas-card<?= in_array($tab, ['profile', 'notifications'], true) ? ' mt-4' : '' ?>">
     <div class="saas-card-header appointment-calendar-header">
         <div>
             <h2 class="saas-card-title">Company Settings</h2>

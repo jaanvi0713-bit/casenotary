@@ -23,6 +23,7 @@ require_once __DIR__ . '/CSRF.php';
 require_once __DIR__ . '/CompanyRoleService.php';
 require_once __DIR__ . '/RoleAccess.php';
 require_once __DIR__ . '/CompanyRoleAccessService.php';
+require_once __DIR__ . '/NotificationPreferenceService.php';
 require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/UserService.php';
 require_once __DIR__ . '/helpers.php';

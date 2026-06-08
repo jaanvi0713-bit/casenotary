@@ -735,23 +735,21 @@ body.sidebar-collapsed .main-content {
     min-width: 0;
     min-height: 100vh;
     height: 100vh;
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     transition: margin-left 0.25s ease, width 0.25s ease;
     background: var(--gray-100);
+    -webkit-overflow-scrolling: touch;
 }
 
 .page-content {
     padding: 1.75rem 1.5rem 2.5rem;
     flex: 1;
-    min-height: 0;
     width: 100%;
     max-width: none;
     margin: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
 }
 
 .topbar {
@@ -889,7 +887,7 @@ body.sidebar-collapsed .main-content {
 }
 
 .topbar-actions .dropdown-menu {
-    z-index: 1070;
+    z-index: 1060;
 }
 
 .topbar-actions .dropdown-menu.show {
@@ -4296,6 +4294,88 @@ body.page-settings-roles .settings-roles-table-wrap {
 .settings-roles-role-card__edit:active,
 .settings-roles-role-card__delete:active {
     transform: scale(0.94);
+}
+
+.settings-roles-role-card__users {
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    line-height: 1.2;
+}
+
+.settings-roles-role-card__sort {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.35rem 0.25rem 0.45rem;
+    border-top: 1px solid var(--gray-100);
+    background: #fafbfc;
+}
+
+.settings-roles-role-card__sort-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    background: var(--white);
+    color: var(--gray-600);
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.settings-roles-role-card__sort-btn:hover:not(:disabled) {
+    background: var(--primary-light);
+    border-color: transparent;
+    color: var(--primary);
+}
+
+.settings-roles-role-card__sort-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.settings-roles-role-card__sort-btn--duplicate {
+    margin-right: 0.15rem;
+}
+
+.settings-roles-legend-card__users {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--gray-600);
+}
+
+.notification-preferences-table th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-600);
+}
+
+.notification-preferences-table .form-check-input {
+    cursor: pointer;
+}
+
+.notification-preferences-table .form-check-input:checked {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.notification-preferences-table .form-check-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.25rem var(--primary-light);
+}
+
+.notification-pref-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--secondary);
 }
 
 .settings-roles-matrix__perm-row:nth-child(even) .settings-roles-matrix__perm-label {

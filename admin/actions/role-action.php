@@ -89,6 +89,45 @@ try {
         }
 
         flash('success', 'Role removed.');
+    } elseif ($action === 'duplicate') {
+        $slug = (string) ($_POST['slug'] ?? '');
+        $editable = CompanyRoleAccessService::editableRolesForActor(Auth::role(), $companyId);
+
+        if (!in_array(CompanyRoleService::normalizeSlug($slug), $editable, true)) {
+            throw new RuntimeException('You cannot duplicate this role.');
+        }
+
+        $result = CompanyRoleService::duplicate($companyId, $slug);
+
+        if (!$result['success']) {
+            throw new RuntimeException($result['message'] ?? 'Could not duplicate role.');
+        }
+
+        flash('success', 'Role duplicated. Review its permissions below and save.');
+    } elseif ($action === 'reorder') {
+        $slug = (string) ($_POST['slug'] ?? '');
+        $direction = (string) ($_POST['direction'] ?? 'left');
+        $ordered = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) ($_POST['role_order'] ?? ''))
+        )));
+        $editable = CompanyRoleAccessService::editableRolesForActor(Auth::role(), $companyId);
+        $ordered = array_values(array_filter(
+            $ordered,
+            static fn(string $roleSlug): bool => in_array($roleSlug, $editable, true)
+        ));
+
+        if ($ordered === []) {
+            $ordered = $editable;
+        }
+
+        $result = CompanyRoleService::moveRole($companyId, $slug, $direction, $ordered);
+
+        if (!$result['success']) {
+            throw new RuntimeException($result['message'] ?? 'Could not reorder roles.');
+        }
+
+        flash('success', 'Role order updated.');
     } else {
         throw new RuntimeException('Unknown action.');
     }

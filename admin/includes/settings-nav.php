@@ -8,6 +8,9 @@
     <li class="nav-item">
         <a class="nav-link <?= $settingsNavTab === 'profile' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=profile') ?>">My Profile</a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $settingsNavTab === 'notifications' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=notifications') ?>">Notification preferences</a>
+    </li>
     <?php endif; ?>
     <?php if ($canManageSettings): ?>
     <li class="nav-item">

@@ -26,7 +26,6 @@ $unreadCount = getUnreadNotificationCount($userId);
 $pageSubtitle = $unreadCount . ' unread';
 $showingFrom = $totalNotifications > 0 ? paginationOffset($page, $perPage) + 1 : 0;
 $showingTo = min($totalNotifications, $page * $perPage);
-
 require __DIR__ . '/../includes/header.php';
 ?>
 

@@ -19,7 +19,6 @@ $unreadCount = getUnreadNotificationCount($userId);
 $pageSubtitle = $unreadCount . ' unread';
 $showingFrom = $totalNotifications > 0 ? paginationOffset($page, $perPage) + 1 : 0;
 $showingTo = min($totalNotifications, $page * $perPage);
-
 require __DIR__ . '/../includes/header.php';
 ?>
 
@@ -29,13 +28,18 @@ require __DIR__ . '/../includes/header.php';
             <h2 class="saas-card-title">Notifications</h2>
             <p class="saas-card-subtitle mb-0"><?= $totalNotifications ?> total · <?= $unreadCount ?> unread</p>
         </div>
-        <?php if ($unreadCount > 0): ?>
-            <form method="post" action="<?= url('actions/notification-action.php') ?>" class="m-0">
-                <?= CSRF::field() ?>
-                <input type="hidden" name="action" value="mark_all_read">
-                <button type="submit" class="btn btn-light btn-sm">Mark all read</button>
-            </form>
-        <?php endif; ?>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <a href="<?= url('pages/settings.php?tab=notifications') ?>" class="btn btn-soft btn-sm">
+                <i class="bi bi-gear me-1"></i> Preferences
+            </a>
+            <?php if ($unreadCount > 0): ?>
+                <form method="post" action="<?= url('actions/notification-action.php') ?>" class="m-0">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="mark_all_read">
+                    <button type="submit" class="btn btn-light btn-sm">Mark all read</button>
+                </form>
+            <?php endif; ?>
+        </div>
     </div>
     <form method="get" class="table-toolbar">
         <div class="table-search">
