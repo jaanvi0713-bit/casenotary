@@ -4088,6 +4088,7 @@ body.page-settings-roles .settings-roles-table-wrap {
 }
 
 .settings-roles-role-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -4203,19 +4204,50 @@ body.page-settings-roles .settings-roles-table-wrap {
     border-color: rgba(124, 92, 191, 0.25);
 }
 
-.settings-roles-role-remove {
-    margin-top: 0.5rem;
+.settings-roles-role-card__edit,
+.settings-roles-role-card__delete {
+    position: absolute;
+    top: 0.35rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.92);
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 24, 44, 0.12);
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.settings-roles-role-remove .btn-link {
-    font-size: 0.6875rem;
-    font-weight: 500;
-    text-decoration: none;
+.settings-roles-role-card__edit {
+    left: 0.35rem;
+    color: var(--secondary, #1a365d);
+}
+
+.settings-roles-role-card__edit:hover {
+    background: var(--secondary, #1a365d);
+    color: #fff;
+}
+
+.settings-roles-role-card__delete {
+    right: 0.35rem;
     color: var(--danger, #c0392b);
 }
 
-.settings-roles-role-remove .btn-link:hover {
-    text-decoration: underline;
+.settings-roles-role-card__delete:hover {
+    background: var(--danger, #c0392b);
+    color: #fff;
+}
+
+.settings-roles-role-card__edit:active,
+.settings-roles-role-card__delete:active {
+    transform: scale(0.94);
 }
 
 .settings-roles-matrix__perm-row:nth-child(even) .settings-roles-matrix__perm-label {

@@ -255,6 +255,42 @@ class CompanyRoleService
     /**
      * @return array{success: bool, message?: string}
      */
+    public static function update(int $companyId, string $slug, string $label, ?string $description = null): array
+    {
+        if (!self::tableExists()) {
+            return ['success' => false, 'message' => 'Role storage is not installed.'];
+        }
+
+        $slug = self::normalizeSlug($slug);
+        $role = Database::fetch(
+            'SELECT * FROM company_roles WHERE company_id = ? AND slug = ? LIMIT 1',
+            [$companyId, $slug]
+        );
+
+        if (!$role) {
+            return ['success' => false, 'message' => 'Role not found.'];
+        }
+
+        $label = trim($label);
+        if ($label === '') {
+            return ['success' => false, 'message' => 'Role name is required.'];
+        }
+
+        $descriptionValue = $description !== null && trim($description) !== '' ? trim($description) : null;
+
+        Database::query(
+            'UPDATE company_roles SET label = ?, description = ?, updated_at = NOW() WHERE company_id = ? AND slug = ?',
+            [$label, $descriptionValue, $companyId, $slug]
+        );
+
+        self::clearCache($companyId);
+
+        return ['success' => true];
+    }
+
+    /**
+     * @return array{success: bool, message?: string}
+     */
     public static function delete(int $companyId, string $slug): array
     {
         if (!self::tableExists()) {

@@ -35,6 +35,28 @@ try {
         }
 
         flash('success', 'Role "' . $label . '" created. Set its permissions below and save.');
+    } elseif ($action === 'update') {
+        $slug = (string) ($_POST['slug'] ?? '');
+        $label = trim((string) ($_POST['label'] ?? ''));
+        $description = trim((string) ($_POST['description'] ?? ''));
+
+        $editable = CompanyRoleAccessService::editableRolesForActor(Auth::role(), $companyId);
+        if (!in_array(CompanyRoleService::normalizeSlug($slug), $editable, true)) {
+            throw new RuntimeException('You cannot edit this role.');
+        }
+
+        $result = CompanyRoleService::update(
+            $companyId,
+            $slug,
+            $label,
+            $description !== '' ? $description : null
+        );
+
+        if (!$result['success']) {
+            throw new RuntimeException($result['message'] ?? 'Could not update role.');
+        }
+
+        flash('success', 'Role "' . $label . '" updated.');
     } elseif ($action === 'delete') {
         $slug = (string) ($_POST['slug'] ?? '');
         $result = CompanyRoleService::delete($companyId, $slug);

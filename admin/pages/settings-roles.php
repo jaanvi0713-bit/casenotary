@@ -22,6 +22,12 @@ $settingsNavTab = 'roles';
 $canManageSettings = true;
 $rolesTableReady = CompanyRoleAccessService::tableExists() && CompanyRoleService::tableExists();
 $companyRoles = CompanyRoleService::listForCompany($companyIdForRoles);
+$roleMetaBySlug = [];
+
+foreach ($companyRoles as $companyRole) {
+    $roleMetaBySlug[(string) ($companyRole['slug'] ?? '')] = $companyRole;
+}
+
 $companyRoleConfigs = [];
 
 foreach ($editableRoleKeys as $roleKey) {
@@ -132,7 +138,7 @@ require __DIR__ . '/../includes/header.php';
                 <div class="settings-roles-toolbar">
                     <div class="settings-roles-toolbar__copy">
                         <i class="bi bi-building"></i>
-                        <span>Permissions for <strong><?= e(TenantService::name()) ?></strong> only. Built-in roles cannot be deleted.</span>
+                        <span>Permissions for <strong><?= e(TenantService::name()) ?></strong> only. Use <strong>Edit</strong> to rename roles; built-in roles cannot be deleted.</span>
                     </div>
                     <div class="settings-roles-toolbar__hint">
                         <i class="bi bi-hand-index"></i> Click any cell to toggle
@@ -147,21 +153,42 @@ require __DIR__ . '/../includes/header.php';
                                     <th class="settings-roles-matrix__corner">Permission</th>
                                     <?php foreach ($editableRoleKeys as $roleKey): ?>
                                         <?php
-                                        $roleMeta = null;
-                                        foreach ($companyRoles as $cr) {
-                                            if (($cr['slug'] ?? '') === $roleKey) {
-                                                $roleMeta = $cr;
-                                                break;
-                                            }
-                                        }
+                                        $roleMeta = $roleMetaBySlug[$roleKey] ?? null;
                                         $isBuiltin = $roleMeta === null || !empty($roleMeta['is_builtin']);
+                                        $deleteFormId = 'deleteRole-' . $roleKey;
                                         ?>
                                         <?php
                                         $roleLabel = CompanyRoleService::labelForSlug($roleKey, $companyIdForRoles);
                                         $roleIcon = $roleHeaderIcons[$roleKey] ?? 'bi-tag';
                                         ?>
+                                        <?php $roleDescription = trim((string) ($roleMeta['description'] ?? '')); ?>
                                         <th class="settings-roles-matrix__role-head" data-role="<?= e($roleKey) ?>">
                                             <div class="settings-roles-role-card">
+                                                <button
+                                                    type="button"
+                                                    class="settings-roles-role-card__edit"
+                                                    title="Edit role"
+                                                    aria-label="Edit <?= e($roleLabel) ?> role"
+                                                    data-edit-role
+                                                    data-role-slug="<?= e($roleKey) ?>"
+                                                    data-role-label="<?= e($roleLabel) ?>"
+                                                    data-role-description="<?= e($roleDescription) ?>"
+                                                    data-role-builtin="<?= $isBuiltin ? '1' : '0' ?>"
+                                                >
+                                                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                                                </button>
+                                                <?php if (!$isBuiltin): ?>
+                                                    <button
+                                                        type="submit"
+                                                        form="<?= e($deleteFormId) ?>"
+                                                        class="settings-roles-role-card__delete"
+                                                        title="Delete role"
+                                                        aria-label="Delete <?= e($roleLabel) ?> role"
+                                                        onclick="return confirm('Delete this role? Reassign any users with this role first.');"
+                                                    >
+                                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                                    </button>
+                                                <?php endif; ?>
                                                 <div class="settings-roles-role-card__accent" aria-hidden="true"></div>
                                                 <div class="settings-roles-role-card__body">
                                                     <span class="settings-roles-role-card__avatar" aria-hidden="true">
@@ -175,14 +202,6 @@ require __DIR__ . '/../includes/header.php';
                                                     <?php endif; ?>
                                                 </div>
                                             </div>
-                                            <?php if (!$isBuiltin): ?>
-                                                <form method="post" action="<?= url('actions/role-action.php') ?>" class="settings-roles-role-remove" onsubmit="return confirm('Remove this role? Users must be reassigned first.');">
-                                                    <?= CSRF::field() ?>
-                                                    <input type="hidden" name="action" value="delete">
-                                                    <input type="hidden" name="slug" value="<?= e($roleKey) ?>">
-                                                    <button type="submit" class="btn btn-link btn-sm p-0">Remove</button>
-                                                </form>
-                                            <?php endif; ?>
                                         </th>
                                     <?php endforeach; ?>
                                 </tr>
@@ -314,6 +333,61 @@ require __DIR__ . '/../includes/header.php';
                     <a href="<?= url('pages/users.php') ?>" class="btn btn-soft">Back to users</a>
                 </div>
             </form>
+
+            <?php foreach ($editableRoleKeys as $roleKey): ?>
+                <?php
+                $deleteRoleMeta = $roleMetaBySlug[$roleKey] ?? null;
+                $deleteIsBuiltin = $deleteRoleMeta === null || !empty($deleteRoleMeta['is_builtin']);
+
+                if ($deleteIsBuiltin) {
+                    continue;
+                }
+                ?>
+                <form
+                    id="deleteRole-<?= e($roleKey) ?>"
+                    method="post"
+                    action="<?= url('actions/role-action.php') ?>"
+                    class="visually-hidden"
+                    aria-hidden="true"
+                >
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="slug" value="<?= e($roleKey) ?>">
+                </form>
+            <?php endforeach; ?>
+
+            <div class="modal fade" id="editRoleModal" tabindex="-1" aria-labelledby="editRoleModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <form method="post" action="<?= url('actions/role-action.php') ?>" class="modal-content">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="slug" id="editRoleSlug" value="">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editRoleModalLabel">Edit role category</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label" for="editRoleLabel">Role name</label>
+                                <input type="text" name="label" id="editRoleLabel" class="form-control" required maxlength="120" placeholder="e.g. Billing, Reception">
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label" for="editRoleDescription">Description <span class="text-muted fw-normal">(optional)</span></label>
+                                <textarea name="description" id="editRoleDescription" class="form-control" rows="3" maxlength="500" placeholder="Short summary for your team"></textarea>
+                            </div>
+                            <p class="form-text mt-3 mb-0" id="editRoleBuiltinNote">
+                                Built-in roles keep their system ID; only the display name and description change here.
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i> Save changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         <?php endif; ?>
     </div>
 </div>
