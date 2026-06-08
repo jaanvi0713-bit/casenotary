@@ -4,12 +4,28 @@ require_once __DIR__ . '/../core/bootstrap.php';
 
 Auth::guardAction();
 
+$wantsJson = !empty($_POST['ajax'])
+    || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower((string) $_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+
+$jsonRoleResponse = static function (array $payload, int $status = 200) use ($wantsJson): void {
+    if (!$wantsJson) {
+        return;
+    }
+
+    http_response_code($status);
+    header('Content-Type: application/json');
+    echo json_encode($payload);
+    exit;
+};
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !CSRF::verifyRequest()) {
+    $jsonRoleResponse(['success' => false, 'message' => 'Invalid request.'], 403);
     flash('error', 'Invalid request.');
     redirect('pages/settings-roles.php');
 }
 
 if (!Auth::can(RoleAccess::PERMISSION_SETTINGS)) {
+    $jsonRoleResponse(['success' => false, 'message' => 'You do not have permission to manage roles.'], 403);
     flash('error', 'You do not have permission to manage roles.');
     redirect('pages/settings-roles.php');
 }
@@ -56,6 +72,13 @@ try {
             throw new RuntimeException($result['message'] ?? 'Could not update role.');
         }
 
+        $jsonRoleResponse([
+            'success' => true,
+            'slug' => CompanyRoleService::normalizeSlug($slug),
+            'label' => $label,
+            'description' => $description,
+        ]);
+
         flash('success', 'Role "' . $label . '" updated.');
     } elseif ($action === 'delete') {
         $slug = (string) ($_POST['slug'] ?? '');
@@ -70,6 +93,7 @@ try {
         throw new RuntimeException('Unknown action.');
     }
 } catch (Throwable $e) {
+    $jsonRoleResponse(['success' => false, 'message' => $e->getMessage()], 400);
     flash('error', $e->getMessage());
 }
 

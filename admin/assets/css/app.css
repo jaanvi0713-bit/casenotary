@@ -976,6 +976,35 @@ body.sidebar-collapsed .main-content {
     margin-top: 0.5rem !important;
 }
 
+.notification-dropdown__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.notification-dropdown__title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.notification-dropdown__mark-all {
+    flex-shrink: 0;
+    padding: 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--primary);
+    white-space: nowrap;
+}
+
+.notification-dropdown__mark-all:hover {
+    color: var(--primary-dark, #2d9d96);
+    text-decoration: underline;
+}
+
 .notification-dropdown .dropdown-header,
 .profile-dropdown-header {
     padding: 0.875rem 1rem;

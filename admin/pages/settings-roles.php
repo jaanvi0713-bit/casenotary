@@ -304,12 +304,23 @@ require __DIR__ . '/../includes/header.php';
                         <?php foreach ($editableRoleKeys as $roleKey): ?>
                             <?php $roleConfig = $companyRoleConfigs[$roleKey]; ?>
                             <div class="col-md-6 col-xl-3">
-                                <article class="settings-roles-legend-card" data-role="<?= e($roleKey) ?>">
+                                <?php
+                                $legendStoredDesc = trim((string) (($roleMetaBySlug[$roleKey] ?? [])['description'] ?? ''));
+                                $legendDisplayDesc = $legendStoredDesc !== ''
+                                    ? $legendStoredDesc
+                                    : CompanyRoleService::descriptionForSlug($roleKey, $companyIdForRoles);
+                                $legendDescFallback = CompanyRoleService::builtinDescription($roleKey);
+                                ?>
+                                <article
+                                    class="settings-roles-legend-card"
+                                    data-role="<?= e($roleKey) ?>"
+                                    data-desc-fallback="<?= e($legendDescFallback) ?>"
+                                >
                                     <header class="settings-roles-legend-card__head">
                                         <span class="settings-roles-legend-card__avatar"><?= e(strtoupper(substr(CompanyRoleService::labelForSlug($roleKey, $companyIdForRoles), 0, 1))) ?></span>
-                                        <strong><?= e(CompanyRoleService::labelForSlug($roleKey, $companyIdForRoles)) ?></strong>
+                                        <strong class="settings-roles-legend-card__title"><?= e(CompanyRoleService::labelForSlug($roleKey, $companyIdForRoles)) ?></strong>
                                     </header>
-                                    <p class="settings-roles-legend-card__desc"><?= e(CompanyRoleService::descriptionForSlug($roleKey, $companyIdForRoles)) ?></p>
+                                    <p class="settings-roles-legend-card__desc"><?= e($legendDisplayDesc) ?></p>
                                     <div class="settings-roles-legend-card__tags">
                                         <?php if ($roleConfig['assigned_cases_only']): ?>
                                             <span class="settings-roles-tag">Assigned cases</span>
@@ -358,7 +369,7 @@ require __DIR__ . '/../includes/header.php';
 
             <div class="modal fade" id="editRoleModal" tabindex="-1" aria-labelledby="editRoleModalLabel" aria-hidden="true">
                 <div class="modal-dialog">
-                    <form method="post" action="<?= url('actions/role-action.php') ?>" class="modal-content">
+                    <form method="post" action="<?= url('actions/role-action.php') ?>" class="modal-content" id="editRoleForm">
                         <?= CSRF::field() ?>
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="slug" id="editRoleSlug" value="">

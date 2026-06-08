@@ -3,6 +3,7 @@ $company     = getCompanySettings();
 $user        = Auth::user();
 $unreadCount = getUnreadNotificationCount(Auth::id());
 $navNotifications = getRecentNotifications(Auth::id(), 5, true);
+$headerCsrfName = (require __DIR__ . '/../config/config.php')['security']['csrf_token_name'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -53,7 +54,12 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                 </div>
 
                 <div class="topbar-actions">
-                    <div class="dropdown topbar-dropdown">
+                    <div
+                        id="topbarNotifications"
+                        class="dropdown topbar-dropdown"
+                        data-api-url="<?= e(url('api/notifications.php')) ?>"
+                        data-csrf-name="<?= e($headerCsrfName) ?>"
+                    >
                         <button type="button" class="topbar-btn" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Notifications">
                             <i class="bi bi-bell"></i>
                             <?php if ($unreadCount > 0): ?>
@@ -61,28 +67,35 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                             <?php endif; ?>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end notification-dropdown">
-                            <div class="dropdown-header">
-                                <span>Notifications</span>
-                                <?php if ($unreadCount > 0): ?>
-                                    <span class="badge rounded-pill bg-primary"><?= $unreadCount ?> new</span>
+                            <div class="dropdown-header notification-dropdown__header">
+                                <div class="notification-dropdown__title">
+                                    <span>Notifications</span>
+                                    <span id="notificationHeaderBadge" class="badge rounded-pill bg-primary<?= $unreadCount > 0 ? '' : ' d-none' ?>"><?= $unreadCount ?> new</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    id="notificationMarkAllRead"
+                                    class="btn btn-link btn-sm notification-dropdown__mark-all<?= $unreadCount > 0 ? '' : ' d-none' ?>"
+                                >Mark all read</button>
+                            </div>
+                            <div id="notificationDropdownList">
+                                <?php if (empty($navNotifications)): ?>
+                                    <div class="dropdown-item-text text-muted text-center py-4 small">No notifications</div>
+                                <?php else: ?>
+                                    <?php foreach ($navNotifications as $notif): ?>
+                                        <a href="<?= url('actions/notification-read.php?id=' . (int) $notif['id']) ?>" class="dropdown-item notification-item<?= empty($notif['is_read']) ? ' unread' : '' ?>">
+                                            <div class="notification-icon">
+                                                <i class="bi <?= notificationIcon($notif['type']) ?>"></i>
+                                            </div>
+                                            <div class="notification-content">
+                                                <strong><?= e($notif['title']) ?></strong>
+                                                <p><?= e(mb_strimwidth($notif['message'], 0, 72, '...')) ?></p>
+                                                <small><?= timeAgo($notif['created_at']) ?></small>
+                                            </div>
+                                        </a>
+                                    <?php endforeach; ?>
                                 <?php endif; ?>
                             </div>
-                            <?php if (empty($navNotifications)): ?>
-                                <div class="dropdown-item-text text-muted text-center py-4 small">No notifications</div>
-                            <?php else: ?>
-                                <?php foreach ($navNotifications as $notif): ?>
-                                    <a href="<?= url('actions/notification-read.php?id=' . (int) $notif['id']) ?>" class="dropdown-item notification-item<?= empty($notif['is_read']) ? ' unread' : '' ?>">
-                                        <div class="notification-icon">
-                                            <i class="bi <?= notificationIcon($notif['type']) ?>"></i>
-                                        </div>
-                                        <div class="notification-content">
-                                            <strong><?= e($notif['title']) ?></strong>
-                                            <p><?= e(mb_strimwidth($notif['message'], 0, 72, '...')) ?></p>
-                                            <small><?= timeAgo($notif['created_at']) ?></small>
-                                        </div>
-                                    </a>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
                             <div class="dropdown-divider"></div>
                             <a href="<?= url('pages/notifications.php') ?>" class="dropdown-item text-center small fw-semibold">View all notifications</a>
                         </div>
