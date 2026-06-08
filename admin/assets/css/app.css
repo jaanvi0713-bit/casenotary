@@ -735,21 +735,23 @@ body.sidebar-collapsed .main-content {
     min-width: 0;
     min-height: 100vh;
     height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: visible;
     display: flex;
     flex-direction: column;
     transition: margin-left 0.25s ease, width 0.25s ease;
     background: var(--gray-100);
-    -webkit-overflow-scrolling: touch;
 }
 
 .page-content {
     padding: 1.75rem 1.5rem 2.5rem;
     flex: 1;
+    min-height: 0;
     width: 100%;
     max-width: none;
     margin: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .topbar {
@@ -887,7 +889,7 @@ body.sidebar-collapsed .main-content {
 }
 
 .topbar-actions .dropdown-menu {
-    z-index: 1060;
+    z-index: 1070;
 }
 
 .topbar-actions .dropdown-menu.show {
