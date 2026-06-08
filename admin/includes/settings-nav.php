@@ -9,7 +9,7 @@
         <a class="nav-link <?= $settingsNavTab === 'profile' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=profile') ?>">My Profile</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link <?= $settingsNavTab === 'notifications' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=notifications') ?>">Notification preferences</a>
+        <a class="nav-link <?= $settingsNavTab === 'notifications' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=notifications') ?>">Notification Preferences</a>
     </li>
     <?php endif; ?>
     <?php if ($canManageSettings): ?>
@@ -24,7 +24,7 @@
     </li>
     <?php if ($editableRoleKeys !== []): ?>
     <li class="nav-item">
-        <a class="nav-link <?= $settingsNavTab === 'roles' ? 'active' : '' ?>" href="<?= url('pages/settings-roles.php') ?>">Role access</a>
+        <a class="nav-link <?= $settingsNavTab === 'roles' ? 'active' : '' ?>" href="<?= url('pages/settings-roles.php') ?>">Role Access</a>
     </li>
     <?php endif; ?>
     <?php endif; ?>

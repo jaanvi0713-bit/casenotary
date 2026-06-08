@@ -934,7 +934,7 @@ function sendNotificationEmail(int $userId, string $title, string $message, ?str
             $body .= '<p><a href="' . e($href) . '">Open in portal</a></p>';
         }
 
-        $body .= '<p style="color:#64748b;font-size:12px;">You can change notification preferences under Settings → Notification preferences.</p>';
+        $body .= '<p style="color:#64748b;font-size:12px;">You can change notification preferences under Settings → Notification Preferences.</p>';
 
         $html = '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1e293b;line-height:1.5;">'
             . '<div style="max-width:560px;margin:0 auto;padding:24px;">'

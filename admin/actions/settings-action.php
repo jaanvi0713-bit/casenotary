@@ -50,7 +50,7 @@ try {
             $tab
         );
     }
-    flash('success', $tab === 'roles' ? 'Role access saved successfully.' : 'Settings saved successfully.');
+    flash('success', $tab === 'roles' ? 'Role Access saved successfully.' : 'Settings saved successfully.');
     redirect($tab === 'roles' ? 'pages/settings-roles.php' : 'pages/settings.php?tab=' . urlencode($tab));
 } catch (Throwable $e) {
     flash('error', $e->getMessage());

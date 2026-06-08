@@ -483,6 +483,7 @@ input[type="password"]::-webkit-textfield-decoration-container {
    ============================================================ */
 .app-wrapper {
     min-height: 100vh;
+    background: var(--gray-100);
 }
 
 .sidebar {
@@ -733,20 +734,13 @@ body.sidebar-collapsed .main-content {
     margin-left: calc(var(--sidebar-width) + var(--layout-gutter));
     width: calc(100% - var(--sidebar-width) - (var(--layout-gutter) * 2));
     min-width: 0;
-    min-height: 100vh;
-    height: 100vh;
     overflow-x: hidden;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
     transition: margin-left 0.25s ease, width 0.25s ease;
     background: var(--gray-100);
-    -webkit-overflow-scrolling: touch;
 }
 
 .page-content {
     padding: 1.75rem 1.5rem 2.5rem;
-    flex: 1;
     width: 100%;
     max-width: none;
     margin: 0;
@@ -2951,6 +2945,14 @@ body.sidebar-collapsed .main-content {
 }
 
 /* Chatbot layout (restored) */
+body.page-chatbot .main-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+}
+
 body.page-chatbot .page-content {
     flex: 1;
     min-height: 0;

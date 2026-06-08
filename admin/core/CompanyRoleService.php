@@ -16,9 +16,9 @@ class CompanyRoleService
     /** @var array<string, string> */
     private const BUILTIN_DESCRIPTIONS = [
         'admin' => 'Full access to company settings, users, payments, and all modules.',
-        'manager' => 'Clients, cases, payments, appointments, notifications, and AI — tune access on Role access.',
-        'staff' => 'Usually assigned cases only — tune access on Role access.',
-        'viewer' => 'View-focused — enable read-only on Role access to block edits.',
+        'manager' => 'Clients, cases, payments, appointments, notifications, and AI — tune access on Role Access.',
+        'staff' => 'Usually assigned cases only — tune access on Role Access.',
+        'viewer' => 'View-focused — enable read-only on Role Access to block edits.',
     ];
 
     /** @var array<int, list<array<string, mixed>>> */
@@ -171,7 +171,7 @@ class CompanyRoleService
 
     public static function builtinDescription(string $slug): string
     {
-        return self::BUILTIN_DESCRIPTIONS[$slug] ?? 'Custom role — set permissions on Role access.';
+        return self::BUILTIN_DESCRIPTIONS[$slug] ?? 'Custom role — set permissions on Role Access.';
     }
 
     public static function isStaffRole(string $role, ?int $companyId = null): bool

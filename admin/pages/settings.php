@@ -4,7 +4,7 @@ require_once __DIR__ . '/../core/bootstrap.php';
 Auth::requirePage('settings');
 
 $pageTitle = 'Settings';
-$pageSubtitle = 'Branding, email delivery, payments, and role access';
+$pageSubtitle = 'Branding, email delivery, payments, and Role Access';
 $settings  = getCompanySettings();
 $tab       = $_GET['tab'] ?? 'branding';
 if ($tab === 'roles') {
@@ -20,7 +20,7 @@ if (!$canManageSettings) {
     if (!in_array($tab, ['profile', 'notifications'], true)) {
         $tab = 'profile';
     }
-    $pageSubtitle = $tab === 'notifications' ? 'Notification preferences' : 'Your profile';
+    $pageSubtitle = $tab === 'notifications' ? 'Notification Preferences' : 'Your profile';
 }
 
 $userId = Auth::id();
@@ -116,7 +116,7 @@ require __DIR__ . '/../includes/header.php';
 <div class="saas-card">
     <div class="saas-card-header">
         <div>
-            <h2 class="saas-card-title">Notification preferences</h2>
+            <h2 class="saas-card-title">Notification Preferences</h2>
             <p class="saas-card-subtitle mb-0">Choose which alerts you receive in the app and by email</p>
         </div>
     </div>

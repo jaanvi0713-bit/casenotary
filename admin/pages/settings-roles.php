@@ -17,7 +17,7 @@ if ($editableRoleKeys === []) {
 }
 
 $pageTitle = 'Settings';
-$pageSubtitle = 'Role access for ' . TenantService::name();
+$pageSubtitle = 'Role Access for ' . TenantService::name();
 $settingsNavTab = 'roles';
 $canManageSettings = true;
 $rolesTableReady = CompanyRoleAccessService::tableExists() && CompanyRoleService::tableExists();
@@ -401,7 +401,7 @@ require __DIR__ . '/../includes/header.php';
 
                 <div class="settings-roles-actions-bar">
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-1"></i> Save role access
+                        <i class="bi bi-check-lg me-1"></i> Save Role Access
                     </button>
                     <a href="<?= url('pages/users.php') ?>" class="btn btn-soft">Back to users</a>
                 </div>

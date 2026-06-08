@@ -124,7 +124,7 @@ require __DIR__ . '/../includes/header.php';
 <div class="saas-card mt-4">
     <div class="card-body p-4">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-            <h3 class="h6 mb-0">Role access for <?= e(TenantService::name()) ?></h3>
+            <h3 class="h6 mb-0">Role Access for <?= e(TenantService::name()) ?></h3>
             <?php if (Auth::can(RoleAccess::PERMISSION_SETTINGS) && CompanyRoleAccessService::editableRolesForActor(Auth::role(), TenantService::id()) !== []): ?>
                 <a href="<?= url('pages/settings-roles.php') ?>" class="btn btn-soft btn-sm">Customize roles</a>
             <?php endif; ?>

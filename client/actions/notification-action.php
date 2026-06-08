@@ -25,7 +25,7 @@ try {
 
         case 'save_preferences':
             NotificationPreferenceService::save($userId, $_POST['preferences'] ?? []);
-            flash('success', 'Notification preferences saved.');
+            flash('success', 'Notification Preferences saved.');
             break;
 
         case 'delete':

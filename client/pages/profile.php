@@ -104,7 +104,7 @@ require __DIR__ . '/../includes/header.php';
 
         <hr class="my-4">
 
-        <h3 class="h6 mb-3">Notification preferences</h3>
+        <h3 class="h6 mb-3">Notification Preferences</h3>
         <p class="text-muted small mb-3">Choose which alerts you receive in the portal and by email.</p>
         <?php require __DIR__ . '/../../admin/includes/notification-preferences-panel.php'; ?>
     </div>

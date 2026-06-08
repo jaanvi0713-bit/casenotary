@@ -9,7 +9,7 @@ if (!$notificationPrefsEmbedded): ?>
 <div class="saas-card notification-preferences-card mb-4">
     <div class="saas-card-header">
         <div>
-            <h2 class="saas-card-title">Notification preferences</h2>
+            <h2 class="saas-card-title">Notification Preferences</h2>
             <p class="saas-card-subtitle mb-0">Choose which alerts you receive in the app and by email</p>
         </div>
     </div>
@@ -18,7 +18,7 @@ if (!$notificationPrefsEmbedded): ?>
 
         <?php if (!$preferencesReady): ?>
             <div class="alert alert-warning border-0 mb-0">
-                Notification preferences are not installed. Run
+                Notification Preferences are not installed. Run
                 <code>php admin/sql/migrate_notification_preferences.php</code>
                 from the project root.
             </div>
@@ -70,7 +70,7 @@ if (!$notificationPrefsEmbedded): ?>
                 </div>
                 <p class="form-text mt-3 mb-3">Email alerts use your workspace SMTP settings. You can disable in-app alerts and keep email only.</p>
                 <button type="submit" class="btn btn-primary btn-sm">
-                    <i class="bi bi-check-lg me-1"></i> Save preferences
+                    <i class="bi bi-check-lg me-1"></i> Save Preferences
                 </button>
             </form>
         <?php endif; ?>
