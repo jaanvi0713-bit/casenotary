@@ -1,0 +1,197 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Client Letter — CASE-2026-0007</title><style>
+            @page { size: A4; margin: 18mm 16mm 22mm 16mm; }
+            * { box-sizing: border-box; }
+            html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body {
+                margin: 0;
+                background: #e5e7eb;
+                color: #111;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                font-size: 11pt;
+                line-height: 1.55;
+            }
+            .no-print, .cl-toolbar {
+                padding: 12px 16px;
+                background: #fff;
+                border-bottom: 1px solid #ddd;
+                text-align: center;
+            }
+            .cl-toolbar button {
+                padding: 10px 22px;
+                background: #3aafa9;
+                color: #fff;
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+                cursor: pointer;
+                font-family: Montserrat, Arial, sans-serif;
+            }
+            .cl-document {
+                max-width: 210mm;
+                margin: 0 auto;
+                background: #fff;
+                padding: 14mm 16mm 28mm;
+                min-height: 297mm;
+            }
+            .cl-letterhead { margin-bottom: 6mm; }
+            .cl-letterhead-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 16px;
+                margin-bottom: 10mm;
+            }
+            .cl-logo {
+                display: block;
+                max-height: 70px;
+                max-width: 220px;
+                width: auto;
+                object-fit: contain;
+            }
+            .cl-logo-text {
+                font-family: Montserrat, Arial, sans-serif;
+                font-size: 14pt;
+                font-weight: 700;
+                color: #000000;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+            .cl-title {
+                margin: 0;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                font-size: 26pt;
+                font-weight: 700;
+                color: #3aafa9;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                line-height: 1.05;
+                text-align: right;
+                flex-shrink: 0;
+            }
+            .cl-address-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 24px;
+                margin-bottom: 8mm;
+            }
+            .cl-from { flex: 1; max-width: 48%; font-size: 10.5pt; line-height: 1.5; }
+            .cl-from-name { font-weight: 700; margin-bottom: 4px; }
+            .cl-to { flex: 1; max-width: 48%; text-align: right; font-size: 10.5pt; line-height: 1.5; }
+            .cl-to-label { font-weight: 700; margin-bottom: 4px; }
+            .cl-to-name { margin-bottom: 2px; }
+            .cl-date-row { font-size: 10.5pt; margin-bottom: 6mm; }
+            .cl-date-label { font-weight: 700; }
+            .cl-date-value { text-decoration: underline; font-weight: 600; }
+            .cl-main { text-align: justify; }
+            .cl-body-section { margin-bottom: 4mm; }
+            .cl-body-section p { margin: 0 0 10px; }
+            .cl-body-section p:last-child { margin-bottom: 0; }
+            .cl-body-section strong { font-weight: 700; }
+            .cl-body-section ol, .cl-body-section ul {
+                margin: 0 0 10px;
+                padding-left: 22px;
+            }
+            .cl-body-section li { margin-bottom: 6px; }
+            .cl-link { color: #2563eb; text-decoration: underline; }
+            .cl-services-list { margin: 8px 0 12px; }
+            .cl-page-footer {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 22mm;
+                background: #fff;
+                border-top: 1px solid #c5c5c5;
+                padding: 0 16mm;
+                font-family: Montserrat, Arial, sans-serif;
+                font-size: 8.5pt;
+                color: #333;
+                z-index: 50;
+            }
+            .cl-page-footer-inner {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                max-width: 210mm;
+                margin: 0 auto;
+                height: 100%;
+            }
+            .cl-footer-logo {
+                max-height: 36px;
+                max-width: 100px;
+                object-fit: contain;
+                flex-shrink: 0;
+            }
+            .cl-footer-name {
+                font-weight: 700;
+                color: #3aafa9;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+                margin-bottom: 2px;
+            }
+            .cl-footer-address {
+                font-family: Georgia, "Times New Roman", Times, serif;
+                font-size: 9pt;
+                line-height: 1.35;
+                color: #111;
+            }
+            .cl-page-num::after { content: counter(page); }
+            @media print {
+                body { background: #fff; counter-reset: page; }
+                .no-print, .cl-toolbar { display: none !important; }
+                .cl-document {
+                    max-width: none;
+                    margin: 0;
+                    padding: 0 0 24mm;
+                    min-height: auto;
+                    box-shadow: none;
+                }
+                .cl-page-footer { position: fixed; bottom: 0; }
+                .cl-body-section { page-break-inside: avoid; }
+            }
+        </style></head><body><div class="cl-toolbar no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div><div class="cl-document"><header class="cl-letterhead"><div class="cl-letterhead-top"><div class="cl-letterhead-brand"><img src="http://localhost/casenotary/admin/actions/company-logo.php?v=1780386154" alt="Eagle Company" class="cl-logo"></div><h1 class="cl-title">Client Letter</h1></div><div class="cl-address-row"><div class="cl-from"><div class="cl-from-name">Eagle Company</div><div class="cl-from-address">Quatre Bornes</div></div><div class="cl-to"><div class="cl-to-label">To:</div><div class="cl-to-name">Active Services</div><div class="cl-to-address">royal road<br />
+moka, llllllllll, 33333<br />
+Mauritius</div></div></div><div class="cl-date-row"><span class="cl-date-label">Date:</span> <span class="cl-date-value">02/06/2026</span></div></header><main class="cl-main"><div class="cl-body-section">Thank you for instructing Eagle Company. This letter sets out the basis on which we will act for you in connection with the matter referred to below.
+
+We are a firm of notaries public regulated for practice in accordance with applicable professional standards. Our role is to authenticate documents, verify identity, and provide notarial certificates and related services as required for your transaction.
+
+Further information about our practice is available at Eagle Company.</div><div class="cl-body-section">Our fees for this matter are estimated at £ 500.02 unless otherwise agreed in writing.
+
+Our fees cover our professional charges and routine disbursements unless stated otherwise. Additional costs may arise for legalisation, courier services, translations, or third-party fees. We will seek your approval before incurring material additional disbursements where practicable.
+
+Payment may be made by bank transfer or card. Our standard terms require payment on presentation of our invoice unless alternative terms have been agreed.
+
+If unforeseen complications arise, we reserve the right to revise our fees after discussion with you.</div><div class="cl-body-section">We will carry out the work described in your instructions relating to matter reference {{matter_reference}} — prop.
+
+The key stages of our work typically include:
+
+1. Receiving and reviewing the documents and instructions provided to us.
+2. Verifying the identity of signatories in accordance with applicable requirements.
+3. Drafting and attaching the appropriate notarial certificate or act.
+4. Arranging legalisation or apostille where required.
+5. Returning completed documents to you or your advisers.
+
+Timescales depend on the complexity of the matter, third-party requirements, and whether legalisation is required. We will advise you if we anticipate any material delay.</div><div class="cl-body-section">We will act on the instructions you provide and rely on the accuracy and completeness of the information and documents you supply.
+
+You are responsible for obtaining independent legal advice on the effect of documents in the destination country. Our role is limited to notarial formalities unless we expressly agree otherwise in writing.
+
+We may decline or cease to act if there is a conflict of interest, if instructions are unclear or improper, or if we cannot verify identity or authority to the standard required.
+
+Files and copies may be retained in accordance with our retention policy and regulatory obligations.</div><div class="cl-body-section">Redress
+
+We maintain professional indemnity insurance appropriate to our practice.
+
+Complaints and Regulatory Information
+
+1. If you are dissatisfied with our service, please contact us in the first instance at office@eagle.local or +23022789979.
+
+2. If we cannot resolve your complaint, you may refer the matter to the relevant professional body or ombudsman applicable to notarial practice in your jurisdiction.
+
+3. You should raise concerns promptly and provide sufficient detail for us to investigate.
+
+4. We will acknowledge complaints and aim to provide a substantive response within a reasonable period.</div><div class="cl-body-section">Bring docs
+
+Please contact us if you require clarification before signing or attending an appointment.</div><div class="cl-body-section"><p>Yours faithfully,</p>
+<p>&nbsp;</p>
+<p><strong>For and on behalf of Eagle Company</strong></p></div></main></div><footer class="cl-page-footer"><div class="cl-page-footer-inner"><img src="http://localhost/casenotary/admin/actions/company-logo.php?v=1780386154" alt="" class="cl-footer-logo"><div class="cl-footer-brand"><div class="cl-footer-name">Eagle Company</div><div class="cl-footer-address">Quatre Bornes</div></div><div class="cl-page-num"></div></div></footer></body></html>

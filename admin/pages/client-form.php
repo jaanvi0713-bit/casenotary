@@ -1,0 +1,403 @@
+<?php
+require_once __DIR__ . '/../core/bootstrap.php';
+
+$id = (int) ($_GET['id'] ?? 0);
+$isEdit = $id > 0;
+Auth::requirePage('clients');
+if (!Auth::canManage(RoleAccess::PERMISSION_CLIENTS)) {
+    flash('error', 'You have read-only access to clients.');
+    redirect('pages/clients.php');
+}
+
+if ($isEdit) {
+    $client = ClientService::getById($id);
+    if (!$client) {
+        flash('error', 'Client not found.');
+        redirect('pages/clients.php');
+    }
+    $pageTitle = 'Edit Client';
+} else {
+    $client = null;
+    $pageTitle = 'Add Client';
+}
+
+$pageSubtitle = $isEdit ? clientFullName($client) : 'Create a new client profile';
+
+require __DIR__ . '/../includes/header.php';
+?>
+
+<link href="<?= asset('css/case-workspace.css') ?>" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/css/intlTelInput.css" rel="stylesheet">
+
+<div class="case-form-page">
+    <div class="case-form-header">
+        <a href="<?= url('pages/clients.php') ?>" class="btn btn-primary btn-sm case-back-btn">
+            <i class="bi bi-arrow-left"></i> Back to Clients
+        </a>
+        <div class="case-form-header-main">
+            <div>
+                <h1 class="case-form-title"><?= $isEdit ? 'Edit Client' : 'Add New Client' ?></h1>
+                <p class="case-form-subtitle">Enter client details and optionally create a portal login.</p>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" action="<?= url('actions/client-action.php') ?>" class="case-form">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="<?= $isEdit ? 'update_client' : 'create_client' ?>">
+        <?php if ($isEdit): ?>
+            <input type="hidden" name="client_id" value="<?= $id ?>">
+        <?php endif; ?>
+
+        <div class="case-form-card">
+            <div class="case-form-section">
+                <div class="case-form-section-head">
+                    <i class="bi bi-person"></i>
+                    <div>
+                        <h2 class="case-form-section-title">Contact Information</h2>
+                        <p class="case-form-section-desc">Primary client details.</p>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="first_name">First Name <span class="text-danger">*</span></label>
+                        <input type="text" id="first_name" name="first_name" class="form-control case-form-control" required
+                               value="<?= e($client['first_name'] ?? old('first_name')) ?>">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="last_name">Last Name <span class="text-danger">*</span></label>
+                        <input type="text" id="last_name" name="last_name" class="form-control case-form-control" required
+                               value="<?= e($client['last_name'] ?? old('last_name')) ?>">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="email">Email <span class="text-danger">*</span></label>
+                        <input type="email" id="email" name="email" class="form-control case-form-control" required
+                               value="<?= e($client['email'] ?? old('email')) ?>">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="phone">Phone <span class="text-danger">*</span></label>
+                        <input type="tel" id="phone" name="phone" class="form-control case-form-control" required
+                               value="<?= e($client['phone'] ?? old('phone')) ?>" autocomplete="tel">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="company_name">Company</label>
+                        <input type="text" id="company_name" name="company_name" class="form-control case-form-control"
+                               value="<?= e($client['company_name'] ?? old('company_name')) ?>">
+                    </div>
+                    <?php if ($isEdit): ?>
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="status">Status</label>
+                        <select id="status" name="status" class="form-select case-form-control">
+                            <?php foreach (['active','inactive','suspended'] as $st): ?>
+                                <option value="<?= $st ?>" <?= ($client['status'] ?? $client['user_status'] ?? 'active') === $st ? 'selected' : '' ?>><?= ucfirst($st) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="case-form-section">
+                <div class="case-form-section-head">
+                    <i class="bi bi-geo-alt"></i>
+                    <div>
+                        <h2 class="case-form-section-title">Address</h2>
+                        <p class="case-form-section-desc">Required for case documents and correspondence.</p>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="case-form-label" for="address">Street Address <span class="text-danger">*</span></label>
+                        <input type="text" id="address" name="address" class="form-control case-form-control" required
+                               value="<?= e($client['address'] ?? old('address')) ?>">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="case-form-label" for="city">City <span class="text-danger">*</span></label>
+                        <input type="text" id="city" name="city" class="form-control case-form-control" required
+                               value="<?= e($client['city'] ?? old('city')) ?>">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="case-form-label" for="state">State / Region <span class="text-danger">*</span></label>
+                        <input type="text" id="state" name="state" class="form-control case-form-control" required
+                               value="<?= e($client['state'] ?? old('state')) ?>">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="case-form-label" for="zip_code">Postal / ZIP Code <span class="text-danger">*</span></label>
+                        <input type="text" id="zip_code" name="zip_code" class="form-control case-form-control" required
+                               value="<?= e($client['zip_code'] ?? old('zip_code')) ?>">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="country">Country <span class="text-danger">*</span></label>
+                        <input type="text" id="country" name="country" class="form-control case-form-control" required
+                               value="<?= e($client['country'] ?? old('country')) ?>">
+                    </div>
+                    <div class="col-12">
+                        <label class="case-form-label" for="notes">Internal Notes</label>
+                        <textarea id="notes" name="notes" class="form-control case-form-control" rows="2"><?= e($client['notes'] ?? old('notes')) ?></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <?php if (!$isEdit): ?>
+            <div class="case-form-section case-form-section-last">
+                <div class="case-form-section-head">
+                    <i class="bi bi-key"></i>
+                    <div>
+                        <h2 class="case-form-section-title">Portal Login</h2>
+                        <p class="case-form-section-desc">Optionally create client portal access now.</p>
+                    </div>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="create_login" value="1" id="create_login" checked>
+                    <label class="form-check-label" for="create_login">Create client portal login</label>
+                </div>
+                <div id="portalPasswordFields" class="row g-3">
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" id="password" name="password"
+                                       class="form-control case-form-control login-pw-input login-pw-masked"
+                                       spellcheck="false"
+                                       minlength="8" autocomplete="new-password" required
+                                       data-lpignore="true" data-1p-ignore="true"
+                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0 mt-1">Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" id="password_confirmation" name="password_confirmation"
+                                       class="form-control case-form-control login-pw-input login-pw-masked"
+                                       spellcheck="false"
+                                       minlength="8" autocomplete="off" required
+                                       data-lpignore="true" data-1p-ignore="true">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php elseif (!empty($client['user_id'])): ?>
+            <div class="case-form-section case-form-section-last">
+                <p class="text-muted small mb-0"><i class="bi bi-check-circle text-success"></i> This client has portal login access.</p>
+            </div>
+            <?php else: ?>
+            <div class="case-form-section case-form-section-last">
+                <div class="case-form-section-head">
+                    <i class="bi bi-key"></i>
+                    <div>
+                        <h2 class="case-form-section-title">Portal Login</h2>
+                        <p class="case-form-section-desc">Create portal access for this client.</p>
+                    </div>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="create_login" value="1" id="create_login">
+                    <label class="form-check-label" for="create_login">Create client portal login</label>
+                </div>
+                <div id="portalPasswordFields" class="row g-3" style="display:none;">
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="password">Portal Password <span class="text-danger">*</span></label>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" id="password" name="password"
+                                       class="form-control case-form-control login-pw-input login-pw-masked"
+                                       spellcheck="false"
+                                       minlength="8" autocomplete="new-password" required
+                                       data-lpignore="true" data-1p-ignore="true"
+                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0 mt-1">Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
+                        <div class="login-pw-field">
+                            <div class="login-pw-input-wrap">
+                                <input type="text" id="password_confirmation" name="password_confirmation"
+                                       class="form-control case-form-control login-pw-input login-pw-masked"
+                                       spellcheck="false"
+                                       minlength="8" autocomplete="off" required
+                                       data-lpignore="true" data-1p-ignore="true">
+                                <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
+                                    <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
+                                    <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="case-form-footer">
+            <p class="case-form-required-note"><span class="text-danger">*</span> Required fields</p>
+            <div class="case-form-actions">
+                <a href="<?= url('pages/clients.php') ?>" class="btn btn-soft">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> <?= $isEdit ? 'Save Client' : 'Add Client' ?>
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<?php
+$pageScripts = '<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/intlTelInput.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    function passwordStrengthError(value) {
+        if (value.length < 8) {
+            return "Password must be at least 8 characters.";
+        }
+        if (!/[A-Z]/.test(value)) {
+            return "Password must contain at least one uppercase letter.";
+        }
+        if (!/[a-z]/.test(value)) {
+            return "Password must contain at least one lowercase letter.";
+        }
+        if (!/[0-9]/.test(value)) {
+            return "Password must contain at least one number.";
+        }
+        return "";
+    }
+
+    var form = document.querySelector(".case-form");
+    var phoneInput = document.getElementById("phone");
+    var iti = null;
+
+    function syncPhoneInputPadding() {
+        if (!phoneInput) {
+            return;
+        }
+
+        var container = phoneInput.closest(".iti");
+        var countryContainer = container ? container.querySelector(".iti__country-container") : null;
+        if (!countryContainer) {
+            return;
+        }
+
+        var gap = 14;
+        phoneInput.style.paddingLeft = (countryContainer.offsetWidth + gap) + "px";
+    }
+
+    if (phoneInput && window.intlTelInput) {
+        try {
+            iti = window.intlTelInput(phoneInput, {
+                separateDialCode: true,
+                initialCountry: "us",
+                preferredCountries: ["us", "mu", "gb", "ca", "au", "in"],
+                utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/utils.js"
+            });
+
+            syncPhoneInputPadding();
+            phoneInput.addEventListener("countrychange", syncPhoneInputPadding);
+            window.addEventListener("resize", syncPhoneInputPadding);
+
+            if (iti.promise) {
+                iti.promise.then(syncPhoneInputPadding).catch(function() {});
+            }
+        } catch (err) {
+            iti = null;
+        }
+    }
+
+    if (form) {
+        form.addEventListener("submit", function(e) {
+            if (phoneInput && iti) {
+                phoneInput.value = iti.getNumber() || phoneInput.value.trim();
+                if (!phoneInput.value.trim()) {
+                    e.preventDefault();
+                    phoneInput.setCustomValidity("Phone number is required.");
+                    phoneInput.reportValidity();
+                    phoneInput.setCustomValidity("");
+                    return;
+                }
+            }
+
+            var loginCheckbox = document.getElementById("create_login");
+            var pwd = document.getElementById("password");
+            var pwdConfirm = document.getElementById("password_confirmation");
+
+            if (loginCheckbox && loginCheckbox.checked && pwd) {
+                var strengthError = passwordStrengthError(pwd.value);
+                if (strengthError) {
+                    e.preventDefault();
+                    pwd.setCustomValidity(strengthError);
+                    pwd.reportValidity();
+                    pwd.setCustomValidity("");
+                    return;
+                }
+
+                if (pwdConfirm && pwd.value !== pwdConfirm.value) {
+                    e.preventDefault();
+                    pwdConfirm.setCustomValidity("Password confirmation does not match.");
+                    pwdConfirm.reportValidity();
+                    pwdConfirm.setCustomValidity("");
+                }
+            }
+        });
+    }
+
+    var checkbox = document.getElementById("create_login");
+    var fields = document.getElementById("portalPasswordFields");
+    var password = document.getElementById("password");
+    var confirm = document.getElementById("password_confirmation");
+    if (!checkbox || !fields) return;
+
+    function resetPasswordReveal(fieldId) {
+        var masked = document.getElementById(fieldId);
+        if (!masked) return;
+        var field = masked.closest(".login-pw-field");
+        masked.value = "";
+        if (field) {
+            field.classList.remove("login-pw-field--revealed");
+            var revealBtn = field.querySelector(".login-pw-reveal");
+            if (revealBtn) {
+                revealBtn.setAttribute("aria-pressed", "false");
+                revealBtn.setAttribute("aria-label", "Show password");
+                revealBtn.title = "Show password";
+            }
+        }
+    }
+
+    function syncPasswordFields() {
+        var enabled = checkbox.checked;
+        fields.style.display = enabled ? "" : "none";
+        if (password) password.required = enabled;
+        if (confirm) confirm.required = enabled;
+        if (!enabled) {
+            if (password) password.value = "";
+            if (confirm) confirm.value = "";
+            resetPasswordReveal("password");
+            resetPasswordReveal("password_confirmation");
+        }
+    }
+
+    checkbox.addEventListener("change", syncPasswordFields);
+    syncPasswordFields();
+
+    if (window.bootPasswordRevealFields) {
+        window.bootPasswordRevealFields(fields || document);
+    }
+});
+</script>';
+require __DIR__ . '/../includes/footer.php';
+?>
