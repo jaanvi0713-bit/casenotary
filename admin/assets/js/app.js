@@ -45,6 +45,19 @@
         });
     });
 
+    // Topbar dropdowns — fixed positioning escapes sticky/overflow clipping
+    document.querySelectorAll('.topbar-dropdown [data-bs-toggle="dropdown"]').forEach(function (toggle) {
+        if (typeof bootstrap === 'undefined' || !bootstrap.Dropdown) {
+            return;
+        }
+
+        bootstrap.Dropdown.getOrCreateInstance(toggle, {
+            popperConfig: function (defaultBsPopperConfig) {
+                return Object.assign({}, defaultBsPopperConfig, { strategy: 'fixed' });
+            }
+        });
+    });
+
     // Auto-dismiss alerts
     document.querySelectorAll('.alert-dismissible').forEach(function (alert) {
         setTimeout(function () {

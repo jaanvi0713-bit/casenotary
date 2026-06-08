@@ -53,8 +53,8 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
             </div>
 
             <div class="topbar-actions">
-                <div class="dropdown">
-                    <button type="button" class="topbar-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                <div class="dropdown topbar-dropdown">
+                    <button type="button" class="topbar-btn" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Notifications">
                         <i class="bi bi-bell"></i>
                         <?php if ($unreadCount > 0): ?>
                             <span class="notification-dot"><?= $unreadCount > 9 ? '9+' : $unreadCount ?></span>
@@ -88,8 +88,8 @@ $navNotifications = getRecentNotifications(Auth::id(), 5, true);
                     </div>
                 </div>
 
-                <div class="dropdown">
-                    <button type="button" class="topbar-profile" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="dropdown topbar-dropdown">
+                    <button type="button" class="topbar-profile" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
                         <div class="profile-avatar"><?= e(userInitials($user)) ?></div>
                         <div class="profile-info d-none d-md-block">
                             <span class="profile-name"><?= e(userFullName($user)) ?></span>
