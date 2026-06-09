@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Invoice INV-2026-0001</title><style>
+            *,*::before,*::after{box-sizing:border-box}
+            body{font-family:Montserrat, Arial, sans-serif;color:#1e293b;margin:0;padding:40px 48px 48px;font-size:15px;line-height:1.6;background:#fff;-webkit-font-smoothing:antialiased}
+            .no-print{max-width:880px;margin:0 auto 24px}
+            .no-print button{padding:10px 20px;background:#1907a2;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;font-size:14px}
+            .invoice-doc{max-width:880px;margin:0 auto}
+            .inv-top{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;padding-bottom:28px;margin-bottom:36px;border-bottom:1px solid #e2e8f0}
+            .inv-logo{max-height:100px;max-width:300px;object-fit:contain;display:block}
+            .inv-logo-text{font-size:20px;font-weight:700;color:#00182c;letter-spacing:.02em}
+            .inv-heading{text-align:right;flex-shrink:0}
+            .inv-heading h1{margin:0;color:#1907a2;font-size:44px;font-weight:700;letter-spacing:.06em;line-height:1}
+            .inv-number{font-size:22px;font-weight:700;color:#00182c;margin-top:10px;letter-spacing:.02em}
+            .inv-parties{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:64px;align-items:start;margin-bottom:40px;width:100%}
+            .inv-from{grid-column:1;grid-row:1;min-width:0}
+            .inv-bill-to{grid-column:2;grid-row:1;min-width:0;text-align:right;padding-right:2px}
+            .inv-from-name{font-size:16px;font-weight:700;color:#00182c;margin:0 0 12px}
+            .inv-address{margin:0 0 0;font-size:15px;line-height:1.8;color:#475569}
+            .inv-bill-to-label{margin:0 0 12px;font-size:15px;font-weight:700;color:#1e293b;text-align:right}
+            .inv-bill-to-name{margin:0 0 8px;font-size:15px;font-weight:400;color:#475569;line-height:1.8;text-align:right}
+            .inv-bill-to-line{margin:0;font-size:15px;line-height:1.8;color:#475569;text-align:right}
+            .inv-dates{margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9}
+            .inv-dates p{margin:0 0 10px;font-size:15px;color:#1e293b}
+            .inv-dates p:last-child{margin-bottom:0}
+            .inv-date-label{font-weight:600;color:#334155}
+            .inv-table{width:100%;border-collapse:collapse;margin-bottom:32px;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden}
+            .inv-table thead th{background:#00182c;color:#fff;font-weight:600;font-size:14px;letter-spacing:.03em;text-transform:none;padding:14px 18px;border:none}
+            .inv-table tbody td{padding:14px 18px;font-size:15px;color:#1e293b;border:none;border-top:1px solid #e2e8f0;vertical-align:top}
+            .inv-table tbody tr:first-child td{border-top:none}
+            .inv-table .num{text-align:right;white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums;width:160px;padding-right:18px}
+            .inv-table thead th.num{padding-right:18px}
+            .inv-table .muted{color:#94a3b8;font-style:italic}
+            .inv-summary{background:#1907a2;color:#fff;padding:22px 26px;margin-bottom:36px;border-radius:6px}
+            .inv-summary-row{display:flex;justify-content:space-between;align-items:baseline;gap:32px;padding:5px 0;font-size:16px;font-weight:500;line-height:1.65}
+            .inv-summary-label{opacity:.95}
+            .inv-summary-value{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+            .inv-summary-total{margin-top:12px;padding-top:14px;border-top:1px solid rgba(255,255,255,.35);font-size:22px;font-weight:700}
+            .inv-summary-total .inv-summary-value{font-size:24px}
+            .inv-note{font-size:14px;line-height:1.75;margin:0 0 20px;color:#64748b;padding:14px 18px;background:#f8fafc;border-radius:6px}
+            .inv-payment{font-size:15px;line-height:1.6;color:#475569}
+            .inv-payment-label{margin:0 0 12px;font-weight:700;color:#1e293b;font-size:15px}
+            .inv-bank{margin:0;line-height:1.6}
+            .inv-payee{margin:0;padding:0;font-size:17px;font-weight:700;line-height:1.4;color:#1907a2;letter-spacing:.01em}
+            .inv-vat-no{margin:28px 0 0;padding:0;font-size:15px;line-height:1.6;color:#475569}
+            @page{size:A4 portrait;margin:8mm 10mm}
+            @media print{
+                html,body{height:auto;margin:0;padding:0;font-size:13px;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+                .no-print{display:none!important}
+                .invoice-doc{max-width:none;margin:0;padding:0}
+                .inv-top{gap:20px;padding-bottom:14px;margin-bottom:16px}
+                .inv-logo{max-height:88px;max-width:260px}
+                .inv-heading h1{font-size:34px}
+                .inv-number{font-size:18px;margin-top:6px}
+                .inv-parties{column-gap:40px;margin-bottom:18px}
+                .inv-from-name{margin-bottom:6px;font-size:14px}
+                .inv-address,.inv-bill-to-name,.inv-bill-to-line{font-size:13px;line-height:1.5}
+                .inv-bill-to-label{margin-bottom:6px;font-size:13px}
+                .inv-dates{margin-top:12px;padding-top:10px}
+                .inv-dates p{margin-bottom:6px;font-size:13px}
+                .inv-table{margin-bottom:14px;border-radius:0}
+                .inv-table thead th{padding:8px 12px;font-size:12px}
+                .inv-table tbody td{padding:8px 12px;font-size:13px}
+                .inv-summary{padding:12px 16px;margin-bottom:14px;border-radius:0;break-inside:avoid;page-break-inside:avoid}
+                .inv-summary-row{padding:2px 0;font-size:13px;line-height:1.4}
+                .inv-summary-total{margin-top:8px;padding-top:8px;font-size:17px}
+                .inv-summary-total .inv-summary-value{font-size:18px}
+                .inv-note{font-size:12px;line-height:1.45;margin-bottom:10px;padding:8px 12px}
+                .inv-payment{font-size:13px;line-height:1.45;break-inside:avoid;page-break-inside:avoid}
+                .inv-payment-label{margin-bottom:6px;font-size:13px}
+                .inv-payee{font-size:15px;line-height:1.35}
+                .inv-bank{line-height:1.45}
+                .inv-vat-no{margin-top:14px;font-size:13px}
+                .inv-top,.inv-parties,.inv-table{break-inside:avoid;page-break-inside:avoid}
+            }
+        </style></head><body><div class="no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div><div class="invoice-doc"><header class="inv-top"><div class="inv-brand"><img src="http://localhost/casenotary/admin/actions/company-logo.php?v=1780476738" alt="Nexa Digital" class="inv-logo"></div><div class="inv-heading"><h1>INVOICE</h1><div class="inv-number">#INV-2026-0001</div></div></header><section class="inv-parties"><div class="inv-from"><div class="inv-from-name">Nexa Digital</div><div class="inv-address">Palma Road<br>Quatre Bornes, 364456<br>Mauritius</div><div class="inv-dates"><p><span class="inv-date-label">Date:</span> 09/06/2026</p><p><span class="inv-date-label">Due Date:</span> 23/06/2026</p></div></div><div class="inv-bill-to"><p class="inv-bill-to-label">Bill To:</p><p class="inv-bill-to-name">Sammy well</p><p class="inv-bill-to-line">Louis Street<br>Test, 2566125<br>Test<br>Germany</p></div></section><table class="inv-table"><thead><tr><th>Notary Service</th><th class="num">Amount</th></tr></thead><tbody><tr><td>Disbursement</td><td class="num">£ 1,050.00</td></tr><tr><td>Notarisation</td><td class="num">£ 6,000.00</td></tr></tbody></table><section class="inv-summary" aria-label="Invoice totals"><div class="inv-summary-row"><span class="inv-summary-label">Net Amount (Including VAT)</span><span class="inv-summary-value">£ 5,000.00</span></div><div class="inv-summary-row"><span class="inv-summary-label">VAT Amount</span><span class="inv-summary-value">£ 1,050.00</span></div><div class="inv-summary-row"><span class="inv-summary-label">Net Amount (Excluding VAT)</span><span class="inv-summary-value">£ 1,050.00</span></div><div class="inv-summary-row inv-summary-total"><span class="inv-summary-label">Total</span><span class="inv-summary-value">£ 7,050.00</span></div></section><section class="inv-payment"><p class="inv-payment-label">Payable To:</p><div class="inv-bank"><div class="inv-payee">Nexa Digital</div></div><p class="inv-vat-no"><span class="inv-date-label">VAT Number:</span> 715 5815 56</p></section></div></body></html>

@@ -127,15 +127,17 @@ class MailService
         $links = $calendarLinks ?: GoogleCalendarService::getCalendarLinks($appointmentId, $appointment, $client, true);
 
         $headings = [
-            'scheduled' => 'Appointment Scheduled',
-            'updated'   => 'Appointment Updated',
-            'cancelled' => 'Appointment Cancelled',
+            'scheduled'   => 'Appointment Scheduled',
+            'rescheduled' => 'Appointment Rescheduled',
+            'updated'     => 'Appointment Updated',
+            'cancelled'   => 'Appointment Cancelled',
         ];
 
         $intros = [
-            'scheduled' => 'An appointment has been scheduled for you.',
-            'updated'   => 'Your appointment details have been updated.',
-            'cancelled' => 'Your appointment has been cancelled.',
+            'scheduled'   => 'An appointment has been scheduled for you.',
+            'rescheduled' => 'Your appointment has been rescheduled. Please note the new date and time below.',
+            'updated'     => 'Your appointment details have been updated.',
+            'cancelled'   => 'Your appointment has been cancelled.',
         ];
 
         $calendarButtons = '';
@@ -160,9 +162,10 @@ class MailService
         );
 
         $subjects = [
-            'scheduled' => 'Appointment: ',
-            'updated'   => 'Updated appointment: ',
-            'cancelled' => 'Cancelled appointment: ',
+            'scheduled'   => 'Appointment: ',
+            'rescheduled' => 'Rescheduled appointment: ',
+            'updated'     => 'Updated appointment: ',
+            'cancelled'   => 'Cancelled appointment: ',
         ];
 
         return self::send($client['email'], ($subjects[$event] ?? 'Appointment: ') . $appointment['title'], $body);

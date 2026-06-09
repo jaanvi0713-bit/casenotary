@@ -582,6 +582,27 @@ class CaseService
         return Database::insert($sql, array_values($row));
     }
 
+    /**
+     * @param array<string, mixed> $row
+     * @param array<string, mixed>|null $case
+     * @return array<string, mixed>
+     */
+    private static function withCaseCompanyId(array $row, ?array $case, string $table): array
+    {
+        if (!TenantService::isEnabled() || !Database::columnExists($table, 'company_id')) {
+            return $row;
+        }
+
+        $companyId = (int) ($case['company_id'] ?? 0);
+        if ($companyId <= 0) {
+            $companyId = TenantService::id();
+        }
+
+        $row['company_id'] = $companyId;
+
+        return $row;
+    }
+
     private static function updateCaseRow(int $id, array $row): void
     {
         $sets   = [];
@@ -1190,7 +1211,7 @@ class CaseService
 
         $lineItemsJson = json_encode($lineItems, JSON_UNESCAPED_UNICODE);
 
-        $id = insertTableRow('quotations', [
+        $id = insertTableRow('quotations', self::withCaseCompanyId([
             'case_id'          => $caseId,
             'quotation_number' => $number,
             'title'            => $data['title'] ?? 'Quotation for ' . ($case['title'] ?? 'Case'),
@@ -1202,7 +1223,7 @@ class CaseService
             'total'            => $total,
             'status'           => 'sent',
             'valid_until'      => $data['valid_until'] ?? date('Y-m-d', strtotime('+30 days')),
-        ]);
+        ], $case, 'quotations'));
 
         self::saveHtmlDocument($caseId, 'quotation', $id);
 
@@ -1281,7 +1302,7 @@ class CaseService
         $content = trim($data['content'] ?? '') ?: 'Proposal for notary services related to ' . $case['title'];
         $amount  = (float) ($data['amount'] ?? $case['service_fee'] ?? 0);
 
-        $id = insertTableRow('proposals', [
+        $id = insertTableRow('proposals', self::withCaseCompanyId([
             'case_id'         => $caseId,
             'proposal_number' => $number,
             'title'           => $data['title'] ?? 'Proposal — ' . ($case['title'] ?? 'Case'),
@@ -1289,7 +1310,7 @@ class CaseService
             'amount'          => $amount,
             'total'           => $amount,
             'status'          => 'sent',
-        ]);
+        ], $case, 'proposals'));
 
         self::saveHtmlDocument($caseId, 'proposal', $id);
 
@@ -1355,7 +1376,7 @@ class CaseService
 
         $due = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
 
-        $id = insertTableRow('invoices', [
+        $id = insertTableRow('invoices', self::withCaseCompanyId([
             'invoice_number'  => $number,
             'case_id'         => $caseId,
             'client_id'       => $case['client_id'],
@@ -1373,7 +1394,7 @@ class CaseService
             'notes'           => $data['notes'] ?? null,
             'payment_terms'        => trim((string) ($data['payment_terms'] ?? '')) ?: null,
             'payment_instructions' => trim((string) ($data['payment_instructions'] ?? '')) ?: null,
-        ]);
+        ], $case, 'invoices'));
 
         self::saveHtmlDocument($caseId, 'invoice', $id);
 
@@ -1551,14 +1572,18 @@ class CaseService
             'created_by'          => $adminId > 0 ? $adminId : null,
         ];
 
-        $paymentId = insertTableRow('payments', $paymentRow, Database::columnExists('payments', 'updated_at'));
+        $caseId = (int) ($invoice['case_id'] ?? 0);
+        $caseForCompany = $caseId > 0 ? self::getCaseById($caseId) : null;
+        $paymentId = insertTableRow(
+            'payments',
+            self::withCaseCompanyId($paymentRow, $caseForCompany, 'payments'),
+            Database::columnExists('payments', 'updated_at')
+        );
 
         self::updateInvoicePaymentStatus($invoiceId);
 
         $invoice['payment_amount'] = $amount;
         $receiptId = self::generateReceipt($paymentId, $invoice);
-
-        $caseId = (int) ($invoice['case_id'] ?? 0);
         if ($caseId) {
             self::notifyCaseEvent(
                 $caseId,
@@ -1585,14 +1610,16 @@ class CaseService
         $amount = (float) ($invoice['payment_amount'] ?? $invoice['total'] ?? 0);
 
         try {
-            return insertTableRow('receipts', [
+            $receiptCase = !empty($invoice['case_id']) ? self::getCaseById((int) $invoice['case_id']) : null;
+
+            return insertTableRow('receipts', self::withCaseCompanyId([
                 'receipt_number' => $number,
                 'payment_id'     => $paymentId,
                 'invoice_id'     => $invoice['id'] ?? null,
                 'client_id'      => $invoice['client_id'] ?? null,
                 'amount'         => $amount,
                 'issued_at'      => date('Y-m-d H:i:s'),
-            ], Database::columnExists('receipts', 'updated_at'));
+            ], $receiptCase, 'receipts'), Database::columnExists('receipts', 'updated_at'));
         } catch (Throwable $e) {
             return 0;
         }

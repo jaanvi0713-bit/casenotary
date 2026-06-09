@@ -270,7 +270,7 @@ function appointmentEffectiveEnd(array $appointment): ?string
 function isUpcomingAppointment(array $appointment): bool
 {
     $status = strtolower(trim($appointment['status'] ?? ''));
-    if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+    if (!in_array($status, ['scheduled', 'confirmed', 'rescheduled'], true)) {
         return false;
     }
 
@@ -309,12 +309,13 @@ function isPastAppointment(array $appointment): bool
 function appointmentStatusColors(): array
 {
     return [
-        'requested' => '#3aafa9',
-        'scheduled' => '#3aafa9',
-        'confirmed' => '#10b981',
-        'completed' => '#64748b',
-        'cancelled' => '#ef4444',
-        'past'      => '#f59e0b',
+        'requested'   => '#3aafa9',
+        'scheduled'   => '#3aafa9',
+        'confirmed'   => '#10b981',
+        'rescheduled' => '#8b5cf6',
+        'completed'   => '#64748b',
+        'cancelled'   => '#ef4444',
+        'past'        => '#f59e0b',
     ];
 }
 
@@ -567,7 +568,7 @@ function appointmentCalendarInitialDate(array $appointments): string
 function isClientScheduledAppointment(array $appointment): bool
 {
     $status = strtolower(trim($appointment['status'] ?? ''));
-    if (!in_array($status, ['scheduled', 'confirmed'], true)) {
+    if (!in_array($status, ['scheduled', 'confirmed', 'rescheduled'], true)) {
         return false;
     }
 
@@ -1284,6 +1285,7 @@ function statusBadge(string $status): string
         'scheduled'          => 'badge-scheduled',
         'requested'          => 'badge-requested',
         'confirmed'          => 'badge-confirmed',
+        'rescheduled'        => 'badge-rescheduled',
         'active'             => 'badge-paid',
         'inactive'           => 'badge-closed',
         'suspended'          => 'badge-overdue',
@@ -1595,7 +1597,7 @@ function getDashboardStats(): array
             "SELECT COUNT(*) AS count FROM appointments a
              JOIN clients cl ON cl.id = a.client_id
              WHERE cl.company_id = ?
-               AND a.status IN ('scheduled', 'confirmed')
+               AND a.status IN ('scheduled', 'confirmed', 'rescheduled')
                AND ({$appointmentStart} >= NOW() OR ({$appointmentEnd} IS NOT NULL AND {$appointmentEnd} >= NOW()))",
             [$companyId]
         )['count'] ?? 0;
@@ -1652,7 +1654,7 @@ function getDashboardStats(): array
 
         $upcomingAppointments = Database::fetch(
             "SELECT COUNT(*) AS count FROM appointments
-             WHERE status IN ('scheduled', 'confirmed')
+             WHERE status IN ('scheduled', 'confirmed', 'rescheduled')
                AND ({$appointmentStart} >= NOW() OR ({$appointmentEnd} IS NOT NULL AND {$appointmentEnd} >= NOW()))"
         )['count'] ?? 0;
 
@@ -2158,7 +2160,7 @@ function getUpcomingAppointments(int $limit = 5): array
     $startSql = appointmentStartSql('a');
     $endSql   = appointmentEndSql('a');
     $where = [
-        "a.status IN ('scheduled', 'confirmed')",
+        "a.status IN ('scheduled', 'confirmed', 'rescheduled')",
         "({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))",
     ];
     $params = [];
@@ -3049,7 +3051,7 @@ function getChatbotContext(): array
     $startSql = appointmentStartSql('a');
     $endSql   = appointmentEndSql('a');
     $apptWhere = [
-        "a.status IN ('scheduled', 'confirmed')",
+        "a.status IN ('scheduled', 'confirmed', 'rescheduled')",
         "({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))",
     ];
     $apptParams = [];

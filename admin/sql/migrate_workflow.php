@@ -80,7 +80,7 @@ if (!columnExists($pdo, 'company_settings', 'business_hours')) {
 
 try {
     $pdo->exec(
-        "ALTER TABLE appointments MODIFY status ENUM('requested', 'scheduled', 'confirmed', 'completed', 'cancelled', 'no_show') NOT NULL DEFAULT 'scheduled'"
+        "ALTER TABLE appointments MODIFY status ENUM('requested', 'scheduled', 'confirmed', 'rescheduled', 'completed', 'cancelled', 'no_show') NOT NULL DEFAULT 'scheduled'"
     );
     echo "[OK] appointments.status includes requested\n";
 } catch (Throwable $e) {

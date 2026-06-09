@@ -99,6 +99,7 @@ require __DIR__ . '/../includes/header.php';
                 <div class="appointment-calendar-legend">
                     <span><i style="background:#3aafa9"></i> Scheduled</span>
                     <span><i style="background:#10b981"></i> Confirmed</span>
+                    <span><i style="background:#8b5cf6"></i> Rescheduled</span>
                     <span><i style="background:#f59e0b"></i> Past</span>
                     <span><i style="background:#64748b"></i> Completed</span>
                     <span><i style="background:#ef4444"></i> Cancelled</span>
@@ -124,6 +125,7 @@ require __DIR__ . '/../includes/header.php';
                     <option value="">All statuses</option>
                     <option value="scheduled" <?= $statusFilter === 'scheduled' ? 'selected' : '' ?>>Scheduled</option>
                     <option value="confirmed" <?= $statusFilter === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
+                    <option value="rescheduled" <?= $statusFilter === 'rescheduled' ? 'selected' : '' ?>>Rescheduled</option>
                     <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
                     <option value="cancelled" <?= $statusFilter === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
                 </select>
@@ -153,7 +155,7 @@ require __DIR__ . '/../includes/header.php';
                                     $links = $start
                                         ? GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $client, true)
                                         : null;
-                                    $showCalendar = $links && in_array($appt['status'] ?? '', ['scheduled', 'confirmed'], true);
+                                    $showCalendar = $links && in_array($appt['status'] ?? '', ['scheduled', 'confirmed', 'rescheduled'], true);
                                     $searchBlob = caseRowSearchBlob($appt, [
                                         $appt['title'] ?? '',
                                         appointmentCaseLabel($appt),
@@ -277,7 +279,7 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById("apptModalLocationWrap").style.display = props.location ? "" : "none";
             document.getElementById("apptModalDescWrap").style.display = props.description ? "" : "none";
 
-            var showCalendar = ["scheduled", "confirmed"].indexOf(props.status) !== -1;
+            var showCalendar = ["scheduled", "confirmed", "rescheduled"].indexOf(props.status) !== -1;
             var googleBtn = document.getElementById("apptModalGoogle");
             var outlookBtn = document.getElementById("apptModalOutlook");
             var icsBtn = document.getElementById("apptModalIcs");

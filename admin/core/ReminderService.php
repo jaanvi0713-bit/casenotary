@@ -21,7 +21,7 @@ class ReminderService
              FROM appointments a
              JOIN clients cl ON cl.id = a.client_id
              WHERE a.reminder_sent = 0
-               AND a.status IN ('scheduled', 'confirmed')
+               AND a.status IN ('scheduled', 'confirmed', 'rescheduled')
                AND a.{$startCol} > NOW()
                AND a.{$startCol} <= DATE_ADD(NOW(), INTERVAL ? HOUR)
              ORDER BY a.{$startCol} ASC",

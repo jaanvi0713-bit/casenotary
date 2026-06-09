@@ -153,6 +153,7 @@ require __DIR__ . '/../includes/header.php';
         <div class="appointment-calendar-legend">
             <span><i style="background:#3aafa9"></i> Scheduled</span>
             <span><i style="background:#10b981"></i> Confirmed</span>
+            <span><i style="background:#8b5cf6"></i> Rescheduled</span>
             <span><i style="background:#f59e0b"></i> Past</span>
             <span><i style="background:#64748b"></i> Completed</span>
             <span><i style="background:#ef4444"></i> Cancelled</span>
@@ -176,6 +177,7 @@ require __DIR__ . '/../includes/header.php';
             <option value="">All statuses</option>
             <option value="scheduled" <?= $statusFilter === 'scheduled' ? 'selected' : '' ?>>Scheduled</option>
             <option value="confirmed" <?= $statusFilter === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
+            <option value="rescheduled" <?= $statusFilter === 'rescheduled' ? 'selected' : '' ?>>Rescheduled</option>
             <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
             <option value="cancelled" <?= $statusFilter === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
         </select>
@@ -387,6 +389,7 @@ require __DIR__ . '/../includes/header.php';
                         <select name="status" id="appt_status" class="form-select">
                             <option value="scheduled">Scheduled</option>
                             <option value="confirmed">Confirmed</option>
+                            <option value="rescheduled">Rescheduled</option>
                             <option value="completed">Completed</option>
                             <option value="cancelled">Cancelled</option>
                         </select>

@@ -168,6 +168,16 @@ class AppointmentService
             'ends_at'     => $endsAt,
         ];
 
+        $previousStatus = strtolower(trim($appointment['status'] ?? ''));
+        $newStatus      = strtolower(trim((string) $fields['status']));
+
+        if (self::appointmentTimesChanged($appointment, $fields['starts_at'], $fields['ends_at'])) {
+            if (!in_array($newStatus, ['cancelled', 'completed', 'requested'], true)
+                && !($previousStatus === 'requested' && in_array($newStatus, ['scheduled', 'confirmed'], true))) {
+                $fields['status'] = 'rescheduled';
+            }
+        }
+
         $setParts = [
             'title = ?',
             'description = ?',
@@ -219,10 +229,13 @@ class AppointmentService
             $params
         );
 
+        if (self::appointmentTimesChanged($appointment, $fields['starts_at'], $fields['ends_at'])) {
+            ReminderService::resetReminder($id);
+        }
+
         $client = ClientService::getById((int) ($appointment['client_id'] ?? 0));
         if ($client) {
-            $previousStatus = strtolower(trim($appointment['status'] ?? ''));
-            $newStatus      = strtolower(trim($fields['status']));
+            $newStatus = strtolower(trim((string) $fields['status']));
 
             if (!in_array($newStatus, ['requested'], true)) {
                 try {
@@ -242,6 +255,10 @@ class AppointmentService
                 try {
                     if ($previousStatus === 'requested' && in_array($newStatus, ['scheduled', 'confirmed'], true)) {
                         self::notifyAppointment($client, $updated, $calendar, 'scheduled');
+                    } elseif ($newStatus === 'cancelled' && $previousStatus !== 'cancelled') {
+                        self::notifyAppointment($client, $updated, $calendar, 'cancelled');
+                    } elseif (self::appointmentTimesChanged($appointment, $fields['starts_at'], $fields['ends_at'])) {
+                        self::notifyAppointment($client, $updated, $calendar, 'rescheduled');
                     } elseif ($previousStatus !== 'requested' || $newStatus !== 'requested') {
                         self::notifyAppointment($client, $updated, $calendar, 'updated');
                     }
@@ -316,6 +333,16 @@ class AppointmentService
         );
     }
 
+    private static function appointmentTimesChanged(array $appointment, string $startsAt, string $endsAt): bool
+    {
+        $prevStart = normalizeDateTimeInput(trim((string) (appointmentStart($appointment) ?? '')));
+        $prevEnd   = normalizeDateTimeInput(trim((string) (appointmentEnd($appointment) ?? '')));
+        $newStart  = normalizeDateTimeInput($startsAt);
+        $newEnd    = normalizeDateTimeInput($endsAt);
+
+        return $prevStart !== $newStart || $prevEnd !== $newEnd;
+    }
+
     private static function notifyAppointment(array $client, array $appointment, array $calendar = [], string $event = 'scheduled'): void
     {
         $appointmentId = (int) ($appointment['id'] ?? 0);
@@ -335,17 +362,19 @@ class AppointmentService
         $start  = formatDateTime(appointmentStart($appointment));
 
         $titles = [
-            'requested' => 'Appointment request submitted',
-            'scheduled' => 'Appointment scheduled',
-            'updated'   => 'Appointment updated',
-            'cancelled' => 'Appointment cancelled',
+            'requested'   => 'Appointment request submitted',
+            'scheduled'   => 'Appointment scheduled',
+            'rescheduled' => 'Appointment rescheduled',
+            'updated'     => 'Appointment updated',
+            'cancelled'   => 'Appointment cancelled',
         ];
 
         $clientMessages = [
-            'requested' => ($appointment['title'] ?? 'Appointment') . ' — pending approval. Preferred time: ' . $start,
-            'scheduled' => ($appointment['title'] ?? 'Appointment') . ' — ' . $start,
-            'updated'   => ($appointment['title'] ?? 'Appointment') . ' — ' . $start,
-            'cancelled' => ($appointment['title'] ?? 'Appointment') . ' on ' . $start . ' has been cancelled.',
+            'requested'   => ($appointment['title'] ?? 'Appointment') . ' — pending approval. Preferred time: ' . $start,
+            'scheduled'   => ($appointment['title'] ?? 'Appointment') . ' — ' . $start,
+            'rescheduled' => ($appointment['title'] ?? 'Appointment') . ' — new time: ' . $start,
+            'updated'     => ($appointment['title'] ?? 'Appointment') . ' — ' . $start,
+            'cancelled'   => ($appointment['title'] ?? 'Appointment') . ' on ' . $start . ' has been cancelled.',
         ];
 
         $companyId = (int) ($client['company_id'] ?? 0);
@@ -362,10 +391,11 @@ class AppointmentService
         }
 
         $adminTitles = [
-            'requested' => 'New appointment request',
-            'scheduled' => 'Appointment scheduled',
-            'updated'   => 'Appointment updated',
-            'cancelled' => 'Appointment cancelled',
+            'requested'   => 'New appointment request',
+            'scheduled'   => 'Appointment scheduled',
+            'rescheduled' => 'Appointment rescheduled',
+            'updated'     => 'Appointment updated',
+            'cancelled'   => 'Appointment cancelled',
         ];
 
         $adminMessage = clientFullName($client) . ' — ' . ($appointment['title'] ?? 'Appointment') . ' (' . $start . ')';

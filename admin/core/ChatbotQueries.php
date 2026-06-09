@@ -35,7 +35,7 @@ function chatbotExtractAppointmentStatusFilter(string $message): ?string
 {
     $normalized = strtolower(trim($message));
 
-    if (preg_match('/^(requested|scheduled|confirmed|cancelled|canceled|completed)$/', $normalized)) {
+    if (preg_match('/^(requested|scheduled|confirmed|rescheduled|cancelled|canceled|completed)$/', $normalized)) {
         return $normalized === 'canceled' ? 'cancelled' : $normalized;
     }
 
@@ -66,7 +66,7 @@ function chatbotIsAppointmentRelatedMessage(string $message): bool
         return true;
     }
 
-    if (preg_match('/^(requested|scheduled|confirmed|cancelled|canceled|completed)$/', $normalized)) {
+    if (preg_match('/^(requested|scheduled|confirmed|rescheduled|cancelled|canceled|completed)$/', $normalized)) {
         return true;
     }
 
@@ -146,7 +146,7 @@ function chatbotBuildAppointmentFilter(string $message): array
 
     $upcomingOnly = (bool) preg_match('/\b(upcoming|future|next)\b/', $normalized);
     if ($upcomingOnly) {
-        $where[] = "a.status IN ('scheduled', 'confirmed')";
+        $where[] = "a.status IN ('scheduled', 'confirmed', 'rescheduled')";
         $where[] = "({$startSql} >= NOW() OR ({$endSql} IS NOT NULL AND {$endSql} >= NOW()))";
     }
 
