@@ -11,6 +11,9 @@ if (!$clientId) {
 }
 
 $pageTitle = 'Appointments';
+
+AppointmentService::ensureStatusSchema();
+
 $allAppointments = getClientAppointments($clientId);
 $q = trim((string) ($_GET['q'] ?? ''));
 $statusFilter = trim((string) ($_GET['status'] ?? ''));
@@ -59,7 +62,7 @@ foreach ($allAppointments as $appt) {
     $links = GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $client, true);
 
     foreach (buildAppointmentCalendarEvents($appt, [
-        'status'      => $appt['status'] ?? 'scheduled',
+        'status'      => normalizeAppointmentStatus($appt['status'] ?? null),
         'location'    => $appt['location'] ?? '',
         'description' => $appt['description'] ?? '',
         'startLabel'  => formatDateTime($calStart, 'M j, Y g:i A'),
@@ -155,7 +158,8 @@ require __DIR__ . '/../includes/header.php';
                                     $links = $start
                                         ? GoogleCalendarService::getCalendarLinks((int) ($appt['id'] ?? 0), $appt, $client, true)
                                         : null;
-                                    $showCalendar = $links && in_array($appt['status'] ?? '', ['scheduled', 'confirmed', 'rescheduled'], true);
+                                    $apptStatus = normalizeAppointmentStatus($appt['status'] ?? null);
+                                    $showCalendar = $links && in_array($apptStatus, ['scheduled', 'confirmed', 'rescheduled'], true);
                                     $searchBlob = caseRowSearchBlob($appt, [
                                         $appt['title'] ?? '',
                                         appointmentCaseLabel($appt),
@@ -172,7 +176,7 @@ require __DIR__ . '/../includes/header.php';
                                         </td>
                                         <td class="text-muted"><?= $start ? formatDateTime($start) : '—' ?></td>
                                         <td><?= e($appt['location'] ?? '—') ?></td>
-                                        <td><?= statusBadge($appt['status'] ?? 'scheduled') ?></td>
+                                        <td><?= statusBadge($appt['status'] ?? null) ?></td>
                                         <td class="text-end">
                                             <?php if (($appt['status'] ?? '') === 'requested'): ?>
                                                 <span class="text-muted small">Pending approval</span>

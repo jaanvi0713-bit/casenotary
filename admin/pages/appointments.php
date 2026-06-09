@@ -3,6 +3,8 @@ require_once __DIR__ . '/../core/bootstrap.php';
 
 Auth::requirePage('appointments');
 
+AppointmentService::ensureStatusSchema();
+
 $pageTitle = 'Appointments';
 $allAppointments = getAllAppointments();
 $q = trim((string) ($_GET['q'] ?? ''));
@@ -74,7 +76,7 @@ foreach ($allAppointments as $appt) {
     foreach (buildAppointmentCalendarEvents($appt, [
         'client'      => clientFullName($appt),
         'case'        => appointmentCaseLabel($appt),
-        'status'      => $appt['status'] ?? 'scheduled',
+        'status'      => normalizeAppointmentStatus($appt['status'] ?? null),
         'location'    => $appt['location'] ?? '',
         'description' => $appt['description'] ?? '',
         'startLabel'  => formatDateTime($calStart, 'M j, Y g:i A'),

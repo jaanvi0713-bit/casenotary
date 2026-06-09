@@ -206,3 +206,31 @@ Invoice generatedHi there,Invoice generatedINV-2026-0001 — £ 2,700.00Open in 
 2026-06-09 04:09:46 | To: admin@admin.com
 Subject: Invoice generated
 Invoice generatedHi Admin User,Invoice generatedINV-2026-0001 — £ 2,700.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-09 04:21:42 | To: james.r@email.com
+Subject: Appointment: Meeting
+FunTurtle CompanyAppointment ScheduledDear James Rodriguez,An appointment has been scheduled for you.MeetingWhen: Jun 29, 2026 11:00 AMLocation: OfficeAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalFunTurtle Company
+------------------------------------------------------------
+2026-06-09 04:21:44 | To: admin@admin.com
+Subject: Appointment scheduled
+Appointment scheduledHi Admin User,Appointment scheduledJames Rodriguez — Meeting (Jun 29, 2026 11:00 AM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-09 04:22:17 | To: james.r@email.com
+Subject: Updated appointment: Meeting
+FunTurtle CompanyAppointment UpdatedDear James Rodriguez,Your appointment details have been updated.MeetingWhen: Jun 29, 2026 11:00 AMLocation: OfficeAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalFunTurtle Company
+------------------------------------------------------------
+2026-06-09 04:22:19 | To: admin@admin.com
+Subject: Appointment updated
+Appointment updatedHi Admin User,Appointment updatedJames Rodriguez — Meeting (Jun 29, 2026 11:00 AM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-09 04:26:25 | To: jefftur@gmail.com
+Subject: Appointment: docs
+Creative DesignAppointment ScheduledDear Jeff Satur,An appointment has been scheduled for you.docsWhen: Jun 26, 2026 4:00 PMLocation: ZoomAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalCreative Design
+------------------------------------------------------------
+2026-06-09 04:26:27 | To: jefftur@gmail.com
+Subject: Appointment scheduled
+Appointment scheduledHi there,Appointment scheduleddocs — Jun 26, 2026 4:00 PMOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-09 04:26:29 | To: admin@admin.com
+Subject: Appointment scheduled
+Appointment scheduledHi Admin User,Appointment scheduledJeff Satur — docs (Jun 26, 2026 4:00 PM)Open in portalYou can change notification preferences under Settings → Notification Preferences.

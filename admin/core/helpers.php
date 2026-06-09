@@ -237,6 +237,19 @@ function appointmentDateTimeValue(?string $value): ?string
     return $value;
 }
 
+/** @return list<string> */
+function appointmentStatusValues(): array
+{
+    return ['requested', 'scheduled', 'confirmed', 'rescheduled', 'completed', 'cancelled', 'no_show'];
+}
+
+function normalizeAppointmentStatus(?string $status, string $default = 'scheduled'): string
+{
+    $status = strtolower(trim((string) $status));
+
+    return in_array($status, appointmentStatusValues(), true) ? $status : $default;
+}
+
 function appointmentStart(array $appointment): ?string
 {
     return appointmentEffectiveStart($appointment);
@@ -269,7 +282,7 @@ function appointmentEffectiveEnd(array $appointment): ?string
 
 function isUpcomingAppointment(array $appointment): bool
 {
-    $status = strtolower(trim($appointment['status'] ?? ''));
+    $status = normalizeAppointmentStatus($appointment['status'] ?? null);
     if (!in_array($status, ['scheduled', 'confirmed', 'rescheduled'], true)) {
         return false;
     }
@@ -322,7 +335,7 @@ function appointmentStatusColors(): array
 function appointmentCalendarEventColors(array $appointment): array
 {
     $colors = appointmentStatusColors();
-    $status = strtolower(trim($appointment['status'] ?? 'scheduled'));
+    $status = normalizeAppointmentStatus($appointment['status'] ?? null);
 
     if (in_array($status, ['cancelled', 'completed'], true)) {
         $color = $colors[$status];
@@ -444,7 +457,7 @@ function buildAppointmentCalendarEvents(array $appointment, array $extendedProps
     $id          = (string) ($appointment['id'] ?? '');
     $groupId     = 'appt-' . $id;
     $title       = $appointment['title'] ?? 'Appointment';
-    $status      = strtolower(trim($appointment['status'] ?? 'scheduled'));
+    $status      = normalizeAppointmentStatus($appointment['status'] ?? null);
     $isTerminal  = in_array($status, ['cancelled', 'completed'], true);
     $startDay    = date('Y-m-d', $startTs);
     $endDay      = date('Y-m-d', $endTs);
@@ -567,7 +580,7 @@ function appointmentCalendarInitialDate(array $appointments): string
 
 function isClientScheduledAppointment(array $appointment): bool
 {
-    $status = strtolower(trim($appointment['status'] ?? ''));
+    $status = normalizeAppointmentStatus($appointment['status'] ?? null);
     if (!in_array($status, ['scheduled', 'confirmed', 'rescheduled'], true)) {
         return false;
     }
@@ -1271,8 +1284,10 @@ function formatDateTimeStacked(?string $datetime): string
     return e(date('M d, Y', $timestamp)) . '<br>' . e(date('g:i A', $timestamp));
 }
 
-function statusBadge(string $status): string
+function statusBadge(?string $status): string
 {
+    $status = normalizeAppointmentStatus($status);
+
     $map = [
         'pending'            => 'badge-pending',
         'in_progress'        => 'badge-progress',

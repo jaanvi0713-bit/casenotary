@@ -4,8 +4,40 @@ declare(strict_types=1);
 
 class AppointmentService
 {
+    public static function ensureStatusSchema(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        if (!Database::tableExists('appointments')) {
+            return;
+        }
+
+        try {
+            Database::query(
+                "ALTER TABLE appointments MODIFY status ENUM('requested', 'scheduled', 'confirmed', 'rescheduled', 'completed', 'cancelled', 'no_show') NOT NULL DEFAULT 'scheduled'"
+            );
+        } catch (Throwable $e) {
+            // Host may restrict ALTER; run admin/sql/migrate_appointment_rescheduled.php manually.
+        }
+
+        try {
+            Database::query(
+                "UPDATE appointments SET status = 'rescheduled'
+                 WHERE status = '' AND updated_at > DATE_ADD(created_at, INTERVAL 30 SECOND)"
+            );
+            Database::query("UPDATE appointments SET status = 'scheduled' WHERE status = '' OR status IS NULL");
+        } catch (Throwable $e) {
+            // optional repair
+        }
+    }
+
     public static function create(array $data, int $adminId): int
     {
+        self::ensureStatusSchema();
         $clientId = (int) ($data['client_id'] ?? 0);
         $title    = trim($data['title'] ?? '');
 
@@ -136,6 +168,8 @@ class AppointmentService
 
     public static function update(int $id, array $data): void
     {
+        self::ensureStatusSchema();
+
         $appointment = self::getById($id);
         if (!$appointment) {
             throw new RuntimeException('Appointment not found.');
@@ -163,13 +197,13 @@ class AppointmentService
             'title'       => $title,
             'description' => trim($data['description'] ?? '') ?: null,
             'location'    => trim($data['location'] ?? '') ?: null,
-            'status'      => $data['status'] ?? $appointment['status'] ?? 'scheduled',
+            'status'      => normalizeAppointmentStatus($data['status'] ?? $appointment['status'] ?? null),
             'starts_at'   => $startsAt,
             'ends_at'     => $endsAt,
         ];
 
-        $previousStatus = strtolower(trim($appointment['status'] ?? ''));
-        $newStatus      = strtolower(trim((string) $fields['status']));
+        $previousStatus = normalizeAppointmentStatus($appointment['status'] ?? null);
+        $newStatus      = normalizeAppointmentStatus((string) $fields['status']);
 
         if (self::appointmentTimesChanged($appointment, $fields['starts_at'], $fields['ends_at'])) {
             if (!in_array($newStatus, ['cancelled', 'completed', 'requested'], true)
