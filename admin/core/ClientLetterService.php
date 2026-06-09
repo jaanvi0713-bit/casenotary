@@ -25,6 +25,84 @@ class ClientLetterService
         'terms_and_conditions',
     ];
 
+    public static function ensureSchema(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        if (!Database::tableExists('client_letter_templates')) {
+            try {
+                Database::query(<<<'SQL'
+CREATE TABLE client_letter_templates (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    is_default TINYINT(1) NOT NULL DEFAULT 0,
+    sections JSON NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_client_letter_template_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+            } catch (Throwable $e) {
+                // Host may restrict CREATE; run admin/sql/migrate_client_letters.php manually.
+            }
+        }
+
+        if (Database::tableExists('cases') && !Database::columnExists('cases', 'client_letter_sections')) {
+            try {
+                Database::query('ALTER TABLE cases ADD COLUMN client_letter_sections JSON DEFAULT NULL AFTER description');
+            } catch (Throwable $e) {
+                // optional
+            }
+        }
+
+        if (Database::tableExists('client_letter_templates')) {
+            try {
+                $count = (int) (Database::fetch('SELECT COUNT(*) AS c FROM client_letter_templates')['c'] ?? 0);
+                if ($count === 0) {
+                    $sections = json_encode(self::builtinDefaultSections(), JSON_UNESCAPED_UNICODE);
+                    Database::query(
+                        'INSERT INTO client_letter_templates (name, is_default, sections) VALUES (?, 1, ?)',
+                        ['Default engagement letter', $sections]
+                    );
+                }
+                self::syncDefaultTemplateContent();
+            } catch (Throwable $e) {
+                // optional seed
+            }
+        }
+
+        if (!Database::tableExists('case_client_letters')) {
+            try {
+                Database::query(<<<'SQL'
+CREATE TABLE case_client_letters (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    case_id INT UNSIGNED NOT NULL,
+    client_id INT UNSIGNED NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    pdf_path VARCHAR(500) DEFAULT NULL,
+    html_path VARCHAR(500) DEFAULT NULL,
+    version INT UNSIGNED NOT NULL DEFAULT 1,
+    version_group_id INT UNSIGNED DEFAULT NULL,
+    is_current TINYINT(1) NOT NULL DEFAULT 1,
+    saved_to_record TINYINT(1) NOT NULL DEFAULT 0,
+    published_to_portal TINYINT(1) NOT NULL DEFAULT 0,
+    created_by INT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ccl_case (case_id),
+    INDEX idx_ccl_client (client_id),
+    INDEX idx_ccl_published (case_id, published_to_portal)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+            } catch (Throwable $e) {
+                // optional
+            }
+        }
+    }
+
     public static function sectionLabels(): array
     {
         return [
@@ -164,6 +242,8 @@ HTML,
 
     public static function saveNamedTemplate(string $name, array $sections, bool $asDefault = false): int
     {
+        self::ensureSchema();
+
         if (!Database::tableExists('client_letter_templates')) {
             throw new RuntimeException('Run: php admin/sql/migrate_client_letters.php');
         }
@@ -247,6 +327,8 @@ HTML,
 
     public static function saveCaseSections(int $caseId, array $sections): void
     {
+        self::ensureSchema();
+
         if (!Database::columnExists('cases', 'client_letter_sections')) {
             throw new RuntimeException('Run: php admin/sql/migrate_client_letters.php');
         }
@@ -894,6 +976,8 @@ HTML,
         int $adminId,
         bool $replaceCurrent = false
     ): int {
+        self::ensureSchema();
+
         if (!self::lettersTableExists()) {
             throw new RuntimeException('Run: php admin/sql/migrate_case_client_letters.php');
         }

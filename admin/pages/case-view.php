@@ -4,6 +4,9 @@ require_once __DIR__ . '/../core/bootstrap.php';
 Auth::requirePage('cases');
 
 $caseId = (int) ($_GET['id'] ?? 0);
+
+ClientLetterService::ensureSchema();
+
 $workspace = CaseService::getWorkspace($caseId);
 
 if (!$workspace) {

@@ -27,6 +27,10 @@ if (!CSRF::verifyRequest()) {
 $action = $_POST['action'] ?? '';
 $caseId = (int) ($_POST['case_id'] ?? $_GET['case_id'] ?? 0);
 
+if (str_contains($action, 'client_letter') || str_contains($action, 'letter_')) {
+    ClientLetterService::ensureSchema();
+}
+
 function redirectCase(int $caseId, string $tab = ''): void
 {
     $hash = $tab ? '#' . $tab : '';
