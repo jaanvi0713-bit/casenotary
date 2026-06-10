@@ -77,7 +77,7 @@ $pageTitle = 'Reset Password';
                     <div class="alert alert-danger"><i class="bi bi-exclamation-circle me-2"></i><?= e($error) ?></div>
                 <?php endif; ?>
 
-                <form method="POST" class="auth-form">
+                <form method="POST" class="auth-form js-password-strength-form">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="token" value="<?= e($token) ?>">
                     <input type="hidden" name="email" value="<?= e($email) ?>">
@@ -85,8 +85,9 @@ $pageTitle = 'Reset Password';
                     <div class="form-floating mb-3">
                         <input type="password" class="form-control" id="password" name="password"
                                placeholder="Password" required minlength="8"
-                               pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                               title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                               pattern="<?= e(passwordStrengthPattern()) ?>"
+                               title="<?= e(passwordStrengthHint()) ?>"
+                               data-password-strength>
                         <label for="password"><i class="bi bi-lock me-2"></i>New Password</label>
                     </div>
 
@@ -96,7 +97,7 @@ $pageTitle = 'Reset Password';
                         <label for="password_confirmation"><i class="bi bi-lock-fill me-2"></i>Confirm Password</label>
                     </div>
 
-                    <p class="text-muted small mb-4">Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).</p>
+                    <?php renderPasswordStrengthHint('text-muted small mb-4'); ?>
 
                     <button type="submit" class="btn btn-primary btn-auth w-100 mb-3">
                         <span>Update Password</span>
@@ -113,5 +114,6 @@ $pageTitle = 'Reset Password';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?= asset('js/theme.js') ?>"></script>
     <script src="<?= asset('js/password-reveal.js') ?>"></script>
+    <script src="<?= asset('js/password-strength.js') ?>"></script>
 </body>
 </html>

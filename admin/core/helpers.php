@@ -2715,6 +2715,20 @@ function renderPasswordRevealField(string $id, string $name, array $options = []
     $pattern = (string) ($options['pattern'] ?? '');
     $title = (string) ($options['title'] ?? '');
     $value = (string) ($options['value'] ?? '');
+    $strength = !empty($options['strength']);
+    $strengthOptional = !empty($options['strength_optional']);
+
+    if ($strength) {
+        if ($minlength === 0) {
+            $minlength = 8;
+        }
+        if ($pattern === '') {
+            $pattern = passwordStrengthPattern();
+        }
+        if ($title === '') {
+            $title = passwordStrengthHint();
+        }
+    }
     ?>
     <div class="login-pw-field">
         <div class="login-pw-input-wrap">
@@ -2732,6 +2746,8 @@ function renderPasswordRevealField(string $id, string $name, array $options = []
                 <?= $pattern !== '' ? 'pattern="' . e($pattern) . '"' : '' ?>
                 <?= $title !== '' ? 'title="' . e($title) . '"' : '' ?>
                 <?= $value !== '' ? 'value="' . e($value) . '"' : '' ?>
+                <?= $strength ? 'data-password-strength' : '' ?>
+                <?= $strength && $strengthOptional ? 'data-password-strength-optional' : '' ?>
                 data-lpignore="true"
                 data-1p-ignore="true"
             >
@@ -4171,6 +4187,16 @@ function caseActivityDateLabel(string $datetime): string
     return date('F j, Y', $time);
 }
 
+function passwordStrengthHint(): string
+{
+    return 'Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).';
+}
+
+function passwordStrengthPattern(): string
+{
+    return '(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}';
+}
+
 function passwordStrengthError(string $password): ?string
 {
     if (strlen($password) < 8) {
@@ -4190,4 +4216,10 @@ function passwordStrengthError(string $password): ?string
     }
 
     return null;
+}
+
+function renderPasswordStrengthHint(string $class = 'form-text mb-0', bool $optional = false): void
+{
+    $prefix = $optional ? 'If setting a new password: ' : '';
+    echo '<p class="' . e($class) . '">' . e($prefix . passwordStrengthHint()) . '</p>';
 }

@@ -10,6 +10,7 @@
     <script src="<?= asset('js/app.js') ?>"></script>
     <script src="<?= asset('js/notifications.js') ?>"></script>
     <script src="<?= asset('js/password-reveal.js') ?>"></script>
+    <script src="<?= asset('js/password-strength.js') ?>"></script>
     <?php if (!empty($pageScripts)): ?>
         <?= $pageScripts ?>
     <?php endif; ?>

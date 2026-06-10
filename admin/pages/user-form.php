@@ -53,7 +53,7 @@ require __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-    <form method="post" action="<?= url('actions/user-action.php') ?>" class="case-form">
+    <form method="post" action="<?= url('actions/user-action.php') ?>" class="case-form js-password-strength-form">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="<?= $isEdit ? 'update_user' : 'create_user' ?>">
         <?php if ($isEdit && !$canEditUsers): ?>
@@ -123,6 +123,7 @@ require __DIR__ . '/../includes/header.php';
                             <input type="hidden" name="status" value="active">
                         <?php endif; ?>
                     </div>
+<<<<<<< HEAD
                 </div>
 
                 <div class="row g-3 account-password-grid align-items-end mt-1 pt-3 border-top">
@@ -192,6 +193,20 @@ require __DIR__ . '/../includes/header.php';
                                 'minlength' => 8,
                             ]); ?>
                         </div>
+=======
+                    <div class="col-12">
+                        <label class="form-label"><?= $isEdit ? 'New password (leave blank to keep)' : 'Password' ?></label>
+                        <?php renderPasswordRevealField('password', 'password', [
+                            'required' => !$isEdit,
+                            'disabled' => !$canEditUsers,
+                            'autocomplete' => 'new-password',
+                            'strength' => true,
+                            'strength_optional' => $isEdit,
+                        ]); ?>
+                        <?php renderPasswordStrengthHint('form-text mt-1 mb-0', $isEdit); ?>
+                    </div>
+                    <?php if (!$isEdit): ?>
+>>>>>>> d96842bb702a04b593113a25d285849cb36cfb98
                         <div class="col-12">
                             <p class="small text-muted mb-0"><?= e(RoleAccess::roleDescription('staff')) ?></p>
                         </div>

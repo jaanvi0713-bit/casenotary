@@ -1230,7 +1230,31 @@
     color: var(--text-label);
 }
 
-/* Case form controls — override hardcoded #fff in case-workspace.css */
+/* Case form page — client, user, case forms (case-workspace.css) */
+[data-theme="dark"] .case-form-page .case-form-title {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .case-form-page .case-form-subtitle,
+[data-theme="dark"] .case-form-section-desc,
+[data-theme="dark"] .case-form-required-note {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-form-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+    box-shadow: var(--shadow);
+}
+
+[data-theme="dark"] .case-form-section {
+    border-bottom-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-form-section-title {
+    color: var(--text-label);
+}
+
 [data-theme="dark"] .case-form .case-form-control,
 [data-theme="dark"] .case-form select.case-form-control,
 [data-theme="dark"] .case-form textarea.case-form-control,
@@ -1240,8 +1264,141 @@
     color: var(--text-body) !important;
 }
 
+[data-theme="dark"] .case-form .case-form-control:focus,
+[data-theme="dark"] .case-form select.case-form-control:focus,
+[data-theme="dark"] .case-form textarea.case-form-control:focus,
+[data-theme="dark"] .case-form-control:focus {
+    background-color: var(--surface) !important;
+    border-color: var(--primary);
+    box-shadow: var(--focus-ring);
+}
+
+[data-theme="dark"] .case-form select.case-form-control option {
+    background: var(--surface);
+    color: var(--text-body);
+}
+
 [data-theme="dark"] .case-form-label,
 [data-theme="dark"] .case-form .form-label {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .case-form .form-check-label {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-form-badge {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .case-fee-input .input-group-text {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-form .iti__selected-dial-code {
+    color: var(--text-body);
+    border-right-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-form .iti__dropdown-content {
+    background: var(--surface-overlay);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-form .iti__search-input {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-form .iti--separate-dial-code .iti__selected-country,
+[data-theme="dark"] .case-form .iti__selected-flag {
+    background: var(--surface-sunken);
+}
+
+[data-theme="dark"] .case-form .iti__country-list {
+    background: var(--surface-overlay);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-form-page .login-pw-input-wrap .login-pw-input {
+    background-color: var(--surface-sunken) !important;
+    border-color: var(--border-default) !important;
+    color: var(--text-body) !important;
+}
+
+[data-theme="dark"] .case-form-page .login-pw-reveal {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-form-page .login-pw-reveal:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+/* Case form — Service & Schedule billing */
+[data-theme="dark"] .case-billing-part {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-billing-part-title,
+[data-theme="dark"] .case-billing-summary-block-title {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .case-billing-grid__head {
+    border-bottom-color: var(--border-default);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-line-total {
+    background: var(--surface-sunken) !important;
+    border-color: var(--border-default);
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .case-billing-summary,
+[data-theme="dark"] .case-billing-summary.bg-light {
+    background: var(--surface-sunken) !important;
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-billing-summary .card-body {
+    background: transparent;
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-billing-summary-block {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-billing-summary .border-top {
+    border-top-color: var(--border-default) !important;
+}
+
+[data-theme="dark"] .case-billing-summary .text-muted,
+[data-theme="dark"] .case-billing-summary-block .text-muted {
+    color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .case-billing-summary strong,
+[data-theme="dark"] .case-billing-summary .fw-semibold,
+[data-theme="dark"] .case-services-total-value {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .case-services-total {
+    border-top-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-services-block .case-form-section-desc strong {
     color: var(--text-label);
 }
 

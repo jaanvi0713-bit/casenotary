@@ -9,6 +9,7 @@
 <script src="<?= adminAsset('js/app.js') ?>"></script>
 <script src="<?= adminAsset('js/notifications.js') ?>"></script>
 <script src="<?= adminAsset('js/password-reveal.js') ?>"></script>
+<script src="<?= adminAsset('js/password-strength.js') ?>"></script>
 <?php if (!empty($pageScripts)): ?>
     <?= $pageScripts ?>
 <?php endif; ?>
