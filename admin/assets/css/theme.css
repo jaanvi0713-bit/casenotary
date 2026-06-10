@@ -288,6 +288,10 @@
     color: var(--text-muted) !important;
 }
 
+[data-theme="dark"] .text-secondary {
+    color: var(--text-muted) !important;
+}
+
 [data-theme="dark"] .border,
 [data-theme="dark"] .border-top,
 [data-theme="dark"] .border-bottom,
@@ -516,14 +520,19 @@
     background: var(--surface-sunken) !important;
 }
 
-[data-theme="dark"] .case-nav-tabs .nav-link {
-    color: var(--gray-500);
+[data-theme="dark"] .case-tabs {
+    border-bottom-color: var(--border-default);
 }
 
-[data-theme="dark"] .case-nav-tabs .nav-link.active {
+[data-theme="dark"] .case-tabs .nav-link {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-tabs .nav-link:hover,
+[data-theme="dark"] .case-tabs .nav-link.active {
     color: var(--primary);
-    background: var(--surface);
-    border-color: var(--border-default);
+    background: transparent;
+    border-bottom-color: var(--primary);
 }
 
 [data-theme="dark"] .case-status-pill,
@@ -1475,6 +1484,145 @@
 [data-theme="dark"] .case-file-dropzone:hover {
     background: var(--primary-light) !important;
     border-color: var(--primary);
+}
+
+/* Case workspace — text contrast (hardcoded hex / brand --secondary) */
+[data-theme="dark"] .case-workspace {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-panel {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+    color: var(--text-body);
+    box-shadow: none;
+}
+
+[data-theme="dark"] .case-workspace-title,
+[data-theme="dark"] .case-form-title,
+[data-theme="dark"] .case-billing-part-title,
+[data-theme="dark"] .case-billing-summary-block-title {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-panel-title,
+[data-theme="dark"] .case-panel-subtitle,
+[data-theme="dark"] .case-detail-grid strong,
+[data-theme="dark"] .case-mini-activity-item strong,
+[data-theme="dark"] .case-timeline-body strong,
+[data-theme="dark"] .case-doc-list strong,
+[data-theme="dark"] .case-workspace h4,
+[data-theme="dark"] .case-workspace h5,
+[data-theme="dark"] .case-workspace h6,
+[data-theme="dark"] .case-services-table tfoot th,
+[data-theme="dark"] .case-form-section-title,
+[data-theme="dark"] .case-form-label,
+[data-theme="dark"] .case-instructions-body,
+[data-theme="dark"] .case-billing-overview-section-title,
+[data-theme="dark"] .case-billing-overview-table tfoot td,
+[data-theme="dark"] .case-services-total-value,
+[data-theme="dark"] .case-line-total {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .case-back-link,
+[data-theme="dark"] .case-workspace-subtitle,
+[data-theme="dark"] .case-status-label,
+[data-theme="dark"] .case-status-hint,
+[data-theme="dark"] .case-panel-hint,
+[data-theme="dark"] .case-detail-label,
+[data-theme="dark"] .case-summary-list li,
+[data-theme="dark"] .case-mini-activity-item small,
+[data-theme="dark"] .case-doc-list small,
+[data-theme="dark"] .case-description p,
+[data-theme="dark"] .case-note-meta,
+[data-theme="dark"] .case-note-item p,
+[data-theme="dark"] .case-timeline-group,
+[data-theme="dark"] .case-timeline-body span,
+[data-theme="dark"] .case-timeline-meta,
+[data-theme="dark"] .case-timeline-actor,
+[data-theme="dark"] .case-toolbar-search i,
+[data-theme="dark"] .case-services-table thead th,
+[data-theme="dark"] .case-billing-overview-section-rate,
+[data-theme="dark"] .case-billing-overview-table thead th,
+[data-theme="dark"] .case-billing-grid__head,
+[data-theme="dark"] .case-form-subtitle,
+[data-theme="dark"] .case-form-section-desc,
+[data-theme="dark"] .case-form-required-note,
+[data-theme="dark"] .client-letter-preview-placeholder,
+[data-theme="dark"] .client-letter-placeholders summary {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-mini-activity-item,
+[data-theme="dark"] .case-doc-list li,
+[data-theme="dark"] .case-note-item {
+    border-bottom-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .case-timeline-item:not(:last-child)::after {
+    background: var(--border-default);
+}
+
+[data-theme="dark"] .case-instructions-box {
+    background: rgba(58, 175, 169, 0.1);
+    border-color: rgba(58, 175, 169, 0.35);
+}
+
+[data-theme="dark"] .case-instructions-title {
+    color: var(--primary);
+}
+
+[data-theme="dark"] .client-letter-preview-wrap {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .client-letter-preview-head {
+    background: var(--surface);
+    border-bottom-color: var(--border-default);
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .client-letter-preview-frame-wrap {
+    background: var(--surface-sunken);
+}
+
+[data-theme="dark"] .client-letter-actions {
+    border-top-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-billing-overview-section-rate {
+    background: var(--surface);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .status-badge.badge-pending { color: #fbbf24; }
+[data-theme="dark"] .status-badge.badge-progress { color: #60a5fa; }
+[data-theme="dark"] .status-badge.badge-waiting { color: #c084fc; }
+[data-theme="dark"] .status-badge.badge-completed { color: #34d399; }
+[data-theme="dark"] .status-badge.badge-closed { color: var(--text-muted); }
+[data-theme="dark"] .status-badge.badge-paid { color: #34d399; }
+[data-theme="dark"] .status-badge.badge-partial { color: #60a5fa; }
+[data-theme="dark"] .status-badge.badge-overdue { color: #f87171; }
+[data-theme="dark"] .status-badge.badge-scheduled { color: #5eead4; }
+[data-theme="dark"] .status-badge.badge-requested { color: #a5b4fc; }
+[data-theme="dark"] .status-badge.badge-confirmed { color: #34d399; }
+[data-theme="dark"] .status-badge.badge-rescheduled { color: #c4b5fd; }
+
+[data-theme="dark"] .case-workspace .badge.bg-primary-subtle.text-primary {
+    background: rgba(58, 175, 169, 0.18) !important;
+    color: #5eead4 !important;
+}
+
+[data-theme="dark"] .case-workspace .badge.bg-success-subtle.text-success {
+    background: rgba(16, 185, 129, 0.18) !important;
+    color: #34d399 !important;
+}
+
+[data-theme="dark"] .case-workspace .badge.bg-secondary-subtle.text-secondary {
+    background: var(--gray-200) !important;
+    color: var(--text-muted) !important;
 }
 
 /* Document preview — keep light paper for readability */
