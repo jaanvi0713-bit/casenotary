@@ -123,7 +123,6 @@ require __DIR__ . '/../includes/header.php';
                             <input type="hidden" name="status" value="active">
                         <?php endif; ?>
                     </div>
-<<<<<<< HEAD
                 </div>
 
                 <div class="row g-3 account-password-grid align-items-end mt-1 pt-3 border-top">
@@ -156,7 +155,8 @@ require __DIR__ . '/../includes/header.php';
                             <?php renderPasswordRevealField('new_password', 'new_password', [
                                 'disabled' => !$canEditUsers,
                                 'autocomplete' => 'new-password',
-                                'minlength' => 8,
+                                'strength' => true,
+                                'strength_optional' => true,
                             ]); ?>
                         </div>
                         <div class="col-md-4">
@@ -173,6 +173,7 @@ require __DIR__ . '/../includes/header.php';
                             <?php else: ?>
                                 <p class="form-text mb-0">Leave new password blank to keep the current password.</p>
                             <?php endif; ?>
+                            <?php renderPasswordStrengthHint('form-text mb-0', true); ?>
                         </div>
                     <?php else: ?>
                         <div class="col-md-6">
@@ -181,7 +182,7 @@ require __DIR__ . '/../includes/header.php';
                                 'required' => true,
                                 'disabled' => !$canEditUsers,
                                 'autocomplete' => 'new-password',
-                                'minlength' => 8,
+                                'strength' => true,
                             ]); ?>
                         </div>
                         <div class="col-md-6">
@@ -193,20 +194,9 @@ require __DIR__ . '/../includes/header.php';
                                 'minlength' => 8,
                             ]); ?>
                         </div>
-=======
-                    <div class="col-12">
-                        <label class="form-label"><?= $isEdit ? 'New password (leave blank to keep)' : 'Password' ?></label>
-                        <?php renderPasswordRevealField('password', 'password', [
-                            'required' => !$isEdit,
-                            'disabled' => !$canEditUsers,
-                            'autocomplete' => 'new-password',
-                            'strength' => true,
-                            'strength_optional' => $isEdit,
-                        ]); ?>
-                        <?php renderPasswordStrengthHint('form-text mt-1 mb-0', $isEdit); ?>
-                    </div>
-                    <?php if (!$isEdit): ?>
->>>>>>> d96842bb702a04b593113a25d285849cb36cfb98
+                        <div class="col-12">
+                            <?php renderPasswordStrengthHint('form-text mt-1 mb-0', false); ?>
+                        </div>
                         <div class="col-12">
                             <p class="small text-muted mb-0"><?= e(RoleAccess::roleDescription('staff')) ?></p>
                         </div>

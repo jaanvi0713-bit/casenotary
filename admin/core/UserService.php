@@ -140,14 +140,11 @@ class UserService
         }
 
         $password = (string) ($data['password'] ?? '');
-<<<<<<< HEAD
         $passwordConfirmation = (string) ($data['password_confirmation'] ?? '');
         if ($password !== $passwordConfirmation) {
             return ['success' => false, 'message' => 'Password confirmation does not match.'];
         }
 
-=======
->>>>>>> d96842bb702a04b593113a25d285849cb36cfb98
         $strengthError = passwordStrengthError($password);
         if ($strengthError !== null) {
             return ['success' => false, 'message' => $strengthError];
@@ -245,19 +242,11 @@ class UserService
             $params[] = trim((string) ($data['phone'] ?? '')) ?: null;
         }
 
-<<<<<<< HEAD
         $newPassword = trim((string) ($data['new_password'] ?? $data['password'] ?? ''));
         if ($newPassword !== '') {
             $newPasswordConfirmation = trim((string) ($data['new_password_confirmation'] ?? ''));
             if ($newPassword !== $newPasswordConfirmation) {
                 return ['success' => false, 'message' => 'New password confirmation does not match.'];
-=======
-        $password = (string) ($data['password'] ?? '');
-        if ($password !== '') {
-            $strengthError = passwordStrengthError($password);
-            if ($strengthError !== null) {
-                return ['success' => false, 'message' => $strengthError];
->>>>>>> d96842bb702a04b593113a25d285849cb36cfb98
             }
 
             $strengthError = passwordStrengthError($newPassword);
