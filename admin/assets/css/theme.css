@@ -1708,3 +1708,42 @@
 [data-theme="dark"] .popover-body {
     color: var(--text-body);
 }
+
+/* Loading spinners & skeletons */
+[data-theme="dark"] .page-loading-skeleton {
+    background: var(--layout-canvas);
+}
+
+[data-theme="dark"] .skeleton,
+[data-theme="dark"] .skeleton-list-item--chat {
+    background: var(--gray-100);
+}
+
+[data-theme="dark"] .skeleton::after {
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        transparent 100%
+    );
+}
+
+[data-theme="dark"] .skeleton-list-item,
+[data-theme="dark"] .skeleton-list-item--chat {
+    border-color: var(--border-subtle);
+    background: var(--surface);
+}
+
+[data-theme="dark"] .global-loading-overlay {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="dark"] .global-loading-overlay__panel {
+    background: var(--surface-raised);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .global-loading-overlay__message,
+[data-theme="dark"] .loading-inline {
+    color: var(--text-body);
+}

@@ -27,9 +27,7 @@ require __DIR__ . '/../includes/header.php';
         <button type="button" class="btn btn-primary w-100 chatbot-new-btn" id="chatNewBtn">
             <i class="bi bi-plus-lg me-1"></i> New chat
         </button>
-        <div id="chatHistoryList" class="chat-history-list">
-            <p class="text-muted small mb-0">Loading chats…</p>
-        </div>
+        <div id="chatHistoryList" class="chat-history-list" aria-busy="true"></div>
     </aside>
 
     <div class="chatbot-main">
@@ -63,7 +61,7 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="chatbot-input-area">
                         <div id="chatAttachmentPreview" class="chat-attachment-preview d-none" aria-live="polite"></div>
-                        <form id="chatForm" class="chatbot-form" enctype="multipart/form-data">
+                        <form id="chatForm" class="chatbot-form" enctype="multipart/form-data" data-no-global-loading>
                             <?= CSRF::field() ?>
                             <input type="file"
                                    id="chatAttachments"

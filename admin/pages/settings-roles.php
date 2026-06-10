@@ -466,7 +466,7 @@ require __DIR__ . '/../includes/header.php';
 
             <div class="modal fade" id="editRoleModal" tabindex="-1" aria-labelledby="editRoleModalLabel" aria-hidden="true">
                 <div class="modal-dialog">
-                    <form method="post" action="<?= url('actions/role-action.php') ?>" class="modal-content" id="editRoleForm">
+                    <form method="post" action="<?= url('actions/role-action.php') ?>" class="modal-content" id="editRoleForm" data-no-global-loading>
                         <?= CSRF::field() ?>
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="slug" id="editRoleSlug" value="">

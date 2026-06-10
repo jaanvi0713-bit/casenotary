@@ -130,6 +130,7 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
         </header>
 
         <main class="page-content">
+            <?php require __DIR__ . '/../../admin/includes/loading-skeleton.php'; ?>
             <?php if ($msg = flash('success')): ?>
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
                     <i class="bi bi-check-circle me-2"></i><?= e($msg) ?>

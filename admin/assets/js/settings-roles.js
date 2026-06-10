@@ -175,7 +175,9 @@
             event.preventDefault();
 
             var submitBtn = editForm.querySelector('button[type="submit"]');
-            if (submitBtn) {
+            if (submitBtn && window.CaseNotaryLoading) {
+                window.CaseNotaryLoading.setButtonLoading(submitBtn, true, 'Saving…');
+            } else if (submitBtn) {
                 submitBtn.disabled = true;
             }
 
@@ -220,7 +222,9 @@
                     showRoleToast(error.message || 'Could not save role.', 'danger');
                 })
                 .finally(function () {
-                    if (submitBtn) {
+                    if (submitBtn && window.CaseNotaryLoading) {
+                        window.CaseNotaryLoading.setButtonLoading(submitBtn, false);
+                    } else if (submitBtn) {
                         submitBtn.disabled = false;
                     }
                 });

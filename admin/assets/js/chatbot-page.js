@@ -458,7 +458,17 @@
         async function loadConversations() {
             if (!chatHistoryList) return;
 
+            if (window.CaseNotaryLoading) {
+                window.CaseNotaryLoading.showIn(
+                    chatHistoryList,
+                    window.CaseNotaryLoading.skeletonList(4, "skeleton-list-item--chat")
+                );
+            }
+
             const result = await apiJson({ action: "list" });
+            chatHistoryList.classList.remove("is-skeleton-host");
+            chatHistoryList.removeAttribute("aria-busy");
+
             if (!result.ok || !result.data) {
                 chatHistoryList.innerHTML = '<p class="text-muted small p-3 mb-0">Saved chats unavailable.</p>';
                 conversations = [];

@@ -873,6 +873,11 @@ document.addEventListener("DOMContentLoaded", function() {
             var placeholder = document.getElementById("clientLetterPreviewPlaceholder");
             var newTab = document.getElementById("clientLetterPreviewNewTab");
             if (!frame) return;
+            if (placeholder) {
+                placeholder.classList.remove("is-hidden");
+                placeholder.innerHTML = '<span class="loading-inline"><span class="spinner-border spinner-border-sm" role="presentation" aria-hidden="true"></span> Generating preview…</span>';
+            }
+            frame.classList.remove("is-loaded");
             fetch(previewUrl, { method: "POST", body: letterFormData(), credentials: "same-origin" })
                 .then(function(r) { if (!r.ok) throw new Error(); return r.text(); })
                 .then(function(html) {

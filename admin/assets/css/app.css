@@ -5016,3 +5016,215 @@ body.page-settings-roles .settings-roles-table-wrap {
         margin-top: 0.5rem;
     }
 }
+
+/* ============================================================
+   Loading spinners & skeleton screens
+   ============================================================ */
+
+.page-content {
+    position: relative;
+}
+
+.page-loading-skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    padding: 0.25rem 0 1.5rem;
+    background: var(--layout-canvas, var(--gray-50));
+    pointer-events: none;
+    transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+
+body.page-ready .page-loading-skeleton {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.skeleton-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.skeleton-grid--stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--gray-100);
+    border-radius: 8px;
+}
+
+.skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.45) 50%,
+        transparent 100%
+    );
+    animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+    100% { transform: translateX(100%); }
+}
+
+.skeleton-block--title {
+    width: 38%;
+    max-width: 280px;
+    height: 1.35rem;
+}
+
+.skeleton-block--subtitle {
+    width: 52%;
+    max-width: 420px;
+    height: 0.85rem;
+}
+
+.skeleton-block--stat {
+    height: 5.5rem;
+    border-radius: 12px;
+}
+
+.skeleton-block--toolbar {
+    height: 2.75rem;
+}
+
+.skeleton-block--panel {
+    height: 18rem;
+    border-radius: 12px;
+}
+
+.skeleton-list-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.skeleton-list-item:last-child {
+    border-bottom: none;
+}
+
+.skeleton-list-item--chat {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--gray-100);
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    background: var(--white);
+}
+
+.skeleton-line {
+    height: 0.75rem;
+    margin-bottom: 0.45rem;
+    border-radius: 6px;
+}
+
+.skeleton-line:last-child {
+    margin-bottom: 0;
+}
+
+.skeleton-line--lg { width: 72%; }
+.skeleton-line--md { width: 58%; }
+.skeleton-line--sm { width: 42%; }
+.skeleton-line--xs { width: 24%; }
+
+.skeleton-table {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.skeleton-table-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 0.75fr;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.35rem 0;
+}
+
+.global-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(15, 23, 42, 0.38);
+    backdrop-filter: blur(2px);
+}
+
+.global-loading-overlay[hidden] {
+    display: none !important;
+}
+
+.global-loading-overlay__panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+    min-width: 200px;
+    padding: 1.35rem 1.75rem;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+}
+
+.global-loading-spinner {
+    width: 2rem;
+    height: 2rem;
+    border-width: 0.2rem;
+    color: var(--primary) !important;
+}
+
+.global-loading-overlay__message {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--secondary);
+    text-align: center;
+}
+
+.loading-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+}
+
+.is-btn-loading {
+    pointer-events: none;
+}
+
+.is-skeleton-host {
+    min-height: 4rem;
+}
+
+body.is-global-loading {
+    cursor: progress;
+}
+
+@media (max-width: 991.98px) {
+    .skeleton-grid--stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .skeleton-grid--stats {
+        grid-template-columns: 1fr;
+    }
+
+    .skeleton-table-row {
+        grid-template-columns: 1fr;
+    }
+}
