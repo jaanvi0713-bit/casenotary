@@ -875,7 +875,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (!frame) return;
             if (placeholder) {
                 placeholder.classList.remove("is-hidden");
-                placeholder.innerHTML = '<span class="loading-inline"><span class="spinner-border spinner-border-sm" role="presentation" aria-hidden="true"></span> Generating preview…</span>';
+                placeholder.innerHTML = "<span class=\"loading-inline\"><span class=\"spinner-border spinner-border-sm\" role=\"presentation\" aria-hidden=\"true\"></span> Generating preview…</span>";
             }
             frame.classList.remove("is-loaded");
             fetch(previewUrl, { method: "POST", body: letterFormData(), credentials: "same-origin" })
