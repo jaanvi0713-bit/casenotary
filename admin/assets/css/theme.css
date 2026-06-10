@@ -121,6 +121,8 @@
 [data-theme="dark"] .chat-panel,
 [data-theme="dark"] .logo-branding-panel,
 [data-theme="dark"] .settings-nav-card,
+[data-theme="dark"] .settings-roles-card,
+[data-theme="dark"] .settings-roles-matrix-panel,
 [data-theme="dark"] .role-permission-card,
 [data-theme="dark"] .invoice-preview,
 [data-theme="dark"] .document-card,
@@ -1084,24 +1086,147 @@
 
 /* Notification preferences panel */
 [data-theme="dark"] .notification-pref-panel,
-[data-theme="dark"] .notification-pref-item {
+[data-theme="dark"] .notification-pref-item,
+[data-theme="dark"] .notification-preferences-card {
     background: var(--surface) !important;
     border-color: var(--border-default);
     color: var(--text-body);
 }
 
-/* Role permissions / settings roles */
-[data-theme="dark"] .role-permission-matrix th,
-[data-theme="dark"] .role-permission-matrix td,
-[data-theme="dark"] .role-category-card,
-[data-theme="dark"] .role-editor-card {
-    background: var(--surface) !important;
-    border-color: var(--border-default);
-    color: var(--text-body);
+[data-theme="dark"] .notification-pref-label {
+    color: #ffffff;
 }
 
-[data-theme="dark"] .role-permission-matrix thead th {
+/* Role Access page (settings-roles) */
+[data-theme="dark"] .settings-roles-add-panel {
+    background: linear-gradient(135deg, rgba(58, 175, 169, 0.12) 0%, var(--surface) 55%) !important;
+    border-color: rgba(58, 175, 169, 0.3);
+}
+
+[data-theme="dark"] .settings-roles-add-panel__title,
+[data-theme="dark"] .settings-roles-role-card__name,
+[data-theme="dark"] .settings-roles-matrix__perm-label {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .settings-roles-add-panel__desc,
+[data-theme="dark"] .settings-roles-add-panel__desc strong,
+[data-theme="dark"] .settings-roles-role-card__users,
+[data-theme="dark"] .settings-roles-legend-card__desc,
+[data-theme="dark"] .settings-roles-legend__title,
+[data-theme="dark"] .settings-roles-matrix__corner,
+[data-theme="dark"] .settings-roles-matrix__divider td {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .settings-roles-toolbar__copy,
+[data-theme="dark"] .settings-roles-toolbar__hint {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .settings-roles-matrix__corner,
+[data-theme="dark"] .settings-roles-matrix__role-head,
+[data-theme="dark"] .settings-roles-role-card,
+[data-theme="dark"] .settings-roles-matrix__perm-label,
+[data-theme="dark"] .settings-roles-matrix__cell,
+[data-theme="dark"] .settings-roles-matrix__cell.is-on,
+[data-theme="dark"] .settings-roles-legend-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .settings-roles-matrix__perm-row:nth-child(even) .settings-roles-matrix__perm-label,
+[data-theme="dark"] .settings-roles-matrix__perm-row:nth-child(even) .settings-roles-matrix__cell,
+[data-theme="dark"] .settings-roles-matrix__perm-row:nth-child(even) .settings-roles-matrix__cell.is-on,
+[data-theme="dark"] .settings-roles-matrix__scope-row .settings-roles-matrix__perm-label,
+[data-theme="dark"] .settings-roles-matrix__cell--scope,
+[data-theme="dark"] .settings-roles-matrix__cell--scope.is-on,
+[data-theme="dark"] .settings-roles-role-card__sort,
+[data-theme="dark"] .settings-roles-matrix__divider td {
     background: var(--surface-sunken) !important;
+}
+
+[data-theme="dark"] .settings-roles-role-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .settings-roles-role-card__badge {
+    background: var(--gray-200);
+    color: var(--text-muted);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .settings-roles-role-card__badge--custom {
+    background: rgba(124, 92, 191, 0.18);
+    color: #c4b5fd;
+    border-color: rgba(124, 92, 191, 0.35);
+}
+
+[data-theme="dark"] .settings-roles-role-card__edit,
+[data-theme="dark"] .settings-roles-role-card__delete {
+    background: var(--surface-raised);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .settings-roles-role-card__edit {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .settings-roles-role-card__edit:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+[data-theme="dark"] .settings-roles-role-card__sort-btn {
+    background: var(--surface-raised);
+    border-color: var(--border-default);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .settings-roles-role-card__sort-btn:hover:not(:disabled) {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .settings-roles-perm-icon--scope {
+    background: var(--gray-200);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .settings-roles-toggle__ui {
+    background: var(--surface-sunken);
+    border-color: var(--border-strong);
+}
+
+[data-theme="dark"] .settings-roles-legend-card:hover {
+    border-color: rgba(58, 175, 169, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .settings-roles-tag {
+    background: var(--gray-200);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .settings-roles-tag--ok {
+    background: rgba(58, 175, 169, 0.18);
+    color: #6ee7b7;
+}
+
+[data-theme="dark"] .settings-roles-tag--muted {
+    background: var(--gray-200);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .settings-roles-actions-bar {
+    border-top-color: var(--border-default);
+}
+
+[data-theme="dark"] .settings-roles-legend-card__users,
+[data-theme="dark"] .settings-roles-legend-card__title {
     color: var(--text-label);
 }
 
