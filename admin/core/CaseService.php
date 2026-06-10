@@ -1216,7 +1216,7 @@ class CaseService
             'quotation_number' => $number,
             'title'            => $data['title'] ?? 'Quotation for ' . ($case['title'] ?? 'Case'),
             'line_items'       => $lineItemsJson,
-            'notes'            => $lineItemsJson,
+            'notes'            => trim((string) ($data['notes'] ?? '')) ?: null,
             'subtotal'         => $subtotal,
             'tax_rate'         => $taxRate,
             'tax_amount'       => $taxAmt,
@@ -1874,6 +1874,20 @@ class CaseService
         }
 
         self::saveHtmlDocument($caseId, 'invoice', $invoiceId);
+    }
+
+    public static function regenerateQuotationHtml(int $caseId, int $quotationId): void
+    {
+        $quote = Database::fetch('SELECT * FROM quotations WHERE id = ?', [$quotationId]);
+        if (!$quote || (int) $quote['case_id'] !== $caseId) {
+            throw new RuntimeException('Quotation not found for this case.');
+        }
+
+        if (FinancialDocumentRenderer::isLineItemsJsonPayload((string) ($quote['notes'] ?? ''))) {
+            Database::query('UPDATE quotations SET notes = NULL WHERE id = ?', [$quotationId]);
+        }
+
+        self::saveHtmlDocument($caseId, 'quotation', $quotationId);
     }
 
     private static function saveHtmlDocument(int $caseId, string $kind, int $docId): void
