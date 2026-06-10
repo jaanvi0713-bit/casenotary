@@ -10,6 +10,7 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php require __DIR__ . '/../../admin/includes/theme-head.php'; ?>
     <meta name="csrf-token" content="<?= e(CSRF::generateToken()) ?>">
     <title><?= e($pageTitle ?? 'Portal') ?> — <?= e(companyBrandName($company)) ?></title>
     <?= renderFaviconTags($company) ?>
@@ -18,6 +19,7 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="<?= adminAsset('css/app.css') ?>" rel="stylesheet">
     <link href="<?= adminAsset('css/case-workspace.css') ?>" rel="stylesheet">
+    <link href="<?= adminAsset('css/theme.css') ?>" rel="stylesheet">
     <?php if (!empty($pageStyles)): ?>
         <?= $pageStyles ?>
     <?php endif; ?>
@@ -31,7 +33,7 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
         body { font-family: var(--font-family); }
     </style>
 </head>
-<body>
+<body<?= !empty($pageBodyClass) ? ' class="' . e($pageBodyClass) . '"' : '' ?>>
 <div class="app-wrapper">
     <?php require __DIR__ . '/sidebar.php'; ?>
 
@@ -55,6 +57,7 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
             </div>
 
             <div class="topbar-actions">
+                <?php require __DIR__ . '/../../admin/includes/theme-toggle.php'; ?>
                 <div
                     id="topbarNotifications"
                     class="dropdown topbar-dropdown"

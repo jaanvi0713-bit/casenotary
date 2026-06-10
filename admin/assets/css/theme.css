@@ -1,0 +1,1280 @@
+/* ============================================================
+   Case Notary — Light & Dark Theme System
+   Professional legal / notary enterprise palette
+   ============================================================ */
+
+/* Light mode: no overrides — app.css remains the single source of truth. */
+
+/* ── Dark theme ───────────────────────────────────────────── */
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Core palette remap — existing rules using var(--gray-*) adapt automatically */
+    --layout-canvas: #0a1018;
+    --gray-50: #111827;
+    --gray-100: #162032;
+    --gray-200: #243044;
+    --gray-300: #2f3f56;
+    --gray-400: #7a8ea6;
+    --gray-500: #94a3b8;
+    --gray-600: #a8b5c8;
+    --gray-700: #c5ced9;
+    --gray-800: #e2e8f0;
+
+    --text-body: #e8edf4;
+    --text-muted: #94a3b8;
+    --text-label: #c5ced9;
+
+    --primary-light: rgba(58, 175, 169, 0.16);
+    --danger-light: rgba(239, 68, 68, 0.16);
+
+    --surface: #1a2433;
+    --surface-raised: #1f2b3d;
+    --surface-sunken: #141c28;
+    --surface-overlay: #1f2b3d;
+    --border-default: #2a3a50;
+    --border-subtle: #243044;
+    --border-strong: #364a63;
+
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 4px 16px rgba(0, 0, 0, 0.18);
+    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.35);
+
+    --chart-grid: rgba(148, 163, 184, 0.12);
+    --chart-tick: #7a8ea6;
+    --chart-point-border: #1f2b3d;
+    --chart-gradient-dark: rgba(148, 163, 184, 0.22);
+    --chart-gradient-dark-end: rgba(148, 163, 184, 0.02);
+    --chart-gradient-primary: rgba(58, 175, 169, 0.28);
+    --chart-gradient-primary-end: rgba(58, 175, 169, 0.03);
+
+    --bs-body-bg: var(--layout-canvas);
+    --bs-body-color: var(--text-body);
+    --bs-border-color: var(--border-default);
+    --bs-tertiary-bg: var(--gray-100);
+    --bs-secondary-bg: var(--gray-50);
+
+    --heading-color: var(--text-body);
+    --chart-secondary: #a8b5c8;
+    --focus-ring: 0 0 0 3px var(--primary-light);
+}
+
+/* ── Theme toggle button ──────────────────────────────────── */
+.theme-toggle .theme-icon-light,
+.theme-toggle .theme-icon-dark {
+    line-height: 1;
+}
+
+.theme-toggle .theme-icon-light {
+    display: none !important;
+}
+
+[data-theme="dark"] .theme-toggle .theme-icon-light {
+    display: block !important;
+}
+
+[data-theme="dark"] .theme-toggle .theme-icon-dark {
+    display: none !important;
+}
+
+.auth-theme-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1100;
+}
+
+/* ── Surfaces: remap --white backgrounds in dark mode ─────── */
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .topbar-btn,
+[data-theme="dark"] .topbar-profile,
+[data-theme="dark"] .topbar-search .form-control:focus,
+[data-theme="dark"] .notification-dropdown,
+[data-theme="dark"] .profile-dropdown,
+[data-theme="dark"] .dropdown-menu,
+[data-theme="dark"] .metric-card,
+[data-theme="dark"] .dash-stat-card,
+[data-theme="dark"] .saas-card,
+[data-theme="dark"] .content-card,
+[data-theme="dark"] .panel-card,
+[data-theme="dark"] .settings-card,
+[data-theme="dark"] .settings-panel,
+[data-theme="dark"] .table-card,
+[data-theme="dark"] .chart-card,
+    [data-theme="dark"] .dash-chart-card,
+    [data-theme="dark"] .dashboard-chart-card,
+    [data-theme="dark"] .settings-form-section,
+    [data-theme="dark"] .settings-form-section__body,
+    [data-theme="dark"] .module-card,
+    [data-theme="dark"] .chart-period-toggle,
+[data-theme="dark"] .schedule-card,
+[data-theme="dark"] .activity-card,
+[data-theme="dark"] .card,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .offcanvas,
+[data-theme="dark"] .auth-form-panel,
+[data-theme="dark"] .portal-option,
+[data-theme="dark"] .fc .fc-scrollgrid,
+[data-theme="dark"] .fc-theme-standard td,
+[data-theme="dark"] .fc-theme-standard th,
+[data-theme="dark"] .chatbot-panel,
+[data-theme="dark"] .chatbot-sidebar,
+[data-theme="dark"] .chat-panel,
+[data-theme="dark"] .logo-branding-panel,
+[data-theme="dark"] .settings-nav-card,
+[data-theme="dark"] .role-permission-card,
+[data-theme="dark"] .invoice-preview,
+[data-theme="dark"] .document-card,
+[data-theme="dark"] .case-panel,
+[data-theme="dark"] .workspace-panel {
+    background-color: var(--surface) !important;
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .main-content {
+    background: var(--gray-100);
+}
+
+[data-theme="dark"] .auth-page {
+    background: var(--layout-canvas);
+}
+
+[data-theme="dark"] .auth-form-panel {
+    background: var(--surface);
+}
+
+[data-theme="dark"] .notification-dropdown .dropdown-header,
+[data-theme="dark"] .profile-dropdown-header,
+[data-theme="dark"] .dropdown-header,
+[data-theme="dark"] .saas-table thead th,
+[data-theme="dark"] .table-toolbar,
+[data-theme="dark"] .settings-nav .nav-link.active,
+[data-theme="dark"] .schedule-list-header,
+[data-theme="dark"] .dashboard-table thead th,
+[data-theme="dark"] .metric-card-header,
+[data-theme="dark"] .chart-card-header {
+    background: var(--surface-sunken) !important;
+    color: var(--text-label);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .notification-item:hover,
+[data-theme="dark"] .notification-list-item:hover,
+[data-theme="dark"] .dropdown-item:hover,
+[data-theme="dark"] .dropdown-item:focus,
+[data-theme="dark"] .schedule-item:hover,
+[data-theme="dark"] .appointment-item:hover,
+[data-theme="dark"] .dashboard-table tbody tr:hover,
+[data-theme="dark"] .saas-table tbody tr:hover,
+[data-theme="dark"] .table-hover tbody tr:hover {
+    background: var(--gray-100) !important;
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .notification-item.unread,
+[data-theme="dark"] .notification-list-item.unread {
+    background: rgba(58, 175, 169, 0.08) !important;
+}
+
+[data-theme="dark"] .topbar-btn,
+[data-theme="dark"] .topbar-profile,
+[data-theme="dark"] .sidebar-toggle {
+    background: var(--surface-raised);
+    border-color: var(--border-default);
+    color: var(--gray-600);
+}
+
+[data-theme="dark"] .topbar-btn:hover,
+[data-theme="dark"] .topbar-profile:hover,
+[data-theme="dark"] .sidebar-toggle:hover {
+    background: var(--primary-light);
+    border-color: transparent;
+    color: var(--primary);
+}
+
+[data-theme="dark"] .topbar-search .form-control {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select,
+[data-theme="dark"] textarea.form-control,
+[data-theme="dark"] .input-group-text {
+    background-color: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus,
+[data-theme="dark"] textarea.form-control:focus {
+    background-color: var(--surface);
+    border-color: var(--primary);
+    color: var(--text-body);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+[data-theme="dark"] .form-control::placeholder {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .form-control:disabled,
+[data-theme="dark"] .form-select:disabled {
+    background-color: var(--gray-100);
+    color: var(--gray-500);
+    opacity: 0.75;
+}
+
+[data-theme="dark"] .form-floating > label {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .portal-option {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .portal-option.active {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .portal-option:hover:not(.active) {
+    background: var(--gray-100);
+    border-color: var(--border-strong);
+}
+
+[data-theme="dark"] .saas-table,
+[data-theme="dark"] .dashboard-table,
+[data-theme="dark"] .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--text-body);
+    --bs-table-border-color: var(--border-default);
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.02);
+    --bs-table-hover-bg: var(--gray-100);
+    --bs-table-hover-color: var(--text-body);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .table-light,
+[data-theme="dark"] .table > :not(caption) > * > * {
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .table-secondary {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .bg-light {
+    background-color: var(--gray-100) !important;
+    color: var(--text-body) !important;
+}
+
+[data-theme="dark"] .bg-white {
+    background-color: var(--surface) !important;
+}
+
+[data-theme="dark"] .text-dark {
+    color: var(--text-body) !important;
+}
+
+[data-theme="dark"] .text-muted {
+    color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .border,
+[data-theme="dark"] .border-top,
+[data-theme="dark"] .border-bottom,
+[data-theme="dark"] .border-start,
+[data-theme="dark"] .border-end {
+    border-color: var(--border-default) !important;
+}
+
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .modal-backdrop {
+    --bs-backdrop-bg: #000;
+    --bs-backdrop-opacity: 0.65;
+}
+
+[data-theme="dark"] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+[data-theme="dark"] .btn-light {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .btn-light:hover {
+    background: var(--gray-200);
+    border-color: var(--border-strong);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .btn-outline-secondary {
+    color: var(--gray-600);
+    border-color: var(--border-strong);
+}
+
+[data-theme="dark"] .btn-outline-secondary:hover {
+    background: var(--gray-100);
+    color: var(--text-body);
+    border-color: var(--border-strong);
+}
+
+[data-theme="dark"] .list-group-item {
+    background: var(--surface);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .list-group-item:hover {
+    background: var(--gray-100);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link {
+    color: var(--gray-500);
+    border-color: transparent;
+}
+
+[data-theme="dark"] .nav-tabs .nav-link:hover {
+    color: var(--text-body);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link.active {
+    background: var(--surface);
+    border-color: var(--border-default) var(--border-default) var(--surface);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .settings-nav .nav-link {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .settings-nav .nav-link:hover {
+    background: var(--gray-100);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .badge-default {
+    background: var(--gray-200);
+    color: var(--gray-600);
+}
+
+[data-theme="dark"] .empty-state {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .notification-dot {
+    border-color: var(--surface-raised);
+}
+
+[data-theme="dark"] .profile-name {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .profile-role,
+[data-theme="dark"] .topbar-page-subtitle {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .topbar-page-title {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .topbar {
+    border-bottom-color: var(--border-default);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .dash-stat-card,
+[data-theme="dark"] .metric-card,
+[data-theme="dark"] .saas-card {
+    box-shadow: var(--shadow);
+}
+
+[data-theme="dark"] .dash-stat-card:hover,
+[data-theme="dark"] .metric-card:hover {
+    box-shadow: var(--shadow-lg);
+}
+
+/* Sidebar stays dark navy in both themes — subtle dark-mode refinement */
+[data-theme="dark"] .sidebar {
+    background: #080f18;
+    border-right-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .sidebar-company-switch__select option {
+    background: #1a2433;
+    color: var(--text-body);
+}
+
+/* Auth visual panel */
+[data-theme="dark"] .auth-visual {
+    background: linear-gradient(135deg, #060d16 0%, #0c1828 50%, #0f2a32 100%);
+}
+
+/* FullCalendar */
+[data-theme="dark"] .fc {
+    --fc-border-color: var(--border-default);
+    --fc-page-bg-color: var(--surface);
+    --fc-neutral-bg-color: var(--surface-sunken);
+    --fc-list-event-hover-bg-color: var(--gray-100);
+    --fc-today-bg-color: rgba(58, 175, 169, 0.1);
+}
+
+[data-theme="dark"] .fc .fc-toolbar-title,
+[data-theme="dark"] .fc .fc-col-header-cell-cushion,
+[data-theme="dark"] .fc .fc-daygrid-day-number {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .fc .fc-button-primary {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .fc .fc-button-primary:hover,
+[data-theme="dark"] .fc .fc-button-primary:not(:disabled).fc-button-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+/* Alerts — keep semantic colors, soften backgrounds */
+[data-theme="dark"] .alert-success {
+    background: rgba(16, 185, 129, 0.14);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #6ee7b7;
+}
+
+[data-theme="dark"] .alert-warning {
+    background: rgba(245, 158, 11, 0.14);
+    border-color: rgba(245, 158, 11, 0.35);
+    color: #fcd34d;
+}
+
+[data-theme="dark"] .alert-danger {
+    background: rgba(239, 68, 68, 0.14);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .alert-info {
+    background: rgba(59, 130, 246, 0.14);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #93c5fd;
+}
+
+/* Case workspace */
+[data-theme="dark"] .case-back-link {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .case-workspace-header {
+    border-bottom-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-workspace-title {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-toolbar,
+[data-theme="dark"] .case-doc-toolbar,
+[data-theme="dark"] .case-timeline-item,
+[data-theme="dark"] .case-file-item,
+[data-theme="dark"] .case-letter-preview,
+[data-theme="dark"] .case-tab-content,
+[data-theme="dark"] .case-sidebar-panel,
+[data-theme="dark"] .case-meta-card,
+[data-theme="dark"] .case-notes-box,
+[data-theme="dark"] .case-activity-feed,
+[data-theme="dark"] .case-invoice-row,
+[data-theme="dark"] .case-payment-row,
+[data-theme="dark"] .case-appointment-row {
+    background: var(--surface) !important;
+    border-color: var(--border-default) !important;
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-toolbar,
+[data-theme="dark"] .case-doc-toolbar {
+    background: var(--surface-sunken) !important;
+}
+
+[data-theme="dark"] .case-nav-tabs .nav-link {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .case-nav-tabs .nav-link.active {
+    color: var(--primary);
+    background: var(--surface);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-status-pill,
+[data-theme="dark"] .case-priority-pill {
+    border-color: var(--border-default);
+}
+
+/* ── AI Chatbot (full workspace) ──────────────────────────── */
+[data-theme="dark"] .chatbot-panel-chat,
+[data-theme="dark"] .chatbot-workspace-grid .saas-card,
+[data-theme="dark"] .chatbot-sidebar,
+[data-theme="dark"] .chatbot-panel,
+[data-theme="dark"] .chatbot-panel .saas-card-header,
+[data-theme="dark"] .chatbot-input-area,
+[data-theme="dark"] .chat-bubble,
+[data-theme="dark"] .chat-prompt-btn,
+[data-theme="dark"] .chat-msg-action-btn,
+[data-theme="dark"] .chat-attach-chip {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .chatbot-messages {
+    background: var(--surface-sunken) !important;
+}
+
+[data-theme="dark"] .chatbot-sidebar-title,
+[data-theme="dark"] .chat-history-title {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .chat-history-meta,
+[data-theme="dark"] .chat-history-preview,
+[data-theme="dark"] .chat-capabilities li,
+[data-theme="dark"] .chatbot-input-hint {
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .chat-history-item:hover,
+[data-theme="dark"] .chat-history-item.is-active {
+    background: var(--primary-light) !important;
+}
+
+[data-theme="dark"] .chat-bubble {
+    border-color: var(--border-subtle);
+    box-shadow: var(--shadow);
+}
+
+[data-theme="dark"] .chat-message-user .chat-bubble {
+    background: var(--primary) !important;
+    border-color: transparent;
+    color: #fff;
+}
+
+[data-theme="dark"] .chat-message-bot .chat-bubble,
+[data-theme="dark"] .chat-welcome .chat-bubble {
+    background: var(--surface-raised) !important;
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .chat-prompt-btn:hover {
+    background: var(--primary-light) !important;
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .chatbot-form .form-control {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .chatbot-form .form-control:focus {
+    background: var(--surface);
+    border-color: var(--primary);
+    box-shadow: var(--focus-ring);
+}
+
+[data-theme="dark"] .chat-msg-action-btn:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .chat-bubble .chat-link {
+    color: var(--primary);
+}
+
+[data-theme="dark"] body.page-chatbot .chatbot-sidebar-open {
+    background: var(--surface);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+/* Headings on dark surfaces — brand secondary is too dark to read */
+[data-theme="dark"] .saas-card-title,
+[data-theme="dark"] .page-title,
+[data-theme="dark"] .page-header h1,
+[data-theme="dark"] .metric-value,
+[data-theme="dark"] .case-workspace-title,
+[data-theme="dark"] .settings-section-title,
+[data-theme="dark"] .invoice-title,
+[data-theme="dark"] .table-toolbar-title {
+    color: var(--heading-color);
+}
+
+/* KPI / stat cards */
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .kpi-card:hover,
+[data-theme="dark"] .kpi-card:focus,
+[data-theme="dark"] .kpi-card:active,
+[data-theme="dark"] .kpi-card:visited,
+[data-theme="dark"] .dashboard-kpi-row a.stat-card {
+    background-color: var(--surface) !important;
+    border-color: var(--border-default);
+    color: var(--gray-600);
+}
+
+[data-theme="dark"] .dash-stat-label {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .dash-stat-value {
+    color: var(--text-label);
+}
+
+/* Soft buttons */
+[data-theme="dark"] .btn-soft {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .btn-soft:hover,
+[data-theme="dark"] .btn-soft:focus {
+    background: var(--primary);
+    color: #fff;
+}
+
+[data-theme="dark"] .btn-soft-danger {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+/* Badges */
+[data-theme="dark"] .badge.bg-light,
+[data-theme="dark"] .badge.bg-light.text-dark {
+    background-color: var(--gray-200) !important;
+    color: var(--text-body) !important;
+}
+
+/* Forms — unified focus */
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus {
+    box-shadow: var(--focus-ring);
+}
+
+/* Settings & reports panels */
+[data-theme="dark"] .settings-nav-card,
+[data-theme="dark"] .settings-panel,
+[data-theme="dark"] .report-card,
+[data-theme="dark"] .invoice-card,
+[data-theme="dark"] .invoice-preview-panel,
+[data-theme="dark"] .payment-card,
+[data-theme="dark"] .client-detail-card,
+[data-theme="dark"] .table-card,
+[data-theme="dark"] .content-card,
+[data-theme="dark"] .panel-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .case-billing-summary.bg-light {
+    background: var(--surface-sunken) !important;
+    color: var(--text-body);
+}
+
+/* Appointment legend */
+.appointment-legend-dot {
+    display: inline-block;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    margin-right: 0.35rem;
+    vertical-align: middle;
+}
+
+.appointment-legend-dot--scheduled { background: var(--primary); }
+.appointment-legend-dot--confirmed { background: var(--success); }
+.appointment-legend-dot--rescheduled { background: #8b5cf6; }
+.appointment-legend-dot--past { background: var(--warning); }
+.appointment-legend-dot--completed { background: var(--gray-400); }
+.appointment-legend-dot--cancelled { background: var(--danger); }
+
+.appointment-calendar-legend i.appointment-legend-dot {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+/* Online status badge in chatbot — light mode matches Bootstrap success badge */
+:root:not([data-theme="dark"]) .chatbot-status-badge {
+    background: rgba(16, 185, 129, 0.12) !important;
+    color: #047857 !important;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    font-weight: 600;
+}
+
+[data-theme="dark"] .chatbot-status-badge {
+    background: rgba(16, 185, 129, 0.14) !important;
+    color: #6ee7b7 !important;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    font-weight: 600;
+}
+
+/* intl-tel-input */
+[data-theme="dark"] .iti__country-list {
+    background: var(--surface-overlay);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .iti__country.iti__highlight {
+    background: var(--gray-100);
+}
+
+[data-theme="dark"] .iti__selected-flag {
+    background: var(--surface-sunken);
+}
+
+/* Cropper modal */
+[data-theme="dark"] .cropper-view-box,
+[data-theme="dark"] .cropper-face {
+    outline-color: var(--primary);
+}
+
+/* Scrollbars (webkit) */
+[data-theme="dark"] ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: var(--surface-sunken);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-400);
+}
+
+/* Case workspace — remaining semantic tones */
+[data-theme="dark"] .case-timeline-icon.tone-gray {
+    background: var(--gray-200);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-workspace .case-panel,
+[data-theme="dark"] .case-workspace .case-sidebar-card,
+[data-theme="dark"] .case-workspace .case-detail-card,
+[data-theme="dark"] .case-workspace .case-doc-card,
+[data-theme="dark"] .case-workspace .case-letter-card,
+[data-theme="dark"] .case-workspace .case-invoice-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+}
+
+/* Metric cards */
+[data-theme="dark"] .metric-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .metric-card .metric-value {
+    color: var(--heading-color);
+}
+
+/* Notification dropdown consistency */
+[data-theme="dark"] .notification-dropdown,
+[data-theme="dark"] .notification-item,
+[data-theme="dark"] .notification-list-item {
+    color: var(--text-body);
+}
+
+/* Table toolbar */
+[data-theme="dark"] .table-toolbar,
+[data-theme="dark"] .saas-table-wrap {
+    background: var(--surface);
+    border-color: var(--border-default);
+}
+
+/* Page headers */
+[data-theme="dark"] .page-header {
+    border-color: var(--border-default);
+}
+
+/* ── Critical text contrast fixes (brand --secondary is dark navy) ── */
+[data-theme="dark"] .table-primary,
+[data-theme="dark"] .table-secondary,
+[data-theme="dark"] .case-cell strong,
+[data-theme="dark"] .case-cell small,
+[data-theme="dark"] .client-address-line,
+[data-theme="dark"] .client-address-line-primary,
+[data-theme="dark"] .cases-table-link .case-cell strong,
+[data-theme="dark"] .saas-table tbody td,
+[data-theme="dark"] .saas-table tbody td strong,
+[data-theme="dark"] .dashboard-table .table-secondary,
+[data-theme="dark"] .settings-form-section__title,
+[data-theme="dark"] .settings-form-section__body .form-label,
+[data-theme="dark"] .dash-chart-title,
+[data-theme="dark"] .chart-legend-item-static,
+[data-theme="dark"] .appointment-calendar-wrap .fc-toolbar-title {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .table-secondary,
+[data-theme="dark"] .case-cell small,
+[data-theme="dark"] .client-address-line,
+[data-theme="dark"] .dash-stat-foot,
+[data-theme="dark"] .saas-card-subtitle {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .legend-dot-dark {
+    background: var(--chart-secondary);
+}
+
+[data-theme="dark"] .btn-period {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .btn-period.active {
+    background: var(--surface-raised) !important;
+    color: var(--text-label) !important;
+}
+
+[data-theme="dark"] .settings-form-section__header {
+    background: var(--surface-sunken) !important;
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .settings-tabs .nav-link {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .settings-tabs .nav-link.active {
+    color: var(--primary);
+    background: transparent;
+}
+
+/* Dashboard schedule / appointments inside chart cards */
+[data-theme="dark"] .schedule-item,
+[data-theme="dark"] .schedule-date,
+[data-theme="dark"] .schedule-info strong,
+[data-theme="dark"] .schedule-info span {
+    color: var(--text-body);
+    border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .schedule-item:hover {
+    background: var(--gray-100) !important;
+}
+
+/* AI chat — force dark surfaces (override any leftover white) */
+[data-theme="dark"] .chatbot-page .saas-card,
+[data-theme="dark"] .chatbot-page .saas-card-header,
+[data-theme="dark"] .chatbot-page .saas-card-body,
+[data-theme="dark"] .chatbot-panel-chat,
+[data-theme="dark"] .chatbot-panel-prompts,
+[data-theme="dark"] .chatbot-messages,
+[data-theme="dark"] .chatbot-input-area,
+[data-theme="dark"] .chatbot-sidebar,
+[data-theme="dark"] .chat-bubble:not(.chat-message-user .chat-bubble),
+[data-theme="dark"] .chat-prompt-btn,
+[data-theme="dark"] .chat-msg-action-btn {
+    background-color: var(--surface) !important;
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .chatbot-messages {
+    background-color: var(--surface-sunken) !important;
+}
+
+[data-theme="dark"] .chatbot-page .saas-card-header {
+    background: var(--surface-sunken) !important;
+    border-bottom: 1px solid var(--border-default);
+}
+
+[data-theme="dark"] .chat-message-user .chat-bubble {
+    background: var(--primary) !important;
+    border-color: transparent !important;
+    color: #fff !important;
+}
+
+[data-theme="dark"] .chat-welcome .chat-bubble strong,
+[data-theme="dark"] .chat-bubble p,
+[data-theme="dark"] .chat-bubble em {
+    color: inherit;
+}
+
+[data-theme="dark"] .chat-prompt-btn:hover {
+    background: var(--primary-light) !important;
+    color: var(--primary);
+}
+
+/* Payment / metric summary strip */
+[data-theme="dark"] .metric-card .metric-value,
+[data-theme="dark"] .payments-metric-card .metric-value {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .payments-metric-card,
+[data-theme="dark"] .stat-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .saas-pagination-nav .page-link {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .appointment-calendar-wrap .fc-button {
+    background: var(--surface) !important;
+    border-color: var(--border-default) !important;
+    color: var(--text-label) !important;
+}
+
+[data-theme="dark"] .appointment-calendar-wrap .fc-button:hover,
+[data-theme="dark"] .appointment-calendar-wrap .fc-button:focus {
+    background: var(--surface-sunken) !important;
+    color: var(--text-label) !important;
+}
+
+[data-theme="dark"] .appointment-calendar-wrap .fc-daygrid-day.fc-day-today {
+    background: var(--primary-light) !important;
+}
+
+[data-theme="dark"] .chart-legend-item-static {
+    color: var(--text-muted);
+}
+
+/* Global body & auth text — prevent camouflage on dark surfaces */
+[data-theme="dark"] body {
+    background-color: var(--layout-canvas);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .auth-form-header h2,
+[data-theme="dark"] .auth-form-panel h2 {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .auth-form-header p,
+[data-theme="dark"] .auth-form-panel > p,
+[data-theme="dark"] .auth-footer p {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .auth-link {
+    color: var(--primary);
+}
+
+[data-theme="dark"] .auth-link:hover {
+    color: var(--primary-dark, #2d8f8a);
+}
+
+[data-theme="dark"] .portal-subtitle,
+[data-theme="dark"] #portalSubtitle {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .form-label,
+[data-theme="dark"] label {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .dropdown-item-text {
+    color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .notification-content strong,
+[data-theme="dark"] .notif-body strong {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .chart-empty-state,
+[data-theme="dark"] .chart-empty-hint {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .chart-empty-state i {
+    color: var(--gray-400);
+}
+
+/* Chatbot status icon */
+.chatbot-status-icon {
+    font-size: 0.5rem;
+}
+
+/* Dividers & subtle borders */
+[data-theme="dark"] .dropdown-divider,
+[data-theme="dark"] hr {
+    border-color: var(--border-default);
+    opacity: 1;
+}
+
+[data-theme="dark"] .appointment-calendar-legend {
+    border-top-color: var(--border-default);
+}
+
+/* Accordion */
+[data-theme="dark"] .accordion-item {
+    background: var(--surface);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .accordion-button {
+    background: var(--surface-sunken);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .accordion-button:not(.collapsed) {
+    background: var(--surface);
+    color: var(--primary);
+    box-shadow: inset 0 -1px 0 var(--border-default);
+}
+
+[data-theme="dark"] .accordion-button::after {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+[data-theme="dark"] .accordion-body {
+    background: var(--surface);
+    color: var(--text-body);
+}
+
+/* Input groups & search */
+[data-theme="dark"] .input-group .form-control {
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .table-toolbar-search .form-control,
+[data-theme="dark"] .topbar-search .form-control {
+    background: var(--surface-sunken);
+    color: var(--text-body);
+}
+
+/* Pagination active state */
+[data-theme="dark"] .saas-pagination-nav .page-item.active .page-link {
+    color: #fff;
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+/* Notification preferences panel */
+[data-theme="dark"] .notification-pref-panel,
+[data-theme="dark"] .notification-pref-item {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+/* Role permissions / settings roles */
+[data-theme="dark"] .role-permission-matrix th,
+[data-theme="dark"] .role-permission-matrix td,
+[data-theme="dark"] .role-category-card,
+[data-theme="dark"] .role-editor-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .role-permission-matrix thead th {
+    background: var(--surface-sunken) !important;
+    color: var(--text-label);
+}
+
+/* Case form controls — override hardcoded #fff in case-workspace.css */
+[data-theme="dark"] .case-form .case-form-control,
+[data-theme="dark"] .case-form select.case-form-control,
+[data-theme="dark"] .case-form textarea.case-form-control,
+[data-theme="dark"] .case-form-control {
+    background-color: var(--surface-sunken) !important;
+    border-color: var(--border-default) !important;
+    color: var(--text-body) !important;
+}
+
+[data-theme="dark"] .case-form-label,
+[data-theme="dark"] .case-form .form-label {
+    color: var(--text-label);
+}
+
+/* Case workspace — hardcoded light surfaces */
+[data-theme="dark"] .case-workspace,
+[data-theme="dark"] .case-workspace-header,
+[data-theme="dark"] .case-detail-grid,
+[data-theme="dark"] .case-mini-card,
+[data-theme="dark"] .case-billing-overview-section,
+[data-theme="dark"] .case-billing-overview-section-head,
+[data-theme="dark"] .case-billing-overview-section-rate,
+[data-theme="dark"] .case-billing-overview-table thead th,
+[data-theme="dark"] .case-billing-overview-table tfoot td,
+[data-theme="dark"] .case-billing-overview-grand,
+[data-theme="dark"] .case-doc-card,
+[data-theme="dark"] .case-doc-list-item,
+[data-theme="dark"] .case-letter-card,
+[data-theme="dark"] .case-letter-preview,
+[data-theme="dark"] .case-invoice-card,
+[data-theme="dark"] .case-payment-card,
+[data-theme="dark"] .case-appointment-card,
+[data-theme="dark"] .case-sidebar-card,
+[data-theme="dark"] .case-detail-card,
+[data-theme="dark"] .case-notes-panel,
+[data-theme="dark"] .case-activity-item,
+[data-theme="dark"] .case-timeline-content,
+[data-theme="dark"] .case-file-dropzone {
+    background: var(--surface) !important;
+    border-color: var(--border-default) !important;
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .case-billing-overview-section-head,
+[data-theme="dark"] .case-billing-overview-table tfoot td,
+[data-theme="dark"] .case-toolbar,
+[data-theme="dark"] .case-doc-toolbar {
+    background: var(--surface-sunken) !important;
+}
+
+[data-theme="dark"] .case-billing-overview-grand {
+    background: linear-gradient(135deg, rgba(58, 175, 169, 0.12) 0%, var(--surface-sunken) 100%) !important;
+    border-color: rgba(58, 175, 169, 0.35) !important;
+}
+
+[data-theme="dark"] .case-billing-overview-grand strong,
+[data-theme="dark"] .case-billing-overview-section-title,
+[data-theme="dark"] .case-detail-item strong,
+[data-theme="dark"] .case-mini-activity-item strong,
+[data-theme="dark"] .case-timeline-title,
+[data-theme="dark"] .case-doc-name,
+[data-theme="dark"] .case-invoice-number {
+    color: var(--text-label);
+}
+
+[data-theme="dark"] .case-billing-overview-section-rate,
+[data-theme="dark"] .case-detail-item span,
+[data-theme="dark"] .case-mini-activity-item small,
+[data-theme="dark"] .case-doc-list small,
+[data-theme="dark"] .case-timeline-meta,
+[data-theme="dark"] .case-back-link {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-timeline-icon.tone-gray {
+    background: var(--gray-200);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .case-file-dropzone {
+    background: var(--surface-sunken) !important;
+    border-style: dashed;
+}
+
+[data-theme="dark"] .case-file-dropzone:hover {
+    background: var(--primary-light) !important;
+    border-color: var(--primary);
+}
+
+/* Document preview — keep light paper for readability */
+[data-theme="dark"] .case-letter-preview-frame,
+[data-theme="dark"] .invoice-print-preview,
+[data-theme="dark"] .document-preview-paper {
+    background: #ffffff !important;
+    color: #1e293b !important;
+}
+
+/* Cropper */
+[data-theme="dark"] .cropper-bg {
+    background: var(--surface-sunken);
+}
+
+/* Client portal contact */
+[data-theme="dark"] .contact-hours-card,
+[data-theme="dark"] .contact-info-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+}
+
+/* Full page chatbot layout */
+[data-theme="dark"] body.page-chatbot,
+[data-theme="dark"] body.page-chatbot .main-content,
+[data-theme="dark"] body.page-chatbot .page-content {
+    background: var(--layout-canvas) !important;
+}
+
+[data-theme="dark"] .chat-history-item {
+    color: var(--text-body);
+    border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .chat-typing-indicator {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .chatbot-new-btn,
+[data-theme="dark"] .chatbot-new-chat-btn {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-color: transparent;
+}
+
+[data-theme="dark"] .chatbot-new-btn:hover,
+[data-theme="dark"] .chatbot-new-chat-btn:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+[data-theme="dark"] .chatbot-sidebar-title {
+    color: var(--text-label);
+}
+
+/* Select2 / bootstrap overrides */
+[data-theme="dark"] .form-check-input {
+    background-color: var(--surface-sunken);
+    border-color: var(--border-strong);
+}
+
+[data-theme="dark"] .form-check-input:checked {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+[data-theme="dark"] .form-switch .form-check-input {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23c5ced9'/%3e%3c/svg%3e");
+}
+
+/* Popover & tooltip */
+[data-theme="dark"] .popover {
+    background: var(--surface-overlay);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .popover-header {
+    background: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .popover-body {
+    color: var(--text-body);
+}

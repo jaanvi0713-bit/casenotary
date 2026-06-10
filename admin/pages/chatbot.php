@@ -49,7 +49,7 @@ require __DIR__ . '/../includes/header.php';
                             <p class="saas-card-subtitle mb-0">Chat naturally</p>
                         </div>
                     </div>
-                    <span class="badge bg-success"><i class="bi bi-circle-fill me-1" style="font-size:0.5rem"></i> Online</span>
+                    <span class="badge chatbot-status-badge"><i class="bi bi-circle-fill me-1 chatbot-status-icon"></i> Online</span>
                 </div>
                 <div class="saas-card-body p-0 chatbot-panel-body">
                     <div class="chatbot-messages" id="chatMessages">

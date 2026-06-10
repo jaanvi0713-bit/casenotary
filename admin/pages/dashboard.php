@@ -303,12 +303,32 @@ document.addEventListener("DOMContentLoaded", function() {
     const hasRevenueChart = ' . ($hasRevenueChartData ? 'true' : 'false') . ';
     const hasWeeklyChart = ' . ($hasWeeklyChartData ? 'true' : 'false') . ';
 
+    const chartTheme = function() {
+        return window.CaseNotaryTheme && window.CaseNotaryTheme.getChartTheme
+            ? window.CaseNotaryTheme.getChartTheme()
+            : {
+                tick: "#94a3b8",
+                grid: "rgba(0,24,44,0.06)",
+                pointBorder: "#ffffff",
+                gradSecondaryStart: "rgba(0, 24, 44, 0.18)",
+                gradSecondaryEnd: "rgba(0, 24, 44, 0.01)",
+                gradPrimaryStart: "rgba(58, 175, 169, 0.25)",
+                gradPrimaryEnd: "rgba(58, 175, 169, 0.02)",
+                tooltipBg: null
+            };
+    };
+
     const areaCtx = document.getElementById("revenueChart");
     let areaChart = null;
+    let areaChartState = { labels: monthLabels, revData: invoiceData, payData: revenueData };
 
     function buildAreaChart(labels, revData, payData) {
         if (!areaCtx) return;
+        areaChartState = { labels: labels, revData: revData, payData: payData };
         if (areaChart) areaChart.destroy();
+
+        const theme = chartTheme();
+        const tooltipBg = theme.tooltipBg || secondary;
 
         areaChart = new Chart(areaCtx, {
             type: "line",
@@ -318,11 +338,11 @@ document.addEventListener("DOMContentLoaded", function() {
                     {
                         label: "Total Revenue",
                         data: revData,
-                        borderColor: secondary,
+                        borderColor: theme.revenueLineColor || secondary,
                         backgroundColor: function(ctx) {
                             const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 280);
-                            g.addColorStop(0, "rgba(0, 24, 44, 0.18)");
-                            g.addColorStop(1, "rgba(0, 24, 44, 0.01)");
+                            g.addColorStop(0, theme.gradSecondaryStart);
+                            g.addColorStop(1, theme.gradSecondaryEnd);
                             return g;
                         },
                         borderWidth: 2.5,
@@ -330,7 +350,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         tension: 0.4,
                         pointRadius: labels.length > 1 ? 4 : 6,
                         pointBackgroundColor: secondary,
-                        pointBorderColor: "#fff",
+                        pointBorderColor: theme.pointBorder,
                         pointBorderWidth: 2,
                         pointHoverRadius: 6
                     },
@@ -340,8 +360,8 @@ document.addEventListener("DOMContentLoaded", function() {
                         borderColor: primary,
                         backgroundColor: function(ctx) {
                             const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 280);
-                            g.addColorStop(0, "rgba(58, 175, 169, 0.25)");
-                            g.addColorStop(1, "rgba(58, 175, 169, 0.02)");
+                            g.addColorStop(0, theme.gradPrimaryStart);
+                            g.addColorStop(1, theme.gradPrimaryEnd);
                             return g;
                         },
                         borderWidth: 2.5,
@@ -349,7 +369,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         tension: 0.4,
                         pointRadius: labels.length > 1 ? 4 : 6,
                         pointBackgroundColor: primary,
-                        pointBorderColor: "#fff",
+                        pointBorderColor: theme.pointBorder,
                         pointBorderWidth: 2,
                         pointHoverRadius: 6
                     }
@@ -363,7 +383,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: secondary,
+                        backgroundColor: tooltipBg,
                         padding: 12,
                         cornerRadius: 8,
                         titleFont: { family: "Montserrat", size: 12 },
@@ -381,7 +401,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         border: { display: false },
                         ticks: {
                             font: { family: "Montserrat", size: 11 },
-                            color: "#94a3b8",
+                            color: theme.tick,
                             maxRotation: 0,
                             autoSkip: true,
                             maxTicksLimit: window.innerWidth < 576 ? 4 : 7
@@ -389,11 +409,11 @@ document.addEventListener("DOMContentLoaded", function() {
                     },
                     y: {
                         beginAtZero: true,
-                        grid: { color: "rgba(0,24,44,0.06)" },
+                        grid: { color: theme.grid },
                         border: { display: false },
                         ticks: {
                             font: { family: "Montserrat", size: 11 },
-                            color: "#94a3b8",
+                            color: theme.tick,
                             padding: 6,
                             maxTicksLimit: 6,
                             callback: function(v) { return formatAxisMoney(v); }
@@ -426,8 +446,16 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     const barCtx = document.getElementById("weeklyChart");
-    if (hasWeeklyChart && barCtx) {
-        new Chart(barCtx, {
+    let barChart = null;
+
+    function buildBarChart() {
+        if (!barCtx) return;
+        if (barChart) barChart.destroy();
+
+        const theme = chartTheme();
+        const tooltipBg = theme.tooltipBg || secondary;
+
+        barChart = new Chart(barCtx, {
             type: "bar",
             data: {
                 labels: weekLabels,
@@ -459,7 +487,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: secondary,
+                        backgroundColor: tooltipBg,
                         cornerRadius: 8,
                         callbacks: {
                             label: function(c) {
@@ -475,7 +503,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         border: { display: false },
                         ticks: {
                             font: { family: "Montserrat", size: 10 },
-                            color: "#94a3b8",
+                            color: theme.tick,
                             maxRotation: 0,
                             autoSkip: true,
                             maxTicksLimit: window.innerWidth < 576 ? 4 : 7
@@ -484,11 +512,11 @@ document.addEventListener("DOMContentLoaded", function() {
                     y: {
                         stacked: true,
                         beginAtZero: true,
-                        grid: { color: "rgba(0,24,44,0.06)" },
+                        grid: { color: theme.grid },
                         border: { display: false },
                         ticks: {
                             font: { family: "Montserrat", size: 11 },
-                            color: "#94a3b8",
+                            color: theme.tick,
                             padding: 6,
                             maxTicksLimit: 6,
                             callback: function(v) { return formatAxisMoney(v); }
@@ -498,6 +526,19 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
     }
+
+    if (hasWeeklyChart && barCtx) {
+        buildBarChart();
+    }
+
+    window.addEventListener("themechange", function() {
+        if (hasRevenueChart && areaCtx) {
+            buildAreaChart(areaChartState.labels, areaChartState.revData, areaChartState.payData);
+        }
+        if (hasWeeklyChart && barCtx) {
+            buildBarChart();
+        }
+    });
 
     const searchInput = document.getElementById("caseTableSearch");
     const statusFilter = document.getElementById("caseStatusFilter");

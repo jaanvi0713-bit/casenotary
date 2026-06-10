@@ -10,6 +10,7 @@ $headerCsrfName = (require __DIR__ . '/../config/config.php')['security']['csrf_
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php require __DIR__ . '/theme-head.php'; ?>
     <meta name="csrf-token" content="<?= e(CSRF::generateToken()) ?>">
     <title><?= e($pageTitle ?? 'Dashboard') ?> — <?= e(companyBrandName($company)) ?></title>
     <?= renderFaviconTags($company) ?>
@@ -17,6 +18,7 @@ $headerCsrfName = (require __DIR__ . '/../config/config.php')['security']['csrf_
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="<?= asset('css/app.css') ?>" rel="stylesheet">
+    <link href="<?= asset('css/theme.css') ?>" rel="stylesheet">
     <?php if (!empty($pageStyles)): ?>
         <?= $pageStyles ?>
     <?php endif; ?>
@@ -54,6 +56,7 @@ $headerCsrfName = (require __DIR__ . '/../config/config.php')['security']['csrf_
                 </div>
 
                 <div class="topbar-actions">
+                    <?php require __DIR__ . '/theme-toggle.php'; ?>
                     <div
                         id="topbarNotifications"
                         class="dropdown topbar-dropdown"
