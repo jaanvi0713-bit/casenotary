@@ -436,6 +436,11 @@ class Auth
             return ['success' => false, 'message' => 'Invalid or expired reset token.'];
         }
 
+        $strengthError = passwordStrengthError($newPassword);
+        if ($strengthError !== null) {
+            return ['success' => false, 'message' => $strengthError];
+        }
+
         $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
 
         Database::query('UPDATE users SET password = ? WHERE email = ?', [$hashedPassword, $email]);

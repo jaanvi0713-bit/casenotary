@@ -77,7 +77,7 @@ require __DIR__ . '/../includes/header.php';
         </form>
         <hr class="my-4">
         <h3 class="h6 mb-3">Change password</h3>
-        <form method="post" action="<?= url('actions/profile-action.php') ?>" class="row g-3">
+        <form method="post" action="<?= url('actions/profile-action.php') ?>" class="row g-3 js-password-strength-form">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="change_password">
             <div class="col-md-4">
@@ -92,7 +92,7 @@ require __DIR__ . '/../includes/header.php';
                 <?php renderPasswordRevealField('new_password', 'new_password', [
                     'required' => true,
                     'autocomplete' => 'new-password',
-                    'minlength' => 8,
+                    'strength' => true,
                 ]); ?>
             </div>
             <div class="col-md-4">
@@ -102,6 +102,9 @@ require __DIR__ . '/../includes/header.php';
                     'autocomplete' => 'new-password',
                     'minlength' => 8,
                 ]); ?>
+            </div>
+            <div class="col-12">
+                <?php renderPasswordStrengthHint(); ?>
             </div>
             <div class="col-12">
                 <button type="submit" class="btn btn-outline-primary">Update password</button>

@@ -51,7 +51,7 @@ require __DIR__ . '/../includes/header.php';
 
         <hr>
 
-        <form method="post" action="<?= clientUrl('actions/profile-action.php') ?>">
+        <form method="post" action="<?= clientUrl('actions/profile-action.php') ?>" class="js-password-strength-form">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="change_password">
             <h3 class="h6 mb-3">Change password</h3>
@@ -74,7 +74,11 @@ require __DIR__ . '/../includes/header.php';
                     <div class="login-pw-field">
                         <div class="login-pw-input-wrap">
                             <input type="text" name="new_password" id="new_password"
-                                   class="form-control login-pw-input login-pw-masked" required autocomplete="new-password" spellcheck="false">
+                                   class="form-control login-pw-input login-pw-masked" required autocomplete="new-password" spellcheck="false"
+                                   minlength="8"
+                                   pattern="<?= e(passwordStrengthPattern()) ?>"
+                                   title="<?= e(passwordStrengthHint()) ?>"
+                                   data-password-strength>
                             <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
                                 <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
                                 <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
@@ -87,7 +91,8 @@ require __DIR__ . '/../includes/header.php';
                     <div class="login-pw-field">
                         <div class="login-pw-input-wrap">
                             <input type="text" name="new_password_confirmation" id="new_password_confirmation"
-                                   class="form-control login-pw-input login-pw-masked" required autocomplete="new-password" spellcheck="false">
+                                   class="form-control login-pw-input login-pw-masked" required autocomplete="new-password" spellcheck="false"
+                                   minlength="8">
                             <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
                                 <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
                                 <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
@@ -96,7 +101,7 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
             </div>
-            <div class="form-text">At least 8 characters with uppercase, lowercase, and a number.</div>
+            <?php renderPasswordStrengthHint('form-text'); ?>
             <div class="mt-4">
                 <button type="submit" class="btn btn-soft btn-sm">Update Password</button>
             </div>

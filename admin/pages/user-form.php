@@ -58,7 +58,7 @@ if ($isEdit && $firstName === '' && $lastName === '' && !empty($user['display_na
         </div>
     </div>
 
-    <form method="post" action="<?= url('actions/user-action.php') ?>" class="case-form">
+    <form method="post" action="<?= url('actions/user-action.php') ?>" class="case-form js-password-strength-form">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="<?= $isEdit ? 'update_user' : 'create_user' ?>">
         <?php if ($isEdit && !$canEditUsers): ?>
@@ -134,8 +134,10 @@ if ($isEdit && $firstName === '' && $lastName === '' && !empty($user['display_na
                             'required' => !$isEdit,
                             'disabled' => !$canEditUsers,
                             'autocomplete' => 'new-password',
-                            'minlength' => $isEdit ? 0 : 8,
+                            'strength' => true,
+                            'strength_optional' => $isEdit,
                         ]); ?>
+                        <?php renderPasswordStrengthHint('form-text mt-1 mb-0', $isEdit); ?>
                     </div>
                     <?php if (!$isEdit): ?>
                         <div class="col-12">

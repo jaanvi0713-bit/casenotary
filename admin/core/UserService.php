@@ -140,8 +140,9 @@ class UserService
         }
 
         $password = (string) ($data['password'] ?? '');
-        if (strlen($password) < 8) {
-            return ['success' => false, 'message' => 'Password must be at least 8 characters.'];
+        $strengthError = passwordStrengthError($password);
+        if ($strengthError !== null) {
+            return ['success' => false, 'message' => $strengthError];
         }
 
         $nameFields = self::normalizeNameFields($data);
@@ -238,8 +239,9 @@ class UserService
 
         $password = (string) ($data['password'] ?? '');
         if ($password !== '') {
-            if (strlen($password) < 8) {
-                return ['success' => false, 'message' => 'Password must be at least 8 characters.'];
+            $strengthError = passwordStrengthError($password);
+            if ($strengthError !== null) {
+                return ['success' => false, 'message' => $strengthError];
             }
             $sets[] = 'password = ?';
             $params[] = password_hash($password, PASSWORD_BCRYPT);

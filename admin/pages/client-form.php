@@ -42,7 +42,7 @@ require __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-    <form method="post" action="<?= url('actions/client-action.php') ?>" class="case-form">
+    <form method="post" action="<?= url('actions/client-action.php') ?>" class="case-form js-password-strength-form">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="<?= $isEdit ? 'update_client' : 'create_client' ?>">
         <?php if ($isEdit): ?>
@@ -161,15 +161,16 @@ require __DIR__ . '/../includes/header.php';
                                        spellcheck="false"
                                        minlength="8" autocomplete="new-password" required
                                        data-lpignore="true" data-1p-ignore="true"
-                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                                       pattern="<?= e(passwordStrengthPattern()) ?>"
+                                       title="<?= e(passwordStrengthHint()) ?>"
+                                       data-password-strength>
                                 <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
                                     <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
                                     <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
                                 </button>
                             </div>
                         </div>
-                        <p class="text-muted small mb-0 mt-1">Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).</p>
+                        <?php renderPasswordStrengthHint('text-muted small mb-0 mt-1'); ?>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
@@ -216,15 +217,16 @@ require __DIR__ . '/../includes/header.php';
                                        spellcheck="false"
                                        minlength="8" autocomplete="new-password" required
                                        data-lpignore="true" data-1p-ignore="true"
-                                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                                       title="Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).">
+                                       pattern="<?= e(passwordStrengthPattern()) ?>"
+                                       title="<?= e(passwordStrengthHint()) ?>"
+                                       data-password-strength>
                                 <button type="button" class="login-pw-reveal" aria-label="Show password" aria-pressed="false" title="Show password">
                                     <i class="bi bi-eye login-pw-icon-show" aria-hidden="true"></i>
                                     <i class="bi bi-eye-slash login-pw-icon-hide" aria-hidden="true"></i>
                                 </button>
                             </div>
                         </div>
-                        <p class="text-muted small mb-0 mt-1">Password must be at least 8 characters, including uppercase(s), lowercase(s), and number(s).</p>
+                        <?php renderPasswordStrengthHint('text-muted small mb-0 mt-1'); ?>
                     </div>
                     <div class="col-md-6">
                         <label class="case-form-label" for="password_confirmation">Confirm Password <span class="text-danger">*</span></label>
@@ -263,22 +265,6 @@ require __DIR__ . '/../includes/header.php';
 $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.12/build/js/intlTelInput.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    function passwordStrengthError(value) {
-        if (value.length < 8) {
-            return "Password must be at least 8 characters.";
-        }
-        if (!/[A-Z]/.test(value)) {
-            return "Password must contain at least one uppercase letter.";
-        }
-        if (!/[a-z]/.test(value)) {
-            return "Password must contain at least one lowercase letter.";
-        }
-        if (!/[0-9]/.test(value)) {
-            return "Password must contain at least one number.";
-        }
-        return "";
-    }
-
     var form = document.querySelector(".case-form");
     var phoneInput = document.getElementById("phone");
     var iti = null;
@@ -337,7 +323,8 @@ document.addEventListener("DOMContentLoaded", function() {
             var pwdConfirm = document.getElementById("password_confirmation");
 
             if (loginCheckbox && loginCheckbox.checked && pwd) {
-                var strengthError = passwordStrengthError(pwd.value);
+                var checkStrength = window.passwordStrengthError || function() { return ""; };
+                var strengthError = checkStrength(pwd.value);
                 if (strengthError) {
                     e.preventDefault();
                     pwd.setCustomValidity(strengthError);
