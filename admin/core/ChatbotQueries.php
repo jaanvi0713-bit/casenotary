@@ -28,6 +28,11 @@ function getChatbotDefaultQuickPrompts(): array
         ['icon' => 'bi-bell', 'label' => 'Unread notifications', 'prompt' => 'Show unread notifications'],
         ['icon' => 'bi-file-earmark-text', 'label' => 'Draft client letter', 'prompt' => 'Draft a client letter about an upcoming appointment'],
         ['icon' => 'bi-question-circle', 'label' => 'What is an apostille?', 'prompt' => 'What is an apostille?'],
+        ['icon' => 'bi-clipboard-check', 'label' => 'Case checklist', 'prompt' => "What's missing on my latest active case?"],
+        ['icon' => 'bi-graph-up', 'label' => 'Revenue by month', 'prompt' => 'Revenue by month'],
+        ['icon' => 'bi-search', 'label' => 'Find documents', 'prompt' => 'Find documents with passport'],
+        ['icon' => 'bi-file-pdf', 'label' => 'Search PDF text', 'prompt' => 'Search PDFs for power of attorney'],
+        ['icon' => 'bi-pencil-square', 'label' => 'Update case status', 'prompt' => 'Set latest case status to in progress'],
     ];
 }
 
@@ -434,10 +439,10 @@ function chatbotReplyForCaseQueries(string $message): ?string
         $_SESSION['chatbot_last_topic'] = 'cases';
         $caseWhere = [];
         $caseParams = [];
-        TenantService::appendScope($caseWhere, $caseParams, 'cs');
+        chatbotAppendCaseScope($caseWhere, $caseParams, 'cs', 'cl');
         $caseWhereSql = $caseWhere === [] ? '' : (' WHERE ' . implode(' AND ', $caseWhere));
         $totalCases = (int) (Database::fetch(
-            'SELECT COUNT(*) AS c FROM cases cs' . $caseWhereSql,
+            'SELECT COUNT(*) AS c FROM cases cs JOIN clients cl ON cl.id = cs.client_id' . $caseWhereSql,
             $caseParams
         )['c'] ?? 0);
 
@@ -615,6 +620,54 @@ function chatbotIsDocumentDataQuery(string $normalized): bool
     );
 }
 
+function chatbotIsDashboardOrBriefingQuery(string $message): bool
+{
+    $normalized = strtolower(trim($message));
+
+    if (preg_match(
+        '/\b(morning briefing|daily briefing|start my day|today overview|good morning)\b/',
+        $normalized
+    )) {
+        return true;
+    }
+
+    if (preg_match(
+        '/\b(dashboard|business)\b.*\b(summary|overview|snapshot)\b|\b(summary|overview|snapshot)\b.*\b(dashboard|business)\b/',
+        $normalized
+    )) {
+        return true;
+    }
+
+    return (bool) preg_match(
+        '/\b(give me a dashboard|show (?:me )?(?:the )?dashboard|dashboard stats?)\b/',
+        $normalized
+    );
+}
+
+function chatbotReplyForDashboardSummary(string $message): ?string
+{
+    if (!chatbotIsDashboardOrBriefingQuery($message)) {
+        return null;
+    }
+
+    if (preg_match('/\b(morning briefing|daily briefing|start my day|today overview|good morning)\b/i', $message)) {
+        return null;
+    }
+
+    syncOverdueInvoices();
+    $stats = getDashboardStats();
+
+    $_SESSION['chatbot_last_topic'] = 'dashboard';
+
+    return "**Dashboard overview:**\n\n"
+        . '• **Clients:** ' . (int) $stats['total_clients'] . "\n"
+        . '• **Active cases:** ' . (int) $stats['active_cases'] . "\n"
+        . '• **Pending invoices:** ' . (int) $stats['pending_invoices'] . "\n"
+        . '• **Upcoming appointments:** ' . (int) $stats['upcoming_appointments'] . "\n"
+        . '• **Total revenue:** ' . formatCurrency((float) $stats['total_revenue']) . "\n"
+        . '• **This month:** ' . formatCurrency((float) ($stats['monthly_revenue'] ?? 0));
+}
+
 function chatbotReplyForMorningBriefing(string $message): ?string
 {
     if (!preg_match('/\b(morning briefing|daily briefing|start my day|today overview|good morning)\b/i', $message)) {
@@ -636,10 +689,10 @@ function chatbotReplyForMorningBriefing(string $message): ?string
         '• **Total revenue:** ' . formatCurrency($stats['total_revenue']),
     ];
 
-    if (!empty($ctx['next_appointment']['title'])) {
-        $appt = $ctx['next_appointment'];
-        $when = !empty($appt['start_time']) ? formatDateTime($appt['start_time']) : 'TBD';
-        $lines[] = '• **Next appointment:** ' . $appt['title'] . ' — ' . $when;
+    $nextAppt = $ctx['next_appointment'] ?? null;
+    if (is_array($nextAppt) && !empty($nextAppt['title'])) {
+        $when = !empty($nextAppt['start_time']) ? formatDateTime($nextAppt['start_time']) : 'TBD';
+        $lines[] = '• **Next appointment:** ' . $nextAppt['title'] . ' — ' . $when;
     }
 
     $overdueWhere = [invoiceStatusColumn() . " = 'overdue'"];
@@ -1113,10 +1166,24 @@ function chatbotReplyForSystemInsights(string $message): ?string
     }
 
     if (chatbotIsDocumentDataQuery($normalized)) {
-        if (preg_match('/\b(how many|count|number of)\b/', $normalized)) {
-            $count = (int) (Database::fetch('SELECT COUNT(*) AS c FROM documents')['c'] ?? 0);
+        $docSearch = chatbotReplyForDocumentSearch($message);
+        if ($docSearch !== null) {
+            return $docSearch;
+        }
 
-            return 'There are **' . $count . ' documents** uploaded across all cases.';
+        if (preg_match('/\b(how many|count|number of)\b/', $normalized)) {
+            $docWhere = ['1=1'];
+            $docParams = [];
+            chatbotAppendCaseScope($docWhere, $docParams, 'cs', 'cl');
+            $count = (int) (Database::fetch(
+                'SELECT COUNT(*) AS c FROM documents d
+                 JOIN cases cs ON cs.id = d.case_id
+                 JOIN clients cl ON cl.id = cs.client_id
+                 WHERE ' . implode(' AND ', $docWhere),
+                $docParams
+            )['c'] ?? 0);
+
+            return 'There are **' . $count . ' documents** uploaded across your accessible cases.';
         }
 
         $clients = findClientsForChatbot(chatbotNormalizeLookupTerm($message));
@@ -1124,13 +1191,18 @@ function chatbotReplyForSystemInsights(string $message): ?string
             return chatbotReplyForClientFocus((int) $clients[0]['id'], $message);
         }
 
+        $docWhere = ['1=1'];
+        $docParams = [];
+        chatbotAppendCaseScope($docWhere, $docParams, 'cs', 'cl');
         $rows = Database::fetchAll(
             'SELECT d.original_name, d.file_name, d.created_at, cs.case_number, cl.first_name, cl.last_name, cl.company_name
              FROM documents d
              JOIN cases cs ON cs.id = d.case_id
              JOIN clients cl ON cl.id = cs.client_id
+             WHERE ' . implode(' AND ', $docWhere) . '
              ORDER BY d.created_at DESC
-             LIMIT 12'
+             LIMIT 12',
+            $docParams
         );
 
         if ($rows === []) {
@@ -1154,15 +1226,9 @@ function chatbotReplyForSystemInsights(string $message): ?string
         return 'You have **' . $count . ' invoices** awaiting payment (pending, partial, or overdue).';
     }
 
-    if (preg_match('/\b(dashboard|summary|overview|snapshot)\b/', $normalized)) {
-        $_SESSION['chatbot_last_topic'] = 'dashboard';
-
-        return "**Dashboard overview:**\n\n"
-            . "• Clients: {$stats['total_clients']}\n"
-            . "• Active cases: {$stats['active_cases']}\n"
-            . "• Pending invoices: {$stats['pending_invoices']}\n"
-            . "• Upcoming appointments: {$stats['upcoming_appointments']}\n"
-            . "• Total revenue: " . formatCurrency($stats['total_revenue']);
+    $dashboardSummary = chatbotReplyForDashboardSummary($message);
+    if ($dashboardSummary !== null) {
+        return $dashboardSummary;
     }
 
     return null;

@@ -1161,6 +1161,28 @@ function paymentStatusColumn(): string
     return $column;
 }
 
+function documentExtensionColumn(): string
+{
+    static $column = null;
+
+    if ($column === null) {
+        if (Database::columnExists('documents', 'file_extension')) {
+            $column = 'file_extension';
+        } elseif (Database::columnExists('documents', 'file_type')) {
+            $column = 'file_type';
+        } else {
+            $column = 'file_extension';
+        }
+    }
+
+    return $column;
+}
+
+function documentExtensionSql(string $alias = 'd'): string
+{
+    return rtrim($alias, '.') . '.' . documentExtensionColumn();
+}
+
 /**
  * Insert a row using only columns that exist on the table.
  *
@@ -2881,6 +2903,20 @@ function appendAssignedCaseScope(array &$where, array &$params, string $alias = 
     }
 }
 
+function appendCaseTenantScope(array &$where, array &$params, string $caseAlias = 'cs', string $clientAlias = 'cl'): void
+{
+    if (!TenantService::isEnabled()) {
+        return;
+    }
+
+    $companyId = TenantService::id();
+    $caseCol = rtrim($caseAlias, '.') . '.company_id';
+    $clientCol = rtrim($clientAlias, '.') . '.company_id';
+    $where[] = "({$caseCol} = ? OR (COALESCE({$caseCol}, 0) = 0 AND {$clientCol} = ?))";
+    $params[] = $companyId;
+    $params[] = $companyId;
+}
+
 function countCases(?string $search = null, ?string $status = null, ?string $priority = null): int
 {
     $search = normalizeSearchTerm($search);
@@ -3096,11 +3132,11 @@ function getChatbotContext(): array
 
     $caseWhere = [];
     $caseParams = [];
-    TenantService::appendScope($caseWhere, $caseParams, 'cs');
+    chatbotAppendCaseScope($caseWhere, $caseParams, 'cs', 'cl');
     $caseWhereSql = $caseWhere === [] ? '' : (' WHERE ' . implode(' AND ', $caseWhere));
 
     $recentCases = Database::fetchAll(
-        "SELECT case_number, title, status FROM cases cs{$caseWhereSql} ORDER BY updated_at DESC LIMIT 5",
+        "SELECT cs.case_number, cs.title, cs.status FROM cases cs JOIN clients cl ON cl.id = cs.client_id{$caseWhereSql} ORDER BY cs.updated_at DESC LIMIT 5",
         $caseParams
     );
 
@@ -3143,7 +3179,7 @@ function getActiveCasesForChat(int $limit = 10): array
 {
     $where = ["cs.status IN ('pending', 'in_progress', 'waiting_for_client')"];
     $params = [];
-    TenantService::appendScope($where, $params, 'cs');
+    chatbotAppendCaseScope($where, $params, 'cs', 'cl');
     $params[] = $limit;
 
     return Database::fetchAll(
@@ -3407,7 +3443,7 @@ function findCasesForChatbot(string $term, int $limit = 10): array
             OR LOWER(CONCAT(cl.first_name, \' \', cl.last_name)) LIKE LOWER(?))',
     ];
     $params = [$like, $like, $like, $like, $like];
-    TenantService::appendScope($where, $params, 'cs');
+    chatbotAppendCaseScope($where, $params, 'cs', 'cl');
     $params[] = $limit;
 
     return Database::fetchAll(
@@ -3429,7 +3465,7 @@ function findCaseByNumberForChatbot(string $raw): ?array
 
     $where = ["UPPER(REPLACE(cs.case_number, ' ', '-')) LIKE ?"];
     $params = ['%' . $search . '%'];
-    TenantService::appendScope($where, $params, 'cs');
+    chatbotAppendCaseScope($where, $params, 'cs', 'cl');
 
     return Database::fetch(
         'SELECT cs.*, cl.first_name, cl.last_name, cl.company_name, cl.email, cl.phone

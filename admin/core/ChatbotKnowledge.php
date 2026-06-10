@@ -1003,7 +1003,10 @@ function chatbotReplyForDraftRequest(string $message): ?string
         return null;
     }
 
-    return chatbotTemplateDraftContent($message);
+    $draft = chatbotTemplateDraftContent($message);
+    chatbotRememberDraft($draft);
+
+    return $draft . "\n\n_Say **save draft to CASE-2026-0001** to apply as client instructions (confirm with yes)._";
 }
 
 function chatbotReplyForDefinitionRequest(string $message): ?string

@@ -40,7 +40,9 @@ function chatbotClearSession(): void
         $_SESSION['chatbot_last_topic'],
         $_SESSION['chatbot_last_entity'],
         $_SESSION['chatbot_history'],
-        $_SESSION['chatbot_appointment_pending']
+        $_SESSION['chatbot_appointment_pending'],
+        $_SESSION['chatbot_pending_action'],
+        $_SESSION['chatbot_last_draft']
     );
 }
 
@@ -80,9 +82,13 @@ function chatbotReplyForMetaQuestions(string $message): ?string
     if (preg_match('/\b(what can you do|what do you do|your capabilities|help me|are you chatgpt|like chatgpt)\b/', $normalized)) {
         return "I answer **any question about this system** — live data, how-tos, and general topics:\n\n"
             . "• **Live data** — clients, cases, invoices, payments, appointments, documents, notifications\n"
-            . "• **How-to** — *How do I add a client?*, *Where are settings?*, *Approve appointment requests*\n"
-            . "• **Search** — client names, case numbers, overdue invoices, revenue\n"
-            . "• **Follow-ups** — after a client profile, try *what about her invoices* or *list them*\n"
+            . "• **Case context** — *Summarize CASE-2026-0001*, *What's missing on this case?*\n"
+            . "• **Actions** — assign cases, update status, schedule/cancel/reschedule appointments, record payments (confirm with yes)\n"
+            . "• **Apply drafts** — draft instructions, then *save draft to CASE-2026-0001*\n"
+            . "• **Reports** — *Revenue by month*, *Cases closed this quarter*\n"
+            . "• **Document search** — filenames and **PDF text** (*search PDFs for affidavit*)\n"
+            . "• **Company FAQs** — fees, hours, policies (from Settings → AI Assistant)\n"
+            . "• **How-to** — *How do I add a client?*, *Where are settings?*\n"
             . "• **Notary help** — definitions, drafts, general advice (optional AI if configured)\n\n"
             . 'Ask in plain English — no special phrasing required.';
     }
@@ -197,14 +203,17 @@ function chatbotReplyForClientFocus(int $clientId, string $message): ?string
     }
 
     if (preg_match('/\b(case|cases|matter|matters)\b/', $normalized)) {
+        $caseWhere = ['cs.client_id = ?'];
+        $caseParams = [$clientId];
+        chatbotAppendCaseScope($caseWhere, $caseParams, 'cs', 'cl');
         $cases = Database::fetchAll(
-            "SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
+            'SELECT cs.case_number, cs.title, cs.status, cl.first_name, cl.last_name, cl.company_name
              FROM cases cs
              JOIN clients cl ON cl.id = cs.client_id
-             WHERE cs.client_id = ?
+             WHERE ' . implode(' AND ', $caseWhere) . '
              ORDER BY cs.updated_at DESC
-             LIMIT 10",
-            [$clientId]
+             LIMIT 10',
+            $caseParams
         );
 
         return formatChatbotCaseList($cases, "**Cases for {$name}:**");

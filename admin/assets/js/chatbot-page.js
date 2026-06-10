@@ -944,6 +944,26 @@
         promptCatalog = getAllPrompts();
         renderQuickPrompts();
 
+        async function loadInsights() {
+            if (!chatMessages) return;
+            const hasHistory = chatMessages.querySelector(".chat-message:not(.chat-welcome)");
+            if (hasHistory) return;
+
+            const formData = new FormData();
+            formData.append(csrfInput ? csrfInput.name : "_csrf_token", getCsrfToken());
+            formData.append("action", "insights");
+
+            try {
+                const res = await fetch(apiUrl, { method: "POST", body: formData, credentials: "same-origin" });
+                const data = await res.json();
+                if (data.success && data.message) {
+                    appendMessage(data.message, "bot");
+                }
+            } catch (e) {
+                // optional
+            }
+        }
+
         (async function init() {
             await loadConversations();
 
@@ -954,6 +974,8 @@
                 await openConversation(savedId);
             } else if (conversations.length) {
                 await openConversation(conversations[0].id);
+            } else {
+                await loadInsights();
             }
         })();
     });

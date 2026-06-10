@@ -1,0 +1,242 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Client Letter — CASE-2026-0002</title><style>
+            @page {
+                size: A4;
+                margin: 18mm 16mm 28mm 16mm;
+            }
+            * { box-sizing: border-box; }
+            html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body {
+                margin: 0;
+                background: #e5e7eb;
+                color: #111;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                font-size: 11pt;
+                line-height: 1.55;
+            }
+            .no-print, .cl-toolbar {
+                padding: 12px 16px;
+                background: #fff;
+                border-bottom: 1px solid #ddd;
+                text-align: center;
+            }
+            .cl-toolbar button {
+                padding: 10px 22px;
+                background: #b380cb;
+                color: #fff;
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+                cursor: pointer;
+                font-family: Montserrat, Arial, sans-serif;
+            }
+            .cl-document {
+                max-width: 210mm;
+                margin: 0 auto;
+                background: #fff;
+                padding: 12mm 14mm 32mm;
+                min-height: 297mm;
+            }
+            .cl-letterhead { margin-bottom: 5mm; }
+            .cl-letterhead-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 16px;
+                margin-bottom: 8mm;
+            }
+            .cl-logo {
+                display: block;
+                max-height: 88px;
+                max-width: 260px;
+                width: auto;
+                object-fit: contain;
+            }
+            .cl-logo-text {
+                font-family: Montserrat, Arial, sans-serif;
+                font-size: 13pt;
+                font-weight: 700;
+                color: #00182c;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .cl-title {
+                margin: 0;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                font-size: 28pt;
+                font-weight: 700;
+                color: #b380cb;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                line-height: 1;
+                text-align: right;
+                flex-shrink: 0;
+            }
+            .cl-address-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 20px;
+                margin-bottom: 6mm;
+            }
+            .cl-from { flex: 1; max-width: 50%; font-size: 10.5pt; line-height: 1.5; }
+            .cl-from-name { font-weight: 700; margin-bottom: 3px; }
+            .cl-from-address, .cl-from-contact { margin-top: 2px; }
+            .cl-from-contact { font-size: 9.5pt; color: #333; margin-top: 6px; line-height: 1.4; }
+            .cl-to { flex: 1; max-width: 50%; text-align: right; font-size: 10.5pt; line-height: 1.5; }
+            .cl-to-label { font-weight: 700; margin-bottom: 4px; }
+            .cl-date-row { font-size: 10.5pt; margin-bottom: 3mm; }
+            .cl-date-label { font-weight: 700; }
+            .cl-date-value { text-decoration: underline; font-weight: 600; }
+            .cl-matter-ref { font-size: 10pt; color: #333; margin-bottom: 5mm; }
+            .cl-matter-label { font-weight: 700; }
+            .cl-main { text-align: justify; }
+            .cl-body-section {
+                margin-bottom: 5mm;
+                page-break-inside: avoid;
+            }
+            .cl-body-section p { margin: 0 0 10px; }
+            .cl-heading {
+                font-weight: 700;
+                margin: 12px 0 8px !important;
+                page-break-after: avoid;
+            }
+            .cl-numbered-list {
+                margin: 0 0 12px;
+                padding-left: 26px;
+                list-style-type: decimal;
+            }
+            .cl-numbered-list li {
+                margin-bottom: 8px;
+                padding-left: 4px;
+            }
+            .cl-address-block {
+                display: block;
+                margin: 6px 0 4px 0;
+                line-height: 1.45;
+            }
+            .cl-link { color: #1d4ed8; text-decoration: underline; }
+            .cl-services-list { margin: 8px 0 12px; padding-left: 24px; }
+            .cl-end-branding {
+                margin-top: 16mm;
+                padding-top: 6mm;
+                page-break-inside: avoid;
+            }
+            .cl-end-logo {
+                display: block;
+                max-height: 70px;
+                max-width: 230px;
+                object-fit: contain;
+                margin-bottom: 8px;
+            }
+            .cl-end-legal-name {
+                font-family: Montserrat, Arial, sans-serif;
+                font-weight: 700;
+                font-size: 11pt;
+                color: #b380cb;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                margin-bottom: 6px;
+            }
+            .cl-end-address { font-size: 10.5pt; line-height: 1.45; }
+            .cl-running-footer {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 24mm;
+                background: #fff;
+                border-top: 1px solid #b8b8b8;
+                padding: 3mm 16mm 0;
+                font-size: 8pt;
+                z-index: 100;
+            }
+            .cl-running-footer-table { width: 100%; border-collapse: collapse; }
+            .cl-running-footer-left { vertical-align: middle; width: 85%; }
+            .cl-running-footer-page { vertical-align: middle; text-align: right; width: 15%; color: #555; }
+            .cl-running-footer-logo {
+                display: inline-block;
+                vertical-align: middle;
+                max-height: 40px;
+                max-width: 110px;
+                margin-right: 10px;
+                object-fit: contain;
+            }
+            .cl-running-footer-legal {
+                display: inline-block;
+                vertical-align: middle;
+                font-family: Montserrat, Arial, sans-serif;
+                font-weight: 700;
+                color: #b380cb;
+                text-transform: uppercase;
+                font-size: 8.5pt;
+                margin-right: 8px;
+            }
+            .cl-running-footer-address {
+                display: inline-block;
+                vertical-align: middle;
+                font-family: Georgia, serif;
+                font-size: 7.5pt;
+                line-height: 1.3;
+                color: #333;
+            }
+            .cl-page-num::after { content: counter(page); }
+            @media print {
+                body { background: #fff; counter-reset: page; }
+                .no-print, .cl-toolbar { display: none !important; }
+                .cl-document {
+                    max-width: none;
+                    margin: 0;
+                    padding: 0 0 28mm;
+                    min-height: auto;
+                }
+                .cl-running-footer {
+                    position: fixed;
+                    bottom: 0;
+                }
+                .cl-body-section { page-break-inside: avoid; }
+                .cl-heading { page-break-after: avoid; }
+            }
+        </style></head><body><div class="cl-toolbar no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div><div class="cl-document"><header class="cl-letterhead"><div class="cl-letterhead-top"><div class="cl-letterhead-brand"><img src="http://localhost/casenotary/admin/actions/company-logo.php?v=1781088252" alt="NASA Company" class="cl-logo"></div><h1 class="cl-title">Client Letter</h1></div><div class="cl-address-row"><div class="cl-from"><div class="cl-from-name">NASA Company</div><div class="cl-from-address"></div></div><div class="cl-to"><div class="cl-to-label">To:</div><div class="cl-to-name">NASA Ltd</div><div class="cl-to-address">Wilhems St,<br />
+Test, Test1, 226333<br />
+Mauritius</div></div></div><div class="cl-date-row"><span class="cl-date-label">Date:</span> <span class="cl-date-value">10/06/2026</span></div><div class="cl-matter-ref"><span class="cl-matter-label">Matter ref:</span> CASE-2026-0002 — <em>Residential Conveyancing</em></div></header><main class="cl-main"><section class="cl-body-section" data-section="introduction"><p>The service provided by me is that of a Notary Public carrying out all permitted notarial activities including, where appropriate, arranging legalisation of documents and sending them to their final destination. An essential part of a notary's role is to maintain and keep records. You can view details of how I handle your data on my website NASA Company.</p></section><section class="cl-body-section" data-section="price_fee"><p class="cl-heading">Price:</p>
+<p>The fee for this transaction will be £ 8,550.00 which includes disbursements/legalisation fees/postage/consular agent fees/courier/travelling fees/translating costs</p>
+<p>Some documents require legalisation before they will be accepted for use in the receiving jurisdiction by obtaining an apostille through the UK Foreign and Commonwealth Office and, for some countries, additional legalisation is required through the relevant embassy or consulate.</p>
+<p>My fees are not subject to VAT.</p></section><section class="cl-body-section" data-section="payment_terms"><p>Payment can be made by cash/card/bank transfer. Payment of my fee and disbursements is due when the document has been prepared which I may retain pending payment in full.</p>
+<p>Occasionally unforeseen or unusual issues arise during the course of the matter which may result in a revision of my fee estimate. Examples of this could include where additional documents are required to be notarised, additional translations or legalisations are needed to meet the requirements of the receiving jurisdiction, third party fees are adjusted to reflect external factors such as fuel price changes and so on. I will notify you of any changes in the fee estimate as soon as possible.</p></section><section class="cl-body-section" data-section="service_information"><p class="cl-heading">Service Information</p>
+<p>Each notarial matter is different and the requirements and timescales will vary according to whether the client is a private individual or a company and according to the processing times of third parties such as the Foreign and Commonwealth Office, legalisation agents, translating agencies and couriers, etc. Some of the typical key stages are likely to include:</p></section><section class="cl-body-section" data-section="process_stages"><ol class="cl-numbered-list">
+<li>Receiving and reviewing the documents to be notarised together with any instructions you may have received</li>
+<li>Liaising with your legal advisors or other bodies to obtain the necessary documentation to deal with the document (e.g. information from Companies House or foreign registries, powers of attorney etc)</li>
+<li>Checking the identity, capacity and authority of the person who is to sign the document</li>
+<li>If a document is to be certified, checking with the issuing authorities that the document/award is genuine. In the case of academic awards, this would entail checking with the appropriate academic institutions.</li>
+<li>Meeting with the signatory to verify their identity and to ascertain that they understand what they are signing and that they are doing so of their own free will and ensuring that the document is executed correctly</li>
+<li>Drafting and affixing or endorsing a notarial certificate to the document</li>
+<li>Arranging for the legalisation of the document as appropriate</li>
+<li>Arranging for the storage of copies of all notarised documents in accordance with the requirements of the Notarial Practice Rules 2019</li>
+</ol></section><section class="cl-body-section" data-section="redress"><p class="cl-heading">Redress</p>
+<p>I am insured under a professional indemnity policy for at least £1,000,000.00.</p></section><section class="cl-body-section" data-section="complaints_regulatory"><p class="cl-heading">Complaints and Regulatory Information</p>
+<ol class="cl-numbered-list">
+<li>My notarial practice is regulated through the Faculty Office of the Archbishop of Canterbury:<br>
+<span class="cl-address-block">The Faculty Office<br>
+1, The Sanctuary<br>
+Westminster<br>
+London SW1P 3JT<br>
+Telephone 020 7222 5381<br>
+Email Faculty.office@1thesanctuary.com<br>
+Website www.facultyoffice.org.uk</span></li>
+<li>If you are dissatisfied about the service you have received please do not hesitate to contact me.</li>
+<li>If we are unable to resolve the matter you may then complain to the Notaries Society of which I am a member, who have a Complaints Procedure which is approved by the Faculty Office. This procedure is free to use and is designed to provide a quick resolution to any dispute.</li>
+<li>In that case please write (but do not enclose any original documents) with full details of your complaint to :-<br>
+<span class="cl-address-block">The Secretary of The Notaries Society<br>
+P O Box 7655<br>
+Milton Keynes MK11 9NR<br>
+Email secretary@thenotariessociety.org.uk Tel :01908 803527</span><br>
+If you have any difficulty in making a complaint in writing please do not hesitate to call the Notaries Society/the Faculty Office for assistance.</li>
+<li>Finally, even if you have your complaint considered under the Notaries Society Approved Complaints Procedure, you may at the end of that procedure, or after a period of 8 weeks from the date you first notified me that you were dissatisfied, make your complaint to the Legal Ombudsman, if you are not happy with the result :<br>
+<span class="cl-address-block">Legal Ombudsman<br>
+P O Box 6806<br>
+Wolverhampton WV1 9WJ<br>
+Tel : 0300 555 0333<br>
+Email : enquiries@legalombudsman.org.uk<br>
+Website : www.legalombudsman.org.uk</span></li>
+<li>If you decide to make a complaint to the Legal Ombudsman, you must refer your matter to the Legal Ombudsman within six months from the conclusion of the complaint process.</li>
+</ol></section><div class="cl-end-branding"><img src="http://localhost/casenotary/admin/actions/company-logo.php?v=1781088252" alt="" class="cl-end-logo"><div class="cl-end-legal-name">NASA COMPANY LTD</div><div class="cl-end-address"></div></div></main></div><div class="cl-running-footer"><table class="cl-running-footer-table" width="100%"><tr><td class="cl-running-footer-left"><img src="http://localhost/casenotary/admin/actions/company-logo.php?v=1781088252" alt="" class="cl-running-footer-logo"><div class="cl-running-footer-legal">NASA COMPANY LTD</div><div class="cl-running-footer-address"></div></td><td class="cl-running-footer-page"><span class="cl-page-num"></span></td></tr></table></div></body></html>

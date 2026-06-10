@@ -102,6 +102,19 @@ if ($action !== '') {
             chatbotClearSession();
             echo json_encode(['success' => true]);
             exit;
+
+        case 'insights':
+            if (!Auth::can(RoleAccess::PERMISSION_CHATBOT)) {
+                echo json_encode(['success' => false, 'message' => 'Forbidden.']);
+                exit;
+            }
+            $insights = chatbotGetProactiveInsights();
+            echo json_encode([
+                'success'  => true,
+                'insights' => $insights,
+                'message'  => chatbotFormatInsightsMessage($insights),
+            ]);
+            exit;
     }
 }
 

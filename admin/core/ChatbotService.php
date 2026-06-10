@@ -84,19 +84,49 @@ class ChatbotService
             return generateChatbotReply($message);
         }
 
+        $actionFlow = chatbotTryActionFlow($message);
+        if ($actionFlow !== null) {
+            return $actionFlow;
+        }
+
         $followUp = chatbotTryFollowUpReply($message);
         if ($followUp !== null) {
             return $followUp;
         }
 
-        $meta = chatbotReplyForMetaQuestions($message);
-        if ($meta !== null) {
-            return $meta;
+        $companyKnowledge = chatbotReplyFromCompanyKnowledge($message);
+        if ($companyKnowledge !== null) {
+            return $companyKnowledge;
         }
 
         $briefing = chatbotReplyForMorningBriefing($message);
         if ($briefing !== null) {
             return $briefing;
+        }
+
+        $dashboardSummary = chatbotReplyForDashboardSummary($message);
+        if ($dashboardSummary !== null) {
+            return $dashboardSummary;
+        }
+
+        $caseContext = chatbotReplyForCaseContext($message);
+        if ($caseContext !== null) {
+            return $caseContext;
+        }
+
+        $reports = chatbotReplyForReports($message);
+        if ($reports !== null) {
+            return $reports;
+        }
+
+        $docSearch = chatbotReplyForDocumentSearch($message);
+        if ($docSearch !== null) {
+            return $docSearch;
+        }
+
+        $meta = chatbotReplyForMetaQuestions($message);
+        if ($meta !== null) {
+            return $meta;
         }
 
         $dateFiltered = chatbotReplyForDateFilteredQueries($message);

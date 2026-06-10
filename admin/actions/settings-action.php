@@ -42,6 +42,11 @@ try {
         }
     } elseif ($tab === 'calendar') {
         SettingsService::updateCalendar($_POST);
+    } elseif ($tab === 'ai') {
+        if (!Auth::can(RoleAccess::PERMISSION_SETTINGS)) {
+            throw new RuntimeException('You do not have permission to manage AI settings.');
+        }
+        ChatbotCompanyKnowledge::save((string) ($_POST['ai_knowledge'] ?? ''));
     } else {
         SettingsService::update(
             $_POST,
@@ -50,7 +55,12 @@ try {
             $tab
         );
     }
-    flash('success', $tab === 'roles' ? 'Role Access saved successfully.' : 'Settings saved successfully.');
+    $successMessage = match ($tab) {
+        'roles' => 'Role Access saved successfully.',
+        'ai'    => 'AI knowledge base saved successfully.',
+        default => 'Settings saved successfully.',
+    };
+    flash('success', $successMessage);
     redirect($tab === 'roles' ? 'pages/settings-roles.php' : 'pages/settings.php?tab=' . urlencode($tab));
 } catch (Throwable $e) {
     flash('error', $e->getMessage());
