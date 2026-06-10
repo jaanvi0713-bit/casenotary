@@ -55,11 +55,11 @@ require __DIR__ . '/../includes/header.php';
             <input type="hidden" name="action" value="update_profile">
             <div class="col-md-6">
                 <label class="form-label">First name</label>
-                <input type="text" name="first_name" class="form-control" required value="<?= e($profileUser['first_name'] ?? userFirstName($profileUser)) ?>">
+                <input type="text" name="first_name" class="form-control" required value="<?= e(userFirstName($profileUser)) ?>">
             </div>
             <div class="col-md-6">
                 <label class="form-label">Last name</label>
-                <input type="text" name="last_name" class="form-control" required value="<?= e($profileUser['last_name'] ?? '') ?>">
+                <input type="text" name="last_name" class="form-control" required value="<?= e(userLastName($profileUser)) ?>">
             </div>
             <div class="col-md-6">
                 <label class="form-label">Email</label>
@@ -380,16 +380,9 @@ require __DIR__ . '/../includes/header.php';
                         <label class="form-label">SMTP Port</label>
                         <input type="number" name="smtp_port" class="form-control" value="<?= (int) ($settings['smtp_port'] ?? 587) ?>">
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-8">
                         <label class="form-label">SMTP Username</label>
                         <input type="text" name="smtp_username" class="form-control" value="<?= e($settings['smtp_username'] ?? '') ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">SMTP Password</label>
-                        <?php renderPasswordRevealField('smtp_password', 'smtp_password', [
-                            'placeholder' => !empty($settings['smtp_password']) ? '••••••••' : '',
-                            'autocomplete' => 'new-password',
-                        ]); ?>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Encryption</label>
@@ -398,6 +391,39 @@ require __DIR__ . '/../includes/header.php';
                                 <option value="<?= $enc ?>" <?= ($settings['smtp_encryption'] ?? 'tls') === $enc ? 'selected' : '' ?>><?= strtoupper($enc) ?></option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+                </div>
+                <div class="row g-3 account-password-grid align-items-end mt-1 pt-3 border-top">
+                    <div class="col-md-4">
+                        <label class="form-label" for="current_smtp_password_display">Current SMTP password</label>
+                        <div class="login-pw-field login-pw-field--static">
+                            <div class="login-pw-input-wrap">
+                                <input
+                                    type="text"
+                                    id="current_smtp_password_display"
+                                    class="form-control login-pw-input"
+                                    value="<?= !empty($settings['smtp_password']) ? '••••••••' : 'Not set' ?>"
+                                    disabled
+                                    aria-label="Current SMTP password"
+                                >
+                                <span class="login-pw-reveal login-pw-reveal--spacer" aria-hidden="true"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="new_smtp_password">New SMTP password</label>
+                        <?php renderPasswordRevealField('new_smtp_password', 'new_smtp_password', [
+                            'autocomplete' => 'new-password',
+                        ]); ?>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="new_smtp_password_confirmation">Confirm new SMTP password</label>
+                        <?php renderPasswordRevealField('new_smtp_password_confirmation', 'new_smtp_password_confirmation', [
+                            'autocomplete' => 'new-password',
+                        ]); ?>
+                    </div>
+                    <div class="col-12">
+                        <p class="form-text mb-0">Leave new SMTP password blank to keep the current password.</p>
                     </div>
                 </div>
             <?php elseif ($tab === 'payments'): ?>

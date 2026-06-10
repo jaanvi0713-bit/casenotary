@@ -166,8 +166,13 @@ class SettingsService
             );
         }
 
-        $smtpPassword = trim($data['smtp_password'] ?? '');
-        if ($smtpPassword === '') {
+        $smtpPassword = trim($data['new_smtp_password'] ?? $data['smtp_password'] ?? '');
+        if ($smtpPassword !== '') {
+            $smtpConfirm = trim($data['new_smtp_password_confirmation'] ?? '');
+            if ($smtpPassword !== $smtpConfirm) {
+                throw new RuntimeException('SMTP password confirmation does not match.');
+            }
+        } else {
             $smtpPassword = $settings['smtp_password'] ?? null;
         }
 

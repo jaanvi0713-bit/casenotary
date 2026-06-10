@@ -371,6 +371,32 @@ a:hover { color: var(--primary-dark); }
     color: var(--primary);
 }
 
+.account-password-grid > [class*="col-"] {
+    display: flex;
+    flex-direction: column;
+}
+
+.account-password-grid .form-label {
+    margin-bottom: 0.375rem;
+}
+
+.account-password-grid .login-pw-field {
+    width: 100%;
+}
+
+.login-pw-field--static .login-pw-input:disabled {
+    background-color: var(--bs-secondary-bg, #e9ecef);
+    opacity: 1;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+}
+
+.login-pw-reveal--spacer {
+    visibility: hidden;
+    pointer-events: none;
+}
+
 .login-pw-field .login-pw-input::-ms-reveal,
 .login-pw-field .login-pw-input::-ms-clear {
     display: none !important;

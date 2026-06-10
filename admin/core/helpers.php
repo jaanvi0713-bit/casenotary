@@ -85,7 +85,40 @@ function userFirstName(?array $user): string
         $parts = explode(' ', trim($user['name']), 2);
         return $parts[0];
     }
-    return $user['first_name'] ?? '';
+    $first = trim((string) ($user['first_name'] ?? ''));
+    if ($first !== '') {
+        return $first;
+    }
+    $display = trim((string) ($user['display_name'] ?? ''));
+    if ($display !== '') {
+        $parts = preg_split('/\s+/', $display, 2) ?: [];
+        return $parts[0] ?? '';
+    }
+
+    return '';
+}
+
+function userLastName(?array $user): string
+{
+    if (!$user) {
+        return '';
+    }
+    $last = trim((string) ($user['last_name'] ?? ''));
+    if ($last !== '') {
+        return $last;
+    }
+    $full = trim((string) ($user['name'] ?? ''));
+    if ($full !== '') {
+        $parts = explode(' ', $full, 2);
+        return $parts[1] ?? '';
+    }
+    $display = trim((string) ($user['display_name'] ?? ''));
+    if ($display !== '') {
+        $parts = preg_split('/\s+/', $display, 2) ?: [];
+        return $parts[1] ?? '';
+    }
+
+    return '';
 }
 
 function userInitials(?array $user): string

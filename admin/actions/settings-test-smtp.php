@@ -12,11 +12,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !CSRF::verifyRequest()) {
 $to = trim($_POST['test_email'] ?? Auth::user()['email'] ?? '');
 
 try {
+    $stored = getCompanySettings();
+    $smtpPassword = trim($_POST['new_smtp_password'] ?? $_POST['smtp_password'] ?? '');
+    if ($smtpPassword === '') {
+        $smtpPassword = (string) ($stored['smtp_password'] ?? '');
+    }
+
     MailService::sendTestEmail($to, [
         'smtp_host'       => trim($_POST['smtp_host'] ?? ''),
         'smtp_port'       => (int) ($_POST['smtp_port'] ?? 587),
         'smtp_username'   => trim($_POST['smtp_username'] ?? ''),
-        'smtp_password'   => trim($_POST['smtp_password'] ?? ''),
+        'smtp_password'   => $smtpPassword,
         'smtp_encryption' => $_POST['smtp_encryption'] ?? 'tls',
         'office_email'    => trim($_POST['office_email'] ?? '') ?: null,
         'company_name'    => trim($_POST['company_name'] ?? '') ?: null,

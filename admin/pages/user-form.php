@@ -20,29 +20,24 @@ if ($isEdit && !Auth::can(RoleAccess::PERMISSION_USERS)) {
     redirect('pages/users.php');
 }
 
+$staffUser = null;
 if ($isEdit) {
-    $user = UserService::getStaffById($id);
-    if (!$user) {
+    $staffUser = UserService::getStaffById($id);
+    if (!$staffUser) {
         flash('error', 'User not found.');
         redirect('pages/users.php');
     }
     $pageTitle = 'Edit User';
-    $pageSubtitle = (string) ($user['display_name'] ?? $user['email'] ?? '');
+    $pageSubtitle = (string) ($staffUser['display_name'] ?? $staffUser['email'] ?? '');
 } else {
-    $user = null;
     $pageTitle = 'Add User';
     $pageSubtitle = 'Create a new team member';
 }
 
-require __DIR__ . '/../includes/header.php';
+$firstName = $isEdit ? userFirstName($staffUser) : '';
+$lastName  = $isEdit ? userLastName($staffUser) : '';
 
-$firstName = $isEdit ? ($user['first_name'] ?? '') : '';
-$lastName  = $isEdit ? ($user['last_name'] ?? '') : '';
-if ($isEdit && $firstName === '' && $lastName === '' && !empty($user['display_name'])) {
-    $parts = preg_split('/\s+/', trim((string) $user['display_name']), 2) ?: [];
-    $firstName = $parts[0] ?? '';
-    $lastName  = $parts[1] ?? '';
-}
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="case-form-page">
@@ -84,12 +79,12 @@ if ($isEdit && $firstName === '' && $lastName === '' && !empty($user['display_na
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control" required value="<?= e($isEdit ? (string) $user['email'] : '') ?>" <?= !$canEditUsers ? 'disabled' : '' ?>>
+                        <input type="email" name="email" class="form-control" required value="<?= e($isEdit ? (string) $staffUser['email'] : '') ?>" <?= !$canEditUsers ? 'disabled' : '' ?>>
                     </div>
                     <?php if (Database::columnExists('users', 'phone')): ?>
                     <div class="col-md-6">
                         <label class="form-label">Phone</label>
-                        <input type="text" name="phone" class="form-control" value="<?= e($isEdit ? (string) ($user['phone'] ?? '') : '') ?>" <?= !$canEditUsers ? 'disabled' : '' ?>>
+                        <input type="text" name="phone" class="form-control" value="<?= e($isEdit ? (string) ($staffUser['phone'] ?? '') : '') ?>" <?= !$canEditUsers ? 'disabled' : '' ?>>
                     </div>
                     <?php endif; ?>
                     <div class="col-md-6">
@@ -99,18 +94,18 @@ if ($isEdit && $firstName === '' && $lastName === '' && !empty($user['display_na
                                 type="text"
                                 class="form-control"
                                 disabled
-                                value="<?= e(RoleAccess::roleLabel((string) ($user['role'] ?? ''), TenantService::id())) ?>"
+                                value="<?= e(RoleAccess::roleLabel((string) ($staffUser['role'] ?? ''), TenantService::id())) ?>"
                             >
                         <?php else: ?>
                             <select name="role" class="form-select" <?= $isEdit && (int) $id === (int) Auth::id() ? 'disabled' : '' ?> required>
                                 <?php foreach ($assignableRoles as $roleOption): ?>
-                                    <option value="<?= e($roleOption) ?>" <?= ($isEdit && ($user['role'] ?? '') === $roleOption) || (!$isEdit && $roleOption === 'staff') ? 'selected' : '' ?>>
+                                    <option value="<?= e($roleOption) ?>" <?= ($isEdit && ($staffUser['role'] ?? '') === $roleOption) || (!$isEdit && $roleOption === 'staff') ? 'selected' : '' ?>>
                                         <?= e(RoleAccess::roleLabel($roleOption, TenantService::id())) ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                             <?php if ($isEdit && (int) $id === (int) Auth::id()): ?>
-                                <input type="hidden" name="role" value="<?= e((string) $user['role']) ?>">
+                                <input type="hidden" name="role" value="<?= e((string) $staffUser['role']) ?>">
                                 <p class="form-text mb-0">You cannot change your own role.</p>
                             <?php endif; ?>
                         <?php endif; ?>
@@ -119,7 +114,7 @@ if ($isEdit && $firstName === '' && $lastName === '' && !empty($user['display_na
                         <label class="form-label">Status</label>
                         <select name="status" class="form-select" <?= !$canEditUsers || ($isEdit && (int) $id === (int) Auth::id()) ? 'disabled' : '' ?>>
                             <?php foreach (['active', 'inactive', 'suspended'] as $statusOption): ?>
-                                <option value="<?= e($statusOption) ?>" <?= ($isEdit && ($user['status'] ?? 'active') === $statusOption) || (!$isEdit && $statusOption === 'active') ? 'selected' : '' ?>>
+                                <option value="<?= e($statusOption) ?>" <?= ($isEdit && ($staffUser['status'] ?? 'active') === $statusOption) || (!$isEdit && $statusOption === 'active') ? 'selected' : '' ?>>
                                     <?= e(ucfirst($statusOption)) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -128,16 +123,75 @@ if ($isEdit && $firstName === '' && $lastName === '' && !empty($user['display_na
                             <input type="hidden" name="status" value="active">
                         <?php endif; ?>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label"><?= $isEdit ? 'New password (leave blank to keep)' : 'Password' ?></label>
-                        <?php renderPasswordRevealField('password', 'password', [
-                            'required' => !$isEdit,
-                            'disabled' => !$canEditUsers,
-                            'autocomplete' => 'new-password',
-                            'minlength' => $isEdit ? 0 : 8,
-                        ]); ?>
-                    </div>
-                    <?php if (!$isEdit): ?>
+                </div>
+
+                <div class="row g-3 account-password-grid align-items-end mt-1 pt-3 border-top">
+                    <?php if ($isEdit): ?>
+                        <div class="col-md-4">
+                            <label class="form-label" for="<?= (int) $id === (int) Auth::id() ? 'current_password' : 'current_password_display' ?>">Current password</label>
+                            <?php if ((int) $id === (int) Auth::id()): ?>
+                                <?php renderPasswordRevealField('current_password', 'current_password', [
+                                    'disabled' => !$canEditUsers,
+                                    'autocomplete' => 'current-password',
+                                ]); ?>
+                            <?php else: ?>
+                                <div class="login-pw-field login-pw-field--static">
+                                    <div class="login-pw-input-wrap">
+                                        <input
+                                            type="text"
+                                            id="current_password_display"
+                                            class="form-control login-pw-input"
+                                            value="<?= !empty($staffUser['password']) ? '••••••••' : 'Not set' ?>"
+                                            disabled
+                                            aria-label="Current password is set"
+                                        >
+                                        <span class="login-pw-reveal login-pw-reveal--spacer" aria-hidden="true"></span>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="new_password">New password</label>
+                            <?php renderPasswordRevealField('new_password', 'new_password', [
+                                'disabled' => !$canEditUsers,
+                                'autocomplete' => 'new-password',
+                                'minlength' => 8,
+                            ]); ?>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="new_password_confirmation">Confirm new password</label>
+                            <?php renderPasswordRevealField('new_password_confirmation', 'new_password_confirmation', [
+                                'disabled' => !$canEditUsers,
+                                'autocomplete' => 'new-password',
+                                'minlength' => 8,
+                            ]); ?>
+                        </div>
+                        <div class="col-12">
+                            <?php if ((int) $id === (int) Auth::id()): ?>
+                                <p class="form-text mb-0">Enter your current password when setting a new one on your own account. Leave new password blank to keep it unchanged.</p>
+                            <?php else: ?>
+                                <p class="form-text mb-0">Leave new password blank to keep the current password.</p>
+                            <?php endif; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="col-md-6">
+                            <label class="form-label" for="password">Password</label>
+                            <?php renderPasswordRevealField('password', 'password', [
+                                'required' => true,
+                                'disabled' => !$canEditUsers,
+                                'autocomplete' => 'new-password',
+                                'minlength' => 8,
+                            ]); ?>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="password_confirmation">Confirm password</label>
+                            <?php renderPasswordRevealField('password_confirmation', 'password_confirmation', [
+                                'required' => true,
+                                'disabled' => !$canEditUsers,
+                                'autocomplete' => 'new-password',
+                                'minlength' => 8,
+                            ]); ?>
+                        </div>
                         <div class="col-12">
                             <p class="small text-muted mb-0"><?= e(RoleAccess::roleDescription('staff')) ?></p>
                         </div>

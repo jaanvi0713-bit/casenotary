@@ -140,8 +140,14 @@ class UserService
         }
 
         $password = (string) ($data['password'] ?? '');
-        if (strlen($password) < 8) {
-            return ['success' => false, 'message' => 'Password must be at least 8 characters.'];
+        $passwordConfirmation = (string) ($data['password_confirmation'] ?? '');
+        if ($password !== $passwordConfirmation) {
+            return ['success' => false, 'message' => 'Password confirmation does not match.'];
+        }
+
+        $strengthError = passwordStrengthError($password);
+        if ($strengthError !== null) {
+            return ['success' => false, 'message' => $strengthError];
         }
 
         $nameFields = self::normalizeNameFields($data);
@@ -236,13 +242,28 @@ class UserService
             $params[] = trim((string) ($data['phone'] ?? '')) ?: null;
         }
 
-        $password = (string) ($data['password'] ?? '');
-        if ($password !== '') {
-            if (strlen($password) < 8) {
-                return ['success' => false, 'message' => 'Password must be at least 8 characters.'];
+        $newPassword = trim((string) ($data['new_password'] ?? $data['password'] ?? ''));
+        if ($newPassword !== '') {
+            $newPasswordConfirmation = trim((string) ($data['new_password_confirmation'] ?? ''));
+            if ($newPassword !== $newPasswordConfirmation) {
+                return ['success' => false, 'message' => 'New password confirmation does not match.'];
             }
+
+            $strengthError = passwordStrengthError($newPassword);
+            if ($strengthError !== null) {
+                return ['success' => false, 'message' => $strengthError];
+            }
+
+            if ($id === $actorId) {
+                $stored = Database::fetch('SELECT password FROM users WHERE id = ? LIMIT 1', [$id]);
+                $currentPassword = (string) ($data['current_password'] ?? '');
+                if (!$stored || !password_verify($currentPassword, (string) ($stored['password'] ?? ''))) {
+                    return ['success' => false, 'message' => 'Current password is incorrect.'];
+                }
+            }
+
             $sets[] = 'password = ?';
-            $params[] = password_hash($password, PASSWORD_BCRYPT);
+            $params[] = password_hash($newPassword, PASSWORD_BCRYPT);
         }
 
         $params[] = $id;
@@ -305,8 +326,13 @@ class UserService
                 return ['fields' => [], 'error' => 'First and last name are required.'];
             }
 
+            $fields = ['first_name' => $firstName, 'last_name' => $lastName];
+            if (Database::columnExists('users', 'name')) {
+                $fields['name'] = $fullName;
+            }
+
             return [
-                'fields' => ['first_name' => $firstName, 'last_name' => $lastName],
+                'fields' => $fields,
                 'error' => null,
             ];
         }
