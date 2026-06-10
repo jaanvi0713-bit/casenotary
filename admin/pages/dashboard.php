@@ -14,9 +14,23 @@ $hasRevenueChartData = chartSeriesHasData($chartData['data'])
     || chartSeriesHasData($invoiceData['data']);
 $hasWeeklyChartData  = chartSeriesHasData($weeklyData['payments'])
     || chartSeriesHasData($weeklyData['invoices']);
-$recentCases        = getRecentCases(8);
+$recentCases          = getRecentCases(8);
 $upcomingAppointments = getUpcomingAppointments(4);
-$businessActivity   = getBusinessActivityFeed(20);
+$allBusinessActivity  = getBusinessActivityFeed(0);
+$activityPerPage      = 10;
+$activityPage         = requestPageNumber('activity_page');
+$totalActivity        = count($allBusinessActivity);
+$totalActivityPages   = max(1, (int) ceil($totalActivity / $activityPerPage));
+if ($activityPage > $totalActivityPages) {
+    $activityPage = $totalActivityPages;
+}
+$businessActivity = array_slice(
+    $allBusinessActivity,
+    paginationOffset($activityPage, $activityPerPage),
+    $activityPerPage
+);
+$activityShowingFrom = $totalActivity > 0 ? paginationOffset($activityPage, $activityPerPage) + 1 : 0;
+$activityShowingTo   = min($totalActivity, $activityPage * $activityPerPage);
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -249,7 +263,7 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
                 <div class="activity-scroll">
-                    <?php if (empty($businessActivity)): ?>
+                    <?php if ($totalActivity === 0): ?>
                         <div class="empty-state empty-state-panel py-4">
                             <i class="bi bi-activity"></i>
                             <p class="mb-0">No recent activity</p>
@@ -272,6 +286,14 @@ require __DIR__ . '/../includes/header.php';
                         </ul>
                     <?php endif; ?>
                 </div>
+                <?php if ($totalActivity > 0): ?>
+                    <div class="activity-pagination d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-2 border-top">
+                        <small class="text-muted">
+                            Showing <?= $activityShowingFrom ?>–<?= $activityShowingTo ?> of <?= $totalActivity ?> activities
+                        </small>
+                        <?= renderPaginationNav($activityPage, $totalActivityPages, 'activity_page', 'activity') ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

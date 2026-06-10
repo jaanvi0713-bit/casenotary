@@ -29,7 +29,7 @@ require __DIR__ . '/../includes/header.php';
             <p class="saas-card-subtitle mb-0"><?= $totalNotifications ?> total · <?= $unreadCount ?> unread</p>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
-            <a href="<?= url('pages/settings.php?tab=notifications') ?>" class="btn btn-soft btn-sm">
+            <a href="<?= url('pages/settings.php?tab=notifications') ?>" class="btn btn-light btn-sm">
                 <i class="bi bi-gear me-1"></i> Preferences
             </a>
             <?php if ($unreadCount > 0): ?>

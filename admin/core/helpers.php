@@ -1954,7 +1954,9 @@ function getBusinessActivityFeed(int $limit = 20): array
         return strtotime($b['created_at']) <=> strtotime($a['created_at']);
     });
 
-    $feed = array_slice($feed, 0, $limit);
+    if ($limit > 0) {
+        $feed = array_slice($feed, 0, $limit);
+    }
 
     foreach ($feed as &$item) {
         $item['meta'] = businessActivityMeta($item['type']);
