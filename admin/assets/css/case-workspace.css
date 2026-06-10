@@ -1061,6 +1061,12 @@ textarea.case-form-control {
     min-width: 4.75rem;
 }
 
+.case-billing-rate-fixed {
+    background-color: var(--gray-50, #f8fafc);
+    color: var(--gray-600, #64748b);
+    cursor: not-allowed;
+}
+
 .case-billing-summary .card-body {
     font-size: 0.9rem;
 }

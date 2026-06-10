@@ -55,7 +55,11 @@ SQL);
             try {
                 Database::query('ALTER TABLE cases ADD COLUMN client_letter_sections JSON DEFAULT NULL AFTER description');
             } catch (Throwable $e) {
-                // optional
+                try {
+                    Database::query('ALTER TABLE cases ADD COLUMN client_letter_sections LONGTEXT DEFAULT NULL');
+                } catch (Throwable $e2) {
+                    // optional — letter files still generate without persisted sections
+                }
             }
         }
 
@@ -330,7 +334,7 @@ HTML,
         self::ensureSchema();
 
         if (!Database::columnExists('cases', 'client_letter_sections')) {
-            throw new RuntimeException('Run: php admin/sql/migrate_client_letters.php');
+            return;
         }
 
         $json = json_encode(self::normalizeSections($sections), JSON_UNESCAPED_UNICODE);

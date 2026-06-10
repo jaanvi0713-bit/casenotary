@@ -280,7 +280,10 @@ window.AppointmentCalendar = {
         var base = {
             eventContent: window.AppointmentCalendar.eventContent,
             eventOrder: window.AppointmentCalendar.eventOrder,
-            eventDidMount: window.AppointmentCalendar.eventDidMount
+            eventDidMount: window.AppointmentCalendar.eventDidMount,
+            slotEventOverlap: true,
+            eventOverlap: true,
+            dayMaxEvents: true
         };
 
         if (!overrides) {

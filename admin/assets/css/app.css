@@ -3401,6 +3401,24 @@ body.sidebar-collapsed.page-chatbot .chatbot-sidebar-open {
     min-height: 620px;
 }
 
+.appt-conflict-alert {
+    background: var(--primary-light);
+    color: var(--secondary);
+    border-left: 3px solid var(--primary);
+}
+
+.appt-conflict-alert .bi-exclamation-triangle-fill {
+    color: var(--primary);
+}
+
+.appt-conflict-alert strong {
+    color: var(--primary-dark);
+}
+
+.appt-conflict-alert ul {
+    color: var(--secondary);
+}
+
 .appointment-calendar-wrap .fc {
     font-family: var(--font-family, 'Montserrat', sans-serif);
     font-size: 0.8125rem;

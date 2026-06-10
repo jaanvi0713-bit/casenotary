@@ -288,3 +288,35 @@ Attachments: C:\wamp64\www\casenotary\admin\config/../uploads/cases/13/generated
 2026-06-10 07:33:14 | To: louise@gmail.com
 Subject: Your Client Portal Login
 NASA CompanyClient Portal AccessDear Louise Louise,Your client portal account is ready.Use your existing portal password with email louise@gmail.com.Sign in to Client PortalInstructionsWelcome to our client portal. You can view cases, documents, and appointments after signing in.NASA Company
+------------------------------------------------------------
+2026-06-10 07:41:14 | To: emily.chen@email.com
+Subject: Appointment: test
+FunTurtle CompanyAppointment ScheduledDear Emily Chen,An appointment has been scheduled for you.testWhen: Jun 10, 2026 12:00 PMLocation: OfficeAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalFunTurtle Company
+------------------------------------------------------------
+2026-06-10 07:41:16 | To: admin@admin.com
+Subject: Appointment scheduled
+Appointment scheduledHi Admin User,Appointment scheduledEmily Chen — test (Jun 10, 2026 12:00 PM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-10 07:44:38 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 500.00 for INV-2026-0007Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-10 07:44:40 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 500.00 for INV-2026-0007Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-10 08:38:02 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 5,200.00 for INV-2026-0007Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-10 08:38:04 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 5,200.00 for INV-2026-0007Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-10 08:40:25 | To: emily.chen@email.com
+Subject: Cancelled appointment: test
+FunTurtle CompanyAppointment CancelledDear Emily Chen,Your appointment has been cancelled.testWhen: Jun 10, 2026 12:00 PMLocation: OfficeView in Client PortalFunTurtle Company
+------------------------------------------------------------
+2026-06-10 08:40:27 | To: admin@admin.com
+Subject: Appointment cancelled
+Appointment cancelledHi Admin User,Appointment cancelledEmily Chen — test (Jun 10, 2026 12:00 PM)Open in portalYou can change notification preferences under Settings → Notification Preferences.

@@ -32,7 +32,7 @@ $caseBilling    = $isEdit ? CaseService::getCaseBilling($case) : CaseService::em
 $nonVatServices = ($caseBilling['non_vat'] ?? []) !== [] ? $caseBilling['non_vat'] : [['type' => '', 'net' => 0]];
 $vatServices    = ($caseBilling['vat'] ?? []) !== [] ? $caseBilling['vat'] : [['type' => '', 'net' => 0]];
 $vatRate        = (float) ($caseBilling['vat_rate'] ?? CaseService::vatRate());
-$nonVatRate     = (float) ($caseBilling['non_vat_rate'] ?? CaseService::vatRate());
+$nonVatRate     = CaseService::NON_VAT_RATE;
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -190,9 +190,9 @@ require __DIR__ . '/../includes/header.php';
                             <h3 class="case-billing-part-title mb-0">Non-VAT services</h3>
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <label class="case-form-label mb-0 small text-nowrap" for="caseNonVatRate">Rate (%)</label>
-                                <input type="number" step="0.01" min="0" max="100" id="caseNonVatRate" name="non_vat_rate"
-                                       class="form-control form-control-sm case-billing-rate-input case-form-control"
-                                       value="<?= e(rtrim(rtrim(number_format($nonVatRate, 2), '0'), '.')) ?>">
+                                <input type="number" step="0.01" min="0" max="0" id="caseNonVatRate" name="non_vat_rate"
+                                       class="form-control form-control-sm case-billing-rate-input case-form-control case-billing-rate-fixed"
+                                       value="0" readonly tabindex="-1" aria-readonly="true">
                                 <button type="button" class="btn btn-soft btn-sm js-add-service-row" data-billing-part="non_vat">
                                     <i class="bi bi-plus-lg"></i> Add service
                                 </button>
@@ -408,7 +408,7 @@ require __DIR__ . '/../includes/header.php';
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     var vatRate = <?= json_encode($vatRate) ?>;
-    var nonVatRateDefault = <?= json_encode($nonVatRate) ?>;
+    var nonVatRateDefault = 0;
     var currencySymbol = <?= json_encode(currencySymbol()) ?>;
     var currencyLocale = <?= json_encode(currencyLocale()) ?>;
     var lists = {
@@ -433,8 +433,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function getNonVatRate() {
-        var inp = document.getElementById("caseNonVatRate");
-        return inp ? Math.max(0, parseFloat(inp.value || "0") || 0) : nonVatRateDefault;
+        return 0;
     }
 
     function roundMoney(value) {
@@ -526,13 +525,11 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     updateTotals();
 
-    ["caseVatRate", "caseNonVatRate"].forEach(function(id) {
-        var inp = document.getElementById(id);
-        if (inp) {
-            inp.addEventListener("input", updateTotals);
-            inp.addEventListener("change", updateTotals);
-        }
-    });
+    var vatRateInput = document.getElementById("caseVatRate");
+    if (vatRateInput) {
+        vatRateInput.addEventListener("input", updateTotals);
+        vatRateInput.addEventListener("change", updateTotals);
+    }
 
     document.querySelectorAll(".js-add-service-row").forEach(function(btn) {
         btn.addEventListener("click", function() {

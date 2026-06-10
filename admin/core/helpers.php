@@ -1341,7 +1341,10 @@ function formatDateTimeStacked(?string $datetime): string
 
 function statusBadge(?string $status): string
 {
-    $status = normalizeAppointmentStatus($status);
+    $status = strtolower(trim((string) $status));
+    if ($status === '') {
+        $status = 'pending';
+    }
 
     $map = [
         'pending'            => 'badge-pending',
@@ -1356,6 +1359,8 @@ function statusBadge(?string $status): string
         'requested'          => 'badge-requested',
         'confirmed'          => 'badge-confirmed',
         'rescheduled'        => 'badge-rescheduled',
+        'cancelled'          => 'badge-closed',
+        'no_show'            => 'badge-overdue',
         'active'             => 'badge-paid',
         'inactive'           => 'badge-closed',
         'suspended'          => 'badge-overdue',

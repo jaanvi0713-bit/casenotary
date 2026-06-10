@@ -12,44 +12,45 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit;
 }
 
-$startsAt = normalizeDateTimeInput(trim($_GET['starts_at'] ?? ''));
-$endsAt   = normalizeDateTimeInput(trim($_GET['ends_at'] ?? ''));
-$exclude  = (int) ($_GET['appointment_id'] ?? 0);
+$startsAt  = normalizeDateTimeInput(trim($_GET['starts_at'] ?? ''));
+$endsAt    = normalizeDateTimeInput(trim($_GET['ends_at'] ?? ''));
+$excludeId = (int) ($_GET['exclude_id'] ?? 0);
 
 if ($startsAt === '') {
-    echo json_encode(['conflicts' => []]);
+    echo json_encode(['conflicts' => [], 'allow_overlap' => true]);
     exit;
 }
 
 if ($endsAt === '') {
     $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
+} else {
+    $endsAt = normalizeAppointmentEndTime($startsAt, $endsAt);
 }
 
-if (strtotime($endsAt) <= strtotime($startsAt)) {
-    echo json_encode(['conflicts' => [], 'error' => 'End time must be after start time.']);
-    exit;
+$conflicts = AppointmentService::findConflicts(
+    $startsAt,
+    $endsAt,
+    $excludeId > 0 ? $excludeId : null
+);
+
+$payload = [];
+foreach ($conflicts as $conflict) {
+    $startLabel = formatDateTime($conflict['starts_at'] ?? null);
+    $endLabel   = formatDateTime($conflict['ends_at'] ?? null);
+    $range      = ($endLabel !== '' && $endLabel !== $startLabel)
+        ? $startLabel . ' – ' . $endLabel
+        : $startLabel;
+
+    $payload[] = [
+        'id'        => (int) ($conflict['id'] ?? 0),
+        'title'     => (string) ($conflict['title'] ?? 'Appointment'),
+        'starts_at' => (string) ($conflict['starts_at'] ?? ''),
+        'ends_at'   => (string) ($conflict['ends_at'] ?? ''),
+        'label'     => ($conflict['title'] ?? 'Appointment') . ' (' . $range . ')',
+    ];
 }
 
-try {
-    $conflicts = AppointmentService::findConflicts(
-        $startsAt,
-        $endsAt,
-        $exclude > 0 ? $exclude : null,
-        Auth::id()
-    );
-
-    $items = array_map(static function (array $row): array {
-        return [
-            'id'    => (int) ($row['id'] ?? 0),
-            'title' => $row['title'] ?? 'Appointment',
-            'start' => formatDateTime(appointmentStart($row)),
-            'end'   => formatDateTime(appointmentEnd($row) ?: date('Y-m-d H:i:s', strtotime(appointmentStart($row) . ' +1 hour'))),
-            'client'=> clientFullName($row),
-        ];
-    }, $conflicts);
-
-    echo json_encode(['conflicts' => $items]);
-} catch (Throwable $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage(), 'conflicts' => []]);
-}
+echo json_encode([
+    'conflicts'     => $payload,
+    'allow_overlap' => $payload === [],
+]);

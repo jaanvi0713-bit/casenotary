@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 class AppointmentService
 {
+    /** @var list<string> */
+    private const BLOCKING_STATUSES = ['requested', 'scheduled', 'confirmed', 'rescheduled'];
+
     public static function ensureStatusSchema(): void
     {
         static $checked = false;
@@ -71,6 +74,8 @@ class AppointmentService
         $location    = trim($data['location'] ?? '') ?: null;
         $status      = $data['status'] ?? 'scheduled';
 
+        self::assertScheduleSlotAvailable($startsAt, $endsAt, null, $status);
+
         try {
             $id = Database::insert(
                 'INSERT INTO appointments (case_id, client_id, admin_id, title, description, starts_at, ends_at, location, status, created_at, updated_at)
@@ -137,6 +142,8 @@ class AppointmentService
         $description = trim($data['description'] ?? '') ?: null;
         $location    = trim($data['location'] ?? '') ?: null;
         $status      = 'requested';
+
+        self::assertScheduleSlotAvailable($startsAt, $endsAt, null, $status);
 
         try {
             $id = Database::insert(
@@ -211,6 +218,8 @@ class AppointmentService
                 $fields['status'] = 'rescheduled';
             }
         }
+
+        self::assertScheduleSlotAvailable($fields['starts_at'], $fields['ends_at'], $id, (string) $fields['status']);
 
         $setParts = [
             'title = ?',
@@ -365,6 +374,94 @@ class AppointmentService
             "SELECT id, case_number, title FROM cases WHERE client_id = ? ORDER BY updated_at DESC",
             [$clientId]
         );
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function findConflicts(string $startsAt, string $endsAt, ?int $excludeAppointmentId = null): array
+    {
+        self::ensureStatusSchema();
+
+        $startsAt = normalizeDateTimeInput(trim($startsAt));
+        $endsAt   = normalizeDateTimeInput(trim($endsAt));
+
+        if ($startsAt === '') {
+            return [];
+        }
+
+        if ($endsAt === '' || strtotime($endsAt) <= strtotime($startsAt)) {
+            $endsAt = date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'));
+        }
+
+        $startSql = appointmentStartSql('a');
+        $endSql   = self::appointmentEndOrDefaultSql('a');
+        $statuses = "'" . implode("','", self::BLOCKING_STATUSES) . "'";
+
+        $where  = [
+            "a.status IN ({$statuses})",
+            "({$startSql}) IS NOT NULL",
+            "({$startSql}) < ?",
+            "({$endSql}) > ?",
+        ];
+        $params = [$endsAt, $startsAt];
+
+        if ($excludeAppointmentId !== null && $excludeAppointmentId > 0) {
+            $where[]  = 'a.id != ?';
+            $params[] = $excludeAppointmentId;
+        }
+
+        TenantService::appendClientScope($where, $params, 'cl');
+
+        return Database::fetchAll(
+            "SELECT a.id, a.title, a.status, {$startSql} AS starts_at, {$endSql} AS ends_at,
+                    cl.first_name, cl.last_name, cl.company_name
+             FROM appointments a
+             JOIN clients cl ON cl.id = a.client_id
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY {$startSql} ASC
+             LIMIT 5",
+            $params
+        );
+    }
+
+    public static function assertScheduleSlotAvailable(
+        string $startsAt,
+        string $endsAt,
+        ?int $excludeAppointmentId = null,
+        ?string $status = null
+    ): void {
+        $status = normalizeAppointmentStatus($status ?? 'scheduled');
+        if (!in_array($status, self::BLOCKING_STATUSES, true)) {
+            return;
+        }
+
+        $conflicts = self::findConflicts($startsAt, $endsAt, $excludeAppointmentId);
+        if ($conflicts === []) {
+            return;
+        }
+
+        $messages = [];
+        foreach ($conflicts as $conflict) {
+            $startLabel = formatDateTime($conflict['starts_at'] ?? null);
+            $endLabel   = formatDateTime($conflict['ends_at'] ?? null);
+            $range      = ($endLabel !== '' && $endLabel !== $startLabel)
+                ? $startLabel . ' – ' . $endLabel
+                : $startLabel;
+            $messages[] = ($conflict['title'] ?? 'Appointment') . ' (' . $range . ')';
+        }
+
+        throw new RuntimeException(
+            'That time slot is not available. It overlaps with: ' . implode('; ', $messages) . '.'
+        );
+    }
+
+    private static function appointmentEndOrDefaultSql(string $alias = 'a'): string
+    {
+        $startSql = appointmentStartSql($alias);
+        $endSql   = appointmentEndSql($alias);
+
+        return "COALESCE({$endSql}, DATE_ADD({$startSql}, INTERVAL 1 HOUR))";
     }
 
     private static function appointmentTimesChanged(array $appointment, string $startsAt, string $endsAt): bool

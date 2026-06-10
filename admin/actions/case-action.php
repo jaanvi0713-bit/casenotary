@@ -24,10 +24,10 @@ if (!CSRF::verifyRequest()) {
     redirect('pages/cases.php');
 }
 
-$action = $_POST['action'] ?? '';
+$action = trim((string) ($_POST['action'] ?? ''));
 $caseId = (int) ($_POST['case_id'] ?? $_GET['case_id'] ?? 0);
 
-if (str_contains($action, 'client_letter') || str_contains($action, 'letter_')) {
+if (str_contains($action, 'client_letter')) {
     ClientLetterService::ensureSchema();
 }
 
@@ -177,9 +177,11 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'generate_client_letter':            if ($caseId <= 0) {
+        case 'generate_client_letter':
+            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
+            ClientLetterService::ensureSchema();
             $instructions = trim($_POST['client_instructions'] ?? '');
             $sections     = ClientLetterService::sectionsFromPost($_POST);
             CaseService::generateClientLetter($caseId, $instructions, $sections);
@@ -205,7 +207,8 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'publish_client_letter':            if ($caseId <= 0) {
+        case 'publish_client_letter':
+            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             $letterId = (int) ($_POST['letter_id'] ?? 0);
@@ -220,7 +223,8 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'unpublish_client_letter':            $letterId = (int) ($_POST['letter_id'] ?? 0);
+        case 'unpublish_client_letter':
+            $letterId = (int) ($_POST['letter_id'] ?? 0);
             if ($letterId > 0) {
                 ClientLetterService::unpublishFromPortal($letterId);
                 flash('success', 'Letter removed from client portal.');
@@ -297,7 +301,14 @@ try {
             break;
 
         default:
-            flash('error', 'Unknown action.');
+            if ($action === '') {
+                flash('error', 'No action was submitted. Please use a button on the form and try again.');
+            } else {
+                flash('error', 'Unknown action: ' . $action . '.');
+            }
+            if ($caseId > 0) {
+                $isClient ? redirectClientCase($caseId) : redirectCase($caseId);
+            }
             redirect('pages/cases.php');
     }
 } catch (Throwable $e) {

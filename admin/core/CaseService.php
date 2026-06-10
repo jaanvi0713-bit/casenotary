@@ -65,6 +65,7 @@ class CaseService
         }
     }
     public const DEFAULT_VAT_RATE = 20.0;
+    public const NON_VAT_RATE = 0.0;
 
     public static function vatRate(): float
     {
@@ -76,7 +77,7 @@ class CaseService
      */
     public static function emptyCaseBilling(): array
     {
-        return self::buildCaseBilling([], [], self::vatRate(), self::vatRate());
+        return self::buildCaseBilling([], [], self::vatRate());
     }
 
     /**
@@ -122,7 +123,7 @@ class CaseService
         ?float $nonVatRate = null
     ): array {
         $vatRate    = $vatRate ?? self::vatRate();
-        $nonVatRate = $nonVatRate ?? $vatRate;
+        $nonVatRate = self::NON_VAT_RATE;
 
         $nonVatNetSub = 0.0;
         foreach ($nonVat as $row) {
@@ -177,16 +178,12 @@ class CaseService
             return self::billingFromLegacyFlatList($legacy);
         }
 
-        $vatRate    = self::vatRate();
-        $nonVatRate = self::vatRate();
+        $vatRate = self::vatRate();
         if (isset($data['vat_rate']) && $data['vat_rate'] !== '') {
             $vatRate = max(0.0, min(100.0, (float) $data['vat_rate']));
         }
-        if (isset($data['non_vat_rate']) && $data['non_vat_rate'] !== '') {
-            $nonVatRate = max(0.0, min(100.0, (float) $data['non_vat_rate']));
-        }
 
-        return self::buildCaseBilling($nonVat, $vatNet, $vatRate, $nonVatRate);
+        return self::buildCaseBilling($nonVat, $vatNet, $vatRate);
     }
 
     /**
@@ -237,7 +234,7 @@ class CaseService
             ];
         }
 
-        return self::buildCaseBilling($nonVat, [], self::vatRate(), self::vatRate());
+        return self::buildCaseBilling($nonVat, [], self::vatRate());
     }
 
     /**
@@ -251,12 +248,9 @@ class CaseService
             if (is_array($decoded) && isset($decoded['version']) && (int) $decoded['version'] === 2) {
                 $nonVat = is_array($decoded['non_vat'] ?? null) ? $decoded['non_vat'] : [];
                 $vat    = is_array($decoded['vat'] ?? null) ? $decoded['vat'] : [];
-                $rate       = (float) ($decoded['vat_rate'] ?? self::vatRate());
-                $nonVatRate = array_key_exists('non_vat_rate', $decoded)
-                    ? (float) $decoded['non_vat_rate']
-                    : 0.0;
+                $rate = (float) ($decoded['vat_rate'] ?? self::vatRate());
 
-                return self::buildCaseBilling($nonVat, $vat, $rate, $nonVatRate);
+                return self::buildCaseBilling($nonVat, $vat, $rate);
             }
 
             if (is_array($decoded) && $decoded !== []) {
@@ -304,7 +298,7 @@ class CaseService
         $type = trim($case['service_type'] ?? '');
         $nonVat = $type !== '' ? [['type' => $type, 'net' => $grand]] : [];
 
-        return self::buildCaseBilling($nonVat, [], self::vatRate(), self::vatRate());
+        return self::buildCaseBilling($nonVat, [], self::vatRate());
     }
 
     public static function parseServicesFromRequest(array $data): array

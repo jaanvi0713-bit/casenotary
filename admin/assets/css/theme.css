@@ -472,6 +472,20 @@
     color: #fcd34d;
 }
 
+[data-theme="dark"] .appt-conflict-alert {
+    background: var(--primary-light);
+    color: var(--text-primary, #e2e8f0);
+    border-left-color: var(--primary);
+}
+
+[data-theme="dark"] .appt-conflict-alert strong {
+    color: var(--primary);
+}
+
+[data-theme="dark"] .appt-conflict-alert .bi-exclamation-triangle-fill {
+    color: var(--primary);
+}
+
 [data-theme="dark"] .alert-danger {
     background: rgba(239, 68, 68, 0.14);
     border-color: rgba(239, 68, 68, 0.35);

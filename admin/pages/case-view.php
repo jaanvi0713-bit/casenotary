@@ -38,6 +38,8 @@ $letterLabels       = ClientLetterService::sectionLabels(); // hidden fields for
 $letterIsPdf        = $clientLetterPaths['pdf'] !== null;
 $savedClientLetters = $workspace['client_letters'] ?? [];
 $currentSavedLetter = ClientLetterService::getCurrentSavedLetter($caseId);
+$currentLetterId    = $currentSavedLetter ? (int) ($currentSavedLetter['id'] ?? 0) : 0;
+$currentLetterPublished = $currentSavedLetter && !empty($currentSavedLetter['published_to_portal']);
 $hasGeneratedDraft  = $clientLetterPaths['html'] !== null || $clientLetterPaths['pdf'] !== null;
 $csrfToken          = CSRF::generateToken();
 $csrfFieldName      = (require __DIR__ . '/../config/config.php')['security']['csrf_token_name'];
@@ -577,9 +579,13 @@ require __DIR__ . '/../includes/header.php';
                     Generate a professional engagement letter, save it to this client’s record, and publish it to their portal when ready.
                 </p>
 
-                <form method="post" action="<?= url('actions/case-action.php') ?>" id="clientLetterForm">
+                <form method="post" action="<?= url('actions/case-action.php') ?>" id="clientLetterForm" data-has-draft="<?= $hasGeneratedDraft ? '1' : '0' ?>">
                     <?= CSRF::field() ?>
+                    <input type="hidden" name="action" id="clientLetterAction" value="generate_client_letter">
                     <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                    <?php if ($currentLetterId > 0): ?>
+                        <input type="hidden" name="letter_id" value="<?= $currentLetterId ?>" id="clientLetterRecordId">
+                    <?php endif; ?>
                     <?php foreach ($letterLabels as $key => $label): ?>
                         <textarea name="letter_<?= e($key) ?>" hidden aria-hidden="true"><?= e($letterSections[$key] ?? '') ?></textarea>
                     <?php endforeach; ?>
@@ -612,16 +618,22 @@ require __DIR__ . '/../includes/header.php';
                                 <i class="bi bi-<?= $letterIsPdf ? 'file-pdf' : 'file-earmark-text' ?>"></i> Download<?= $letterIsPdf ? ' PDF' : '' ?>
                             </a>
                         <?php endif; ?>
-                        <button type="submit" name="action" value="generate_client_letter" class="btn btn-primary btn-sm">
+                        <button type="submit" data-letter-action="generate_client_letter" class="btn btn-primary btn-sm">
                             <i class="bi bi-file-earmark-plus"></i> <?= $hasGeneratedDraft ? 'Regenerate' : 'Generate letter' ?>
                         </button>
-                        <button type="submit" name="action" value="save_client_letter_record" class="btn btn-soft btn-sm" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
+                        <button type="submit" data-letter-action="save_client_letter_record" class="btn btn-soft btn-sm" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
                             <i class="bi bi-save"></i> Save to client record
                         </button>
-                        <button type="submit" name="action" value="publish_client_letter" class="btn btn-soft btn-sm" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
-                            <i class="bi bi-globe"></i> Publish to portal
-                        </button>
-                        <button type="submit" name="action" value="send_client_letter" class="btn btn-primary btn-sm" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
+                        <?php if ($currentLetterPublished): ?>
+                            <button type="submit" data-letter-action="unpublish_client_letter" class="btn btn-soft btn-sm">
+                                <i class="bi bi-eye-slash"></i> Unpublish from client portal
+                            </button>
+                        <?php else: ?>
+                            <button type="submit" data-letter-action="publish_client_letter" class="btn btn-soft btn-sm" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
+                                <i class="bi bi-globe"></i> Publish to client portal
+                            </button>
+                        <?php endif; ?>
+                        <button type="submit" data-letter-action="send_client_letter" class="btn btn-primary btn-sm" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
                             <i class="bi bi-envelope"></i> Email to client
                         </button>
                     </div>
@@ -687,7 +699,7 @@ require __DIR__ . '/../includes/header.php';
                                                     <input type="hidden" name="action" value="publish_client_letter">
                                                     <input type="hidden" name="case_id" value="<?= $caseId ?>">
                                                     <input type="hidden" name="letter_id" value="<?= (int) $sl['id'] ?>">
-                                                    <button type="submit" class="btn btn-soft btn-sm" title="Publish to portal"><i class="bi bi-globe"></i></button>
+                                                    <button type="submit" class="btn btn-soft btn-sm" title="Publish to client portal"><i class="bi bi-globe"></i></button>
                                                 </form>
                                             <?php else: ?>
                                                 <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
@@ -857,6 +869,20 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var letterForm = document.getElementById("clientLetterForm");
     if (letterForm) {
+        letterForm.addEventListener("submit", function(event) {
+            var actionEl = document.getElementById("clientLetterAction");
+            if (!actionEl) return;
+            var submitter = event.submitter;
+            if (submitter && submitter.getAttribute("data-letter-action")) {
+                actionEl.value = submitter.getAttribute("data-letter-action");
+                return;
+            }
+            var fallback = letterForm.querySelector("button[type=\"submit\"][data-letter-action]:not([disabled])");
+            if (fallback) {
+                actionEl.value = fallback.getAttribute("data-letter-action");
+            }
+        });
+
         var previewUrl = "' . e(url('actions/client-letter-preview.php')) . '";
         var csrfName = "' . e($csrfFieldName) . '";
         var csrfToken = "' . e($csrfToken) . '";
@@ -911,7 +937,9 @@ document.addEventListener("DOMContentLoaded", function() {
             tab.addEventListener("shown.bs.tab", maybeRefreshLetterPreview);
         });
 
-        if (window.location.hash === "#client-letter") {
+        if (window.location.hash === "#client-letter" || letterForm.getAttribute("data-has-draft") === "1") {
+            var previewBtn = document.getElementById("clientLetterPreviewBtn");
+            if (previewBtn) previewBtn.disabled = false;
             setTimeout(refreshLetterPreview, 400);
         }
     }

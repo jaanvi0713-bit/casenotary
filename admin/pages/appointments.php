@@ -382,6 +382,18 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                     <input type="hidden" name="starts_at" id="appt_starts_at">
                     <input type="hidden" name="ends_at" id="appt_ends_at">
+                    <div class="col-12 d-none" id="apptConflictWrap">
+                        <div class="alert appt-conflict-alert border-0 mb-0 py-2 px-3" id="apptConflictAlert" role="alert">
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+                                <div class="small">
+                                    <strong class="d-block mb-1">Time slot not available</strong>
+                                    <span id="apptConflictMessage">This time overlaps with another appointment. Choose a different date or time.</span>
+                                    <ul class="mb-0 mt-1 ps-3" id="apptConflictList"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="col-md-6">
                         <label class="form-label">Location</label>
                         <input type="text" name="location" id="appt_location" class="form-control" placeholder="Office, Zoom link, etc.">
@@ -453,6 +465,78 @@ document.addEventListener("DOMContentLoaded", function() {
     var caseDisplay = document.getElementById("appt_case_display");
     var createFields = document.querySelectorAll(".appt-field-create");
     var editFields = document.querySelectorAll(".appt-field-edit");
+    var apptConflictWrap = document.getElementById("apptConflictWrap");
+    var apptConflictList = document.getElementById("apptConflictList");
+    var apptStatusSelect = document.getElementById("appt_status");
+    var conflictCheckTimer = null;
+    var hasAppointmentConflict = false;
+    var appointmentCheckUrl = ' . json_encode(url('actions/appointment-check.php')) . ';
+    var scheduleForm = document.getElementById("scheduleForm");
+
+    function clearAppointmentConflictWarning() {
+        hasAppointmentConflict = false;
+        if (apptConflictWrap) apptConflictWrap.classList.add("d-none");
+        if (apptConflictList) apptConflictList.innerHTML = "";
+        if (scheduleSubmitBtn) scheduleSubmitBtn.disabled = false;
+    }
+
+    function showAppointmentConflictWarning(conflicts) {
+        hasAppointmentConflict = true;
+        if (!apptConflictWrap || !apptConflictList) return;
+        apptConflictList.innerHTML = "";
+        conflicts.forEach(function(conflict) {
+            var item = document.createElement("li");
+            item.textContent = conflict.label || conflict.title || "Appointment";
+            apptConflictList.appendChild(item);
+        });
+        apptConflictWrap.classList.remove("d-none");
+        if (scheduleSubmitBtn) scheduleSubmitBtn.disabled = true;
+    }
+
+    function shouldCheckAppointmentConflicts() {
+        if (!apptStatusSelect) return true;
+        var status = (apptStatusSelect.value || "").toLowerCase();
+        return status !== "cancelled" && status !== "completed";
+    }
+
+    function checkAppointmentConflicts() {
+        if (conflictCheckTimer) {
+            clearTimeout(conflictCheckTimer);
+        }
+        conflictCheckTimer = setTimeout(function() {
+            conflictCheckTimer = null;
+            if (!shouldCheckAppointmentConflicts()) {
+                clearAppointmentConflictWarning();
+                return;
+            }
+            if (scheduleForm) {
+                syncHiddenDateTimes(scheduleForm.dataset.endDate || "");
+            }
+            if (!startsAtInput || !startsAtInput.value) {
+                clearAppointmentConflictWarning();
+                return;
+            }
+            var params = new URLSearchParams({
+                starts_at: startsAtInput.value,
+                ends_at: endsAtInput && endsAtInput.value ? endsAtInput.value : ""
+            });
+            if (apptIdInput && apptIdInput.value) {
+                params.set("exclude_id", apptIdInput.value);
+            }
+            fetch(appointmentCheckUrl + "?" + params.toString(), { credentials: "same-origin" })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.conflicts && data.conflicts.length > 0) {
+                        showAppointmentConflictWarning(data.conflicts);
+                    } else {
+                        clearAppointmentConflictWarning();
+                    }
+                })
+                .catch(function() {
+                    clearAppointmentConflictWarning();
+                });
+        }, 300);
+    }
 
     function setCreateMode() {
         if (apptActionInput) apptActionInput.value = "create_appointment";
@@ -476,6 +560,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (startsAtInput) startsAtInput.value = "";
         if (endsAtInput) endsAtInput.value = "";
         if (scheduleForm) scheduleForm.dataset.endDate = "";
+        clearAppointmentConflictWarning();
     }
 
     function parseDateTimeParts(value) {
@@ -538,6 +623,8 @@ document.addEventListener("DOMContentLoaded", function() {
         document.getElementById("appt_location").value = data.location || "";
         document.getElementById("appt_status").value = data.status || "scheduled";
         document.getElementById("appt_description").value = data.description || "";
+        clearAppointmentConflictWarning();
+        checkAppointmentConflicts();
         if (scheduleModal) scheduleModal.show();
     }
 
@@ -561,18 +648,72 @@ document.addEventListener("DOMContentLoaded", function() {
         scheduleModalEl.addEventListener("hidden.bs.modal", setCreateMode);
     }
 
-    var scheduleForm = document.getElementById("scheduleForm");
+    [apptDateInput, apptStartTimeInput, apptEndTimeInput, apptStatusSelect].forEach(function(input) {
+        if (!input) return;
+        input.addEventListener("change", checkAppointmentConflicts);
+        input.addEventListener("input", checkAppointmentConflicts);
+    });
+
     if (scheduleForm) {
         scheduleForm.addEventListener("submit", function(e) {
-            if (apptActionInput && apptActionInput.value === "update_appointment" && clientSelect) {
-                clientSelect.required = false;
-                clientSelect.disabled = true;
-            }
             syncHiddenDateTimes(scheduleForm.dataset.endDate || "");
             if (!startsAtInput || !startsAtInput.value) {
                 e.preventDefault();
                 alert("Please select a date and start time.");
+                return;
             }
+            if (hasAppointmentConflict && shouldCheckAppointmentConflicts()) {
+                e.preventDefault();
+                if (apptConflictWrap) {
+                    apptConflictWrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }
+                return;
+            }
+            if (scheduleForm.dataset.conflictChecking === "1") {
+                e.preventDefault();
+                return;
+            }
+            if (!shouldCheckAppointmentConflicts()) {
+                if (apptActionInput && apptActionInput.value === "update_appointment" && clientSelect) {
+                    clientSelect.required = false;
+                    clientSelect.disabled = true;
+                }
+                return;
+            }
+            e.preventDefault();
+            scheduleForm.dataset.conflictChecking = "1";
+            var params = new URLSearchParams({
+                starts_at: startsAtInput.value,
+                ends_at: endsAtInput && endsAtInput.value ? endsAtInput.value : ""
+            });
+            if (apptIdInput && apptIdInput.value) {
+                params.set("exclude_id", apptIdInput.value);
+            }
+            fetch(appointmentCheckUrl + "?" + params.toString(), { credentials: "same-origin" })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    scheduleForm.dataset.conflictChecking = "0";
+                    if (data.conflicts && data.conflicts.length > 0) {
+                        showAppointmentConflictWarning(data.conflicts);
+                        if (apptConflictWrap) {
+                            apptConflictWrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }
+                        return;
+                    }
+                    if (apptActionInput && apptActionInput.value === "update_appointment" && clientSelect) {
+                        clientSelect.required = false;
+                        clientSelect.disabled = true;
+                    }
+                    scheduleForm.submit();
+                })
+                .catch(function() {
+                    scheduleForm.dataset.conflictChecking = "0";
+                    if (apptActionInput && apptActionInput.value === "update_appointment" && clientSelect) {
+                        clientSelect.required = false;
+                        clientSelect.disabled = true;
+                    }
+                    scheduleForm.submit();
+                });
         });
     }
 
@@ -614,7 +755,9 @@ document.addEventListener("DOMContentLoaded", function() {
         apptStartTimeInput.value = startTime;
         if (apptEndTimeInput) apptEndTimeInput.value = "";
         if (scheduleForm) scheduleForm.dataset.endDate = "";
+        clearAppointmentConflictWarning();
         scheduleModal.show();
+        checkAppointmentConflicts();
     }
 
     function showEventDetails(event) {
