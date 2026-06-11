@@ -1,0 +1,582 @@
+/**
+ * Shared design system for Invoice, Quotation, and Payment Receipt PDFs.
+ *
+ * Injected at runtime: --fdoc-primary, --fdoc-secondary, --fdoc-font
+ * Typography scale and spacing are fixed below for cross-document consistency.
+ */
+:root {
+    --fdoc-text-footer: 12px;
+    --fdoc-text-caption: 13px;
+    --fdoc-text-body: 14px;
+    --fdoc-text-base: 15px;
+    --fdoc-text-lead: 16px;
+    --fdoc-text-subject: 16px;
+    --fdoc-text-doc-number: 20px;
+    --fdoc-text-doc-title: 40px;
+    --fdoc-text-due: 18px;
+    --fdoc-text-due-value: 20px;
+    --fdoc-text-grand: 20px;
+    --fdoc-text-grand-value: 22px;
+    --fdoc-space-section: 28px;
+    --fdoc-space-block: 16px;
+    --fdoc-space-tight: 8px;
+    --fdoc-space-line: 6px;
+    --fdoc-summary-value-width: 148px;
+    --fdoc-color-text: #1e293b;
+    --fdoc-color-muted: #475569;
+    --fdoc-color-subtle: #64748b;
+    --fdoc-color-faint: #94a3b8;
+    --fdoc-color-border: #e2e8f0;
+    --fdoc-color-border-light: #f1f5f9;
+    --fdoc-color-table-border: #cbd5e1;
+    --fdoc-color-note-bg: #f8fafc;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--fdoc-font);
+    color: var(--fdoc-color-text);
+    margin: 0;
+    padding: 40px 48px 48px;
+    font-size: var(--fdoc-text-base);
+    line-height: 1.6;
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+}
+
+.no-print {
+    max-width: 900px;
+    margin: 0 auto 24px;
+}
+
+.no-print button {
+    padding: 10px 20px;
+    background: var(--fdoc-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--fdoc-text-body);
+}
+
+.fdoc-doc {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* ── Document header ─────────────────────────────────────────────── */
+.fdoc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 32px;
+    padding-bottom: var(--fdoc-space-section);
+    margin-bottom: var(--fdoc-space-section);
+    border-bottom: 1px solid var(--fdoc-color-border);
+}
+
+.fdoc-logo {
+    max-height: 96px;
+    max-width: 280px;
+    object-fit: contain;
+    display: block;
+}
+
+.fdoc-logo-text {
+    font-size: var(--fdoc-text-doc-number);
+    font-weight: 700;
+    color: var(--fdoc-secondary);
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+}
+
+.fdoc-heading {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.fdoc-heading h1 {
+    margin: 0;
+    color: var(--fdoc-primary);
+    font-size: var(--fdoc-text-doc-title);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.fdoc-number {
+    font-size: var(--fdoc-text-doc-number);
+    font-weight: 700;
+    color: var(--fdoc-secondary);
+    margin-top: var(--fdoc-space-tight);
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+}
+
+/* ── Parties / client details ────────────────────────────────────── */
+.fdoc-parties {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 56px;
+    align-items: start;
+    margin-bottom: var(--fdoc-space-section);
+    width: 100%;
+}
+
+.fdoc-from,
+.fdoc-bill-to {
+    min-width: 0;
+}
+
+.fdoc-bill-to {
+    text-align: right;
+    padding-right: 2px;
+}
+
+.fdoc-bill-to .fdoc-party-label {
+    text-align: right;
+}
+
+.fdoc-party-label {
+    margin: 0 0 10px;
+    font-size: var(--fdoc-text-caption);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fdoc-color-text);
+    line-height: 1.3;
+}
+
+.fdoc-party-name,
+.fdoc-from-name {
+    margin: 0 0 var(--fdoc-space-line);
+    font-size: var(--fdoc-text-lead);
+    font-weight: 700;
+    color: var(--fdoc-secondary);
+    line-height: 1.5;
+}
+
+.fdoc-bill-to-name {
+    margin: 0 0 var(--fdoc-space-line);
+    font-size: var(--fdoc-text-lead);
+    font-weight: 700;
+    color: var(--fdoc-color-text);
+    line-height: 1.5;
+    text-align: right;
+}
+
+.fdoc-address,
+.fdoc-contact,
+.fdoc-bill-to-line {
+    margin: 0;
+    font-size: var(--fdoc-text-body);
+    line-height: 1.75;
+    color: var(--fdoc-color-muted);
+}
+
+.fdoc-bill-to-line {
+    text-align: right;
+}
+
+.fdoc-contact {
+    margin-top: 2px;
+}
+
+.fdoc-dates {
+    margin-top: 18px;
+    padding-top: var(--fdoc-space-block);
+    border-top: 1px solid var(--fdoc-color-border-light);
+}
+
+.fdoc-dates p {
+    margin: 0 0 var(--fdoc-space-tight);
+    font-size: var(--fdoc-text-body);
+    color: var(--fdoc-color-text);
+    line-height: 1.5;
+}
+
+.fdoc-dates p:last-child {
+    margin-bottom: 0;
+}
+
+.fdoc-date-label {
+    font-weight: 600;
+    color: #334155;
+}
+
+/* ── Subject ─────────────────────────────────────────────────────── */
+.fdoc-subject {
+    font-size: var(--fdoc-text-subject);
+    font-weight: 600;
+    color: var(--fdoc-secondary);
+    margin: 0 0 var(--fdoc-space-block);
+    line-height: 1.45;
+}
+
+/* ── Line items table ────────────────────────────────────────────── */
+.fdoc-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin-bottom: var(--fdoc-space-section);
+    border: 1px solid var(--fdoc-color-table-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.fdoc-table thead th {
+    background: var(--fdoc-secondary);
+    color: #fff;
+    font-weight: 600;
+    font-size: var(--fdoc-text-caption);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 12px 14px;
+    border: none;
+    text-align: left;
+    line-height: 1.3;
+}
+
+.fdoc-table thead th:nth-child(1) { width: 38%; }
+.fdoc-table thead th:nth-child(2) { width: 11%; }
+.fdoc-table thead th:nth-child(3) { width: 17%; }
+.fdoc-table thead th:nth-child(4) { width: 15%; }
+.fdoc-table thead th:nth-child(5) { width: 19%; }
+
+.fdoc-table tbody td {
+    padding: 12px 14px;
+    font-size: var(--fdoc-text-body);
+    color: var(--fdoc-color-text);
+    border: none;
+    border-top: 1px solid var(--fdoc-color-border);
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.fdoc-table tbody tr:first-child td {
+    border-top: none;
+}
+
+.fdoc-table .num {
+    text-align: right;
+    white-space: nowrap;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.fdoc-table thead th.num {
+    padding-right: 14px;
+    text-align: right;
+}
+
+.fdoc-empty {
+    color: var(--fdoc-color-faint);
+    font-style: italic;
+    text-align: center;
+    font-weight: 400;
+}
+
+/* ── Financial summary ───────────────────────────────────────────── */
+.fdoc-summary {
+    background: var(--fdoc-primary);
+    color: #fff;
+    padding: 20px 24px;
+    margin-bottom: var(--fdoc-space-section);
+    border-radius: 6px;
+}
+
+.fdoc-summary-title {
+    margin: 0 0 12px;
+    font-size: var(--fdoc-text-caption);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.92;
+    line-height: 1.3;
+}
+
+.fdoc-summary-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.fdoc-summary-totals {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.28);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.fdoc-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 24px;
+    padding: 5px 0;
+    font-size: var(--fdoc-text-base);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.fdoc-summary-label {
+    opacity: 0.95;
+    flex: 1;
+    text-align: left;
+}
+
+.fdoc-summary-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: right;
+    min-width: var(--fdoc-summary-value-width);
+    flex-shrink: 0;
+}
+
+/* Amount Due — row 1 of totals block (same position on every document) */
+.fdoc-summary-row--due {
+    margin-top: 0;
+    padding: 12px 14px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: var(--fdoc-text-due);
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.fdoc-summary-row--due .fdoc-summary-label,
+.fdoc-summary-row--due .fdoc-summary-value {
+    opacity: 1;
+}
+
+.fdoc-summary-row--due .fdoc-summary-value {
+    font-size: var(--fdoc-text-due-value);
+}
+
+/* Grand Total — row 2 of totals block (same position on every document) */
+.fdoc-summary-row--grand {
+    margin-top: var(--fdoc-space-tight);
+    padding: 14px 14px 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.38);
+    font-size: var(--fdoc-text-grand);
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.fdoc-summary-row--grand .fdoc-summary-label,
+.fdoc-summary-row--grand .fdoc-summary-value {
+    opacity: 1;
+}
+
+.fdoc-summary-row--grand .fdoc-summary-value {
+    font-size: var(--fdoc-text-grand-value);
+}
+
+/* ── Notes & payment footer ──────────────────────────────────────── */
+.fdoc-note {
+    font-size: var(--fdoc-text-body);
+    line-height: 1.7;
+    margin: 0 0 var(--fdoc-space-block);
+    color: var(--fdoc-color-subtle);
+    padding: 12px 16px;
+    background: var(--fdoc-color-note-bg);
+    border-radius: 6px;
+}
+
+.fdoc-note strong {
+    font-weight: 700;
+    color: #334155;
+}
+
+.fdoc-payment {
+    font-size: var(--fdoc-text-body);
+    line-height: 1.6;
+    color: var(--fdoc-color-muted);
+    margin-bottom: 20px;
+}
+
+.fdoc-payment-label {
+    margin: 0 0 10px;
+    font-weight: 700;
+    color: var(--fdoc-color-text);
+    font-size: var(--fdoc-text-caption);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.3;
+}
+
+.fdoc-bank {
+    margin: 0;
+    line-height: 1.6;
+    font-size: var(--fdoc-text-body);
+}
+
+.fdoc-payee {
+    margin: 0 0 var(--fdoc-space-line);
+    font-size: var(--fdoc-text-lead);
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--fdoc-primary);
+}
+
+.fdoc-vat-no {
+    margin: var(--fdoc-space-block) 0 0;
+    font-size: var(--fdoc-text-body);
+    color: var(--fdoc-color-muted);
+    line-height: 1.5;
+}
+
+.fdoc-accent-bar {
+    height: 6px;
+    background: var(--fdoc-primary);
+    border-radius: 3px;
+    margin: 24px 0 0;
+}
+
+.fdoc-footer {
+    margin-top: 32px;
+    padding-top: 14px;
+    border-top: 1px solid var(--fdoc-color-border);
+    font-size: var(--fdoc-text-footer);
+    color: var(--fdoc-color-faint);
+    text-align: center;
+    line-height: 1.5;
+}
+
+@page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+}
+
+@media print {
+    :root {
+        --fdoc-text-footer: 11px;
+        --fdoc-text-caption: 11px;
+        --fdoc-text-body: 12px;
+        --fdoc-text-base: 12px;
+        --fdoc-text-lead: 13px;
+        --fdoc-text-subject: 14px;
+        --fdoc-text-doc-number: 17px;
+        --fdoc-text-doc-title: 32px;
+        --fdoc-text-due: 14px;
+        --fdoc-text-due-value: 15px;
+        --fdoc-text-grand: 15px;
+        --fdoc-text-grand-value: 16px;
+        --fdoc-space-section: 16px;
+        --fdoc-space-block: 12px;
+        --fdoc-space-tight: 6px;
+        --fdoc-space-line: 4px;
+        --fdoc-summary-value-width: 120px;
+    }
+
+    html,
+    body {
+        height: auto;
+        margin: 0;
+        padding: 0;
+        line-height: 1.45;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .fdoc-doc {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .fdoc-top {
+        gap: 20px;
+        padding-bottom: 14px;
+    }
+
+    .fdoc-logo {
+        max-height: 84px;
+        max-width: 240px;
+    }
+
+    .fdoc-parties {
+        column-gap: 36px;
+    }
+
+    .fdoc-party-label {
+        margin-bottom: 6px;
+    }
+
+    .fdoc-dates {
+        margin-top: 10px;
+        padding-top: 8px;
+    }
+
+    .fdoc-table {
+        border-radius: 0;
+    }
+
+    .fdoc-table thead th,
+    .fdoc-table tbody td {
+        padding: 8px 10px;
+    }
+
+    .fdoc-summary {
+        padding: 12px 14px;
+        border-radius: 0;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .fdoc-summary-title {
+        margin-bottom: 8px;
+    }
+
+    .fdoc-summary-totals {
+        margin-top: 8px;
+        padding-top: 8px;
+    }
+
+    .fdoc-summary-row {
+        padding: 2px 0;
+    }
+
+    .fdoc-summary-row--due {
+        padding: 8px 10px;
+    }
+
+    .fdoc-summary-row--grand {
+        padding: 10px 10px 2px;
+    }
+
+    .fdoc-accent-bar {
+        height: 4px;
+        margin-top: 16px;
+    }
+
+    .fdoc-note {
+        padding: 8px 10px;
+    }
+
+    .fdoc-payment {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .fdoc-top,
+    .fdoc-parties,
+    .fdoc-table,
+    .fdoc-summary {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
