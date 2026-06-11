@@ -16,6 +16,18 @@ if ($page > $totalPages) {
     $page = $totalPages;
 }
 $payments = getPaymentsPaginated($page, $perPage, $q, $statusFilter, $methodFilter, $monthFilter);
+
+$invQ = trim((string) ($_GET['inv_q'] ?? ''));
+$invStatusFilter = trim((string) ($_GET['inv_status'] ?? ''));
+$invMonthFilter = trim((string) ($_GET['inv_month'] ?? ''));
+$invPage = requestPageNumber('inv_page');
+$totalInvoices = countInvoices($invQ, $invStatusFilter, $invMonthFilter);
+$totalInvoicePages = max(1, (int) ceil($totalInvoices / $perPage));
+if ($invPage > $totalInvoicePages) {
+    $invPage = $totalInvoicePages;
+}
+$invoices = getInvoicesPaginated($invPage, $perPage, $invQ, $invStatusFilter, $invMonthFilter);
+
 $pendingInvoices = getPendingInvoices();
 $overdueInvoices = getOverdueInvoices();
 $stats = getDashboardStats();
@@ -111,6 +123,10 @@ require __DIR__ . '/../includes/header.php';
         </div>
     </div>
     <form method="get" class="table-toolbar">
+        <?php if ($invQ !== ''): ?><input type="hidden" name="inv_q" value="<?= e($invQ) ?>"><?php endif; ?>
+        <?php if ($invStatusFilter !== ''): ?><input type="hidden" name="inv_status" value="<?= e($invStatusFilter) ?>"><?php endif; ?>
+        <?php if ($invMonthFilter !== ''): ?><input type="hidden" name="inv_month" value="<?= e($invMonthFilter) ?>"><?php endif; ?>
+        <?php if ($invPage > 1): ?><input type="hidden" name="inv_page" value="<?= (int) $invPage ?>"><?php endif; ?>
         <div class="table-search">
             <i class="bi bi-search"></i>
             <input type="search" class="form-control form-control-sm" id="tableSearch" name="q" value="<?= e($q) ?>" placeholder="Search by service...">
@@ -199,6 +215,106 @@ require __DIR__ . '/../includes/header.php';
                     Showing <?= count($payments) ?> of <?= $totalPayments ?> transactions
                 </small>
                 <?= renderPaginationNav($page, $totalPages) ?>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div class="saas-card mt-4">
+    <div class="saas-card-header appointment-list-header">
+        <div>
+            <h2 class="saas-card-title">Invoices</h2>
+            <p class="saas-card-subtitle mb-0"><?= $totalInvoices ?> invoice<?= $totalInvoices === 1 ? '' : 's' ?></p>
+        </div>
+    </div>
+    <form method="get" class="table-toolbar">
+        <?php if ($q !== ''): ?><input type="hidden" name="q" value="<?= e($q) ?>"><?php endif; ?>
+        <?php if ($statusFilter !== ''): ?><input type="hidden" name="status" value="<?= e($statusFilter) ?>"><?php endif; ?>
+        <?php if ($methodFilter !== ''): ?><input type="hidden" name="method" value="<?= e($methodFilter) ?>"><?php endif; ?>
+        <?php if ($monthFilter !== ''): ?><input type="hidden" name="month" value="<?= e($monthFilter) ?>"><?php endif; ?>
+        <?php if ($page > 1): ?><input type="hidden" name="page" value="<?= (int) $page ?>"><?php endif; ?>
+        <div class="table-search">
+            <i class="bi bi-search"></i>
+            <input type="search" class="form-control form-control-sm" name="inv_q" value="<?= e($invQ) ?>" placeholder="Search by invoice or client...">
+        </div>
+        <select class="form-select form-select-sm table-filter" name="inv_status" onchange="this.form.requestSubmit()">
+            <option value="">All statuses</option>
+            <option value="pending" <?= $invStatusFilter === 'pending' ? 'selected' : '' ?>>Pending</option>
+            <option value="partially_paid" <?= $invStatusFilter === 'partially_paid' ? 'selected' : '' ?>>Partially Paid</option>
+            <option value="overdue" <?= $invStatusFilter === 'overdue' ? 'selected' : '' ?>>Overdue</option>
+            <option value="paid" <?= $invStatusFilter === 'paid' ? 'selected' : '' ?>>Paid</option>
+        </select>
+        <select class="form-select form-select-sm table-filter table-filter-month" name="inv_month" onchange="this.form.requestSubmit()">
+            <option value="">All months</option>
+            <?php foreach ($paymentMonths as $monthKey => $monthLabel): ?>
+                <option value="<?= e($monthKey) ?>" <?= $invMonthFilter === (string) $monthKey ? 'selected' : '' ?>><?= e($monthLabel) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </form>
+    <div class="card-body p-0">
+        <?php if (empty($invoices)): ?>
+            <div class="empty-state py-5">
+                <i class="bi bi-receipt"></i>
+                <p class="mb-0">No invoices found.</p>
+            </div>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="table saas-table appointment-list-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Invoice</th>
+                            <th>Client</th>
+                            <th>Total</th>
+                            <th>Amount Due</th>
+                            <th>Status</th>
+                            <th>Issued</th>
+                            <th>Due Date</th>
+                            <th>PDF</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($invoices as $invoice): ?>
+                            <?php
+                            $invStatus = invoiceStatusValue($invoice);
+                            $amountDue = CaseService::getInvoiceRemainingBalance($invoice);
+                            $caseId = (int) ($invoice['case_id'] ?? 0);
+                            ?>
+                            <tr>
+                                <td>
+                                    <span class="table-primary"><?= e($invoice['invoice_number']) ?></span>
+                                    <?php if (!empty($invoice['case_number'])): ?>
+                                        <span class="table-secondary d-block"><?= e($invoice['case_number']) ?></span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= e(clientFullName($invoice)) ?></td>
+                                <td><span class="table-primary"><?= formatCurrency((float) $invoice['total']) ?></span></td>
+                                <td><span class="table-primary"><?= formatCurrency($amountDue) ?></span></td>
+                                <td><?= statusBadge($invStatus) ?></td>
+                                <td class="text-muted"><?= formatDate($invoice['issue_date'] ?? $invoice['created_at']) ?></td>
+                                <td class="text-muted"><?= !empty($invoice['due_date']) ? formatDate($invoice['due_date']) : '—' ?></td>
+                                <td>
+                                    <?php if (!empty($invoice['pdf_path'])): ?>
+                                        <a href="<?= url('actions/document-download.php?path=' . urlencode($invoice['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener">
+                                            <i class="bi bi-file-pdf"></i> View
+                                        </a>
+                                    <?php elseif ($caseId > 0): ?>
+                                        <a href="<?= url('pages/case-view.php?id=' . $caseId . '#invoices') ?>" class="btn btn-soft btn-sm">
+                                            <i class="bi bi-folder2-open"></i> Case
+                                        </a>
+                                    <?php else: ?>
+                                        —
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                <small class="text-muted">
+                    Showing <?= count($invoices) ?> of <?= $totalInvoices ?> invoices
+                </small>
+                <?= renderPaginationNav($invPage, $totalInvoicePages, 'inv_page') ?>
             </div>
         <?php endif; ?>
     </div>

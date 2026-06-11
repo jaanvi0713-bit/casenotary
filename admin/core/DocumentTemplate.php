@@ -6,33 +6,7 @@ class DocumentTemplate
 {
     public static function quotation(array $case, array $quotation): string
     {
-        $company = getCompanySettings();
-        $items   = json_decode($quotation['line_items'] ?? '[]', true) ?: [];
-        if ($items === []) {
-            $items = [['description' => $case['service_type'] ?? 'Service', 'amount' => (float) ($quotation['subtotal'] ?? 0)]];
-        }
-
-        $rows = '';
-        foreach ($items as $item) {
-            $rows .= '<tr><td>' . e($item['description'] ?? 'Item') . '</td><td class="num">' . formatCurrency((float) ($item['amount'] ?? 0)) . '</td></tr>';
-        }
-
-        $taxRate = (float) ($quotation['tax_rate'] ?? 0);
-        $subtotal = (float) ($quotation['subtotal'] ?? 0);
-        $total    = (float) ($quotation['total'] ?? 0);
-        $taxAmt   = max(0, $total - $subtotal);
-
-        $totals = self::totalsBlock($subtotal, $taxRate, $taxAmt, $total);
-        $valid  = !empty($quotation['valid_until']) ? '<p class="note"><strong>Valid until:</strong> ' . formatDate($quotation['valid_until']) . '</p>' : '';
-
-        return self::wrap(
-            $company,
-            'Quotation',
-            $quotation['quotation_number'] ?? '',
-            $case,
-            $quotation['title'] ?? 'Quotation',
-            self::table($rows) . $totals . $valid
-        );
+        return FinancialDocumentRenderer::renderQuotation($case, $quotation);
     }
 
     /** @deprecated Use ClientLetterService::renderHtml() */

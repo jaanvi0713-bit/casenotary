@@ -55,6 +55,13 @@ if ($letterId > 0) {
         } catch (Throwable $e) {
             // Fall back to the existing file if regeneration fails.
         }
+    } elseif (preg_match('#^cases/(\d+)/generated/quotation_(\d+)\.html$#', $relative, $quotationMatch)) {
+        try {
+            CaseService::regenerateQuotationHtml((int) $quotationMatch[1], (int) $quotationMatch[2]);
+            $fullPath = CaseService::documentPath($relative);
+        } catch (Throwable $e) {
+            // Fall back to the existing file if regeneration fails.
+        }
     }
 
     if (!Auth::isAdmin() || !Auth::can(RoleAccess::PERMISSION_CASES)) {

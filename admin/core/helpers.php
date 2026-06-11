@@ -3087,6 +3087,83 @@ function getPaymentsPaginated(int $page, int $perPage = 10, ?string $search = nu
     );
 }
 
+function countInvoices(?string $search = null, ?string $status = null, ?string $month = null): int
+{
+    syncOverdueInvoices();
+    $statusCol = invoiceStatusColumn();
+    $search = normalizeSearchTerm($search);
+    $status = normalizeSearchTerm($status);
+    $month = normalizeSearchTerm($month);
+    $where = [];
+    $params = [];
+
+    if ($search !== '') {
+        $where[] = 'CONCAT_WS(" ", i.invoice_number, cl.first_name, cl.last_name, cl.company_name, cs.case_number, cs.title) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+    if ($status !== '') {
+        $where[] = "i.{$statusCol} = ?";
+        $params[] = $status;
+    }
+    if ($month !== '' && preg_match('/^(0?[1-9]|1[0-2])$/', $month)) {
+        $where[] = 'MONTH(COALESCE(i.issue_date, i.created_at)) = ?';
+        $params[] = (int) $month;
+    }
+    TenantService::appendClientScope($where, $params, 'cl');
+
+    $sql = 'SELECT COUNT(*) AS c
+            FROM invoices i
+            JOIN clients cl ON cl.id = i.client_id
+            LEFT JOIN cases cs ON cs.id = i.case_id';
+    if ($where !== []) {
+        $sql .= ' WHERE ' . implode(' AND ', $where);
+    }
+
+    return (int) (Database::fetch($sql, $params)['c'] ?? 0);
+}
+
+function getInvoicesPaginated(int $page, int $perPage = 10, ?string $search = null, ?string $status = null, ?string $month = null): array
+{
+    syncOverdueInvoices();
+    $statusCol = invoiceStatusColumn();
+    $search = normalizeSearchTerm($search);
+    $status = normalizeSearchTerm($status);
+    $month = normalizeSearchTerm($month);
+    $offset = paginationOffset($page, $perPage);
+    $where = [];
+    $params = [];
+
+    if ($search !== '') {
+        $where[] = 'CONCAT_WS(" ", i.invoice_number, cl.first_name, cl.last_name, cl.company_name, cs.case_number, cs.title) LIKE ?';
+        $params[] = '%' . $search . '%';
+    }
+    if ($status !== '') {
+        $where[] = "i.{$statusCol} = ?";
+        $params[] = $status;
+    }
+    if ($month !== '' && preg_match('/^(0?[1-9]|1[0-2])$/', $month)) {
+        $where[] = 'MONTH(COALESCE(i.issue_date, i.created_at)) = ?';
+        $params[] = (int) $month;
+    }
+    TenantService::appendClientScope($where, $params, 'cl');
+    $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
+    $params[] = $perPage;
+    $params[] = $offset;
+
+    return Database::fetchAll(
+        "SELECT i.*, i.{$statusCol} AS payment_status,
+                cl.first_name, cl.last_name, cl.company_name,
+                cs.case_number, cs.title AS case_title
+         FROM invoices i
+         JOIN clients cl ON cl.id = i.client_id
+         LEFT JOIN cases cs ON cs.id = i.case_id
+         {$whereSql}
+         ORDER BY COALESCE(i.issue_date, i.created_at) DESC, i.id DESC
+         LIMIT ? OFFSET ?",
+        $params
+    );
+}
+
 function getAllClients(): array
 {
     return getClientsPaginated(1, max(1, countClients()));
