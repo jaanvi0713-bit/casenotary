@@ -13,6 +13,7 @@ class CompanyRoleAccessService
     /** @var list<string> */
     public const CONFIGURABLE_PERMISSIONS = [
         RoleAccess::PERMISSION_DASHBOARD,
+        RoleAccess::PERMISSION_INSIGHTS,
         RoleAccess::PERMISSION_USERS,
         RoleAccess::PERMISSION_CLIENTS,
         RoleAccess::PERMISSION_CASES,
@@ -33,6 +34,7 @@ class CompanyRoleAccessService
         return [
             'admin' => [
                 RoleAccess::PERMISSION_DASHBOARD,
+                RoleAccess::PERMISSION_INSIGHTS,
                 RoleAccess::PERMISSION_USERS,
                 RoleAccess::PERMISSION_CLIENTS,
                 RoleAccess::PERMISSION_CASES,
@@ -45,6 +47,7 @@ class CompanyRoleAccessService
             ],
             'manager' => [
                 RoleAccess::PERMISSION_DASHBOARD,
+                RoleAccess::PERMISSION_INSIGHTS,
                 RoleAccess::PERMISSION_CLIENTS,
                 RoleAccess::PERMISSION_CASES,
                 RoleAccess::PERMISSION_PAYMENTS,
@@ -235,6 +238,7 @@ class CompanyRoleAccessService
     {
         return match ($permission) {
             RoleAccess::PERMISSION_DASHBOARD => 'Dashboard',
+            RoleAccess::PERMISSION_INSIGHTS => 'Insights',
             RoleAccess::PERMISSION_USERS => 'Users',
             RoleAccess::PERMISSION_CLIENTS => 'Clients',
             RoleAccess::PERMISSION_CASES => 'Cases',

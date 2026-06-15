@@ -143,3 +143,9 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
+            <?php if ($msg = flash('warning')): ?>
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i><?= e($msg) ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>

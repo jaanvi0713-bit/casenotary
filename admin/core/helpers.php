@@ -1998,6 +1998,79 @@ function getDashboardStats(): array
                AND MONTH(p.paid_at) = MONTH(NOW()) AND YEAR(p.paid_at) = YEAR(NOW()){$revenueScope}",
             array_merge([$companyId], $revenueScopeParams)
         )['total'] ?? 0;
+
+        $weeklyRevenue = Database::fetch(
+            "SELECT COALESCE(SUM(p.amount), 0) AS total FROM payments p
+             JOIN invoices i ON i.id = p.invoice_id
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND p.{$paymentStatus} = 'completed'
+               AND p.paid_at >= DATE_SUB(NOW(), INTERVAL 7 DAY){$revenueScope}",
+            array_merge([$companyId], $revenueScopeParams)
+        )['total'] ?? 0;
+
+        $outstandingBalance = Database::fetch(
+            "SELECT COALESCE(SUM(i.total), 0) AS total FROM invoices i
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND i.{$invoiceStatus} IN ('pending', 'overdue', 'partially_paid'){$invoiceScope}",
+            array_merge([$companyId], $invoiceScopeParams)
+        )['total'] ?? 0;
+
+        $caseScope = $assignedOnly && $assignedUserId > 0 ? ' AND assigned_admin_id = ?' : '';
+        $caseScopeParams = $assignedOnly && $assignedUserId > 0 ? [$assignedUserId] : [];
+
+        $newCasesMonth = Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE company_id = ? AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01'){$caseScope}",
+            array_merge([$companyId], $caseScopeParams)
+        )['count'] ?? 0;
+
+        $completedCases = Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE company_id = ? AND status IN ('completed', 'closed'){$caseScope}",
+            array_merge([$companyId], $caseScopeParams)
+        )['count'] ?? 0;
+
+        $urgentCases = Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE company_id = ? AND priority IN ('urgent', 'high')
+               AND status IN ('pending', 'in_progress', 'waiting_for_client'){$caseScope}",
+            array_merge([$companyId], $caseScopeParams)
+        )['count'] ?? 0;
+
+        $casesDeadlineSoon = Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE company_id = ? AND deadline BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+               AND status NOT IN ('completed', 'closed'){$caseScope}",
+            array_merge([$companyId], $caseScopeParams)
+        )['count'] ?? 0;
+
+        $newClientsMonth = Database::fetch(
+            "SELECT COUNT(*) AS count FROM clients
+             WHERE company_id = ? AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')",
+            [$companyId]
+        )['count'] ?? 0;
+
+        $overdueInvoices = Database::fetch(
+            "SELECT COUNT(*) AS count FROM invoices i
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND i.{$invoiceStatus} = 'overdue'{$invoiceScope}",
+            array_merge([$companyId], $invoiceScopeParams)
+        )['count'] ?? 0;
+
+        $appointmentStartAliased = appointmentStartSql('a');
+        $appointmentsMonth = Database::fetch(
+            "SELECT COUNT(*) AS count FROM appointments a
+             JOIN clients cl ON cl.id = a.client_id
+             WHERE cl.company_id = ? AND {$appointmentStartAliased} >= DATE_FORMAT(NOW(), '%Y-%m-01')",
+            [$companyId]
+        )['count'] ?? 0;
+
+        $avgInvoiceValue = Database::fetch(
+            "SELECT COALESCE(AVG(i.total), 0) AS avg FROM invoices i
+             JOIN cases cs ON cs.id = i.case_id
+             WHERE cs.company_id = ? AND i.{$invoiceStatus} = 'paid'{$invoiceScope}",
+            array_merge([$companyId], $invoiceScopeParams)
+        )['avg'] ?? 0;
     } else {
         $totalClients = Database::fetch('SELECT COUNT(*) AS count FROM clients')['count'] ?? 0;
 
@@ -2055,7 +2128,72 @@ function getDashboardStats(): array
              WHERE {$revenueWhere} AND MONTH(p.paid_at) = MONTH(NOW()) AND YEAR(p.paid_at) = YEAR(NOW())",
             $revenueParams
         )['total'] ?? 0;
+
+        $weeklyRevenue = Database::fetch(
+            "SELECT COALESCE(SUM(p.amount), 0) AS total FROM payments p{$revenueJoin}
+             WHERE {$revenueWhere} AND p.paid_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
+            $revenueParams
+        )['total'] ?? 0;
+
+        $outstandingSql = "SELECT COALESCE(SUM(i.total), 0) AS total FROM invoices i{$invoiceScopeJoin}"
+            . ($invoiceScope !== '' ? $invoiceScope . ' AND' : ' WHERE')
+            . " i.{$invoiceStatus} IN ('pending', 'overdue', 'partially_paid')";
+        $outstandingBalance = Database::fetch($outstandingSql, $invoiceScopeParams)['total'] ?? 0;
+
+        $caseScope = $assignedOnly && $assignedUserId > 0 ? ' AND assigned_admin_id = ?' : '';
+        $caseScopeParams = $assignedOnly && $assignedUserId > 0 ? [$assignedUserId] : [];
+
+        $newCasesMonth = Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE created_at >= DATE_FORMAT(NOW(), '%Y-%m-01'){$caseScope}",
+            $caseScopeParams
+        )['count'] ?? 0;
+
+        $completedCases = Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE status IN ('completed', 'closed'){$caseScope}",
+            $caseScopeParams
+        )['count'] ?? 0;
+
+        $urgentCases = Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE priority IN ('urgent', 'high')
+               AND status IN ('pending', 'in_progress', 'waiting_for_client'){$caseScope}",
+            $caseScopeParams
+        )['count'] ?? 0;
+
+        $casesDeadlineSoon = Database::fetch(
+            "SELECT COUNT(*) AS count FROM cases
+             WHERE deadline BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+               AND status NOT IN ('completed', 'closed'){$caseScope}",
+            $caseScopeParams
+        )['count'] ?? 0;
+
+        $newClientsMonth = Database::fetch(
+            "SELECT COUNT(*) AS count FROM clients WHERE created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')"
+        )['count'] ?? 0;
+
+        $overdueSql = "SELECT COUNT(*) AS count FROM invoices i{$invoiceScopeJoin}"
+            . ($invoiceScope !== '' ? $invoiceScope . ' AND' : ' WHERE')
+            . " i.{$invoiceStatus} = 'overdue'";
+        $overdueInvoices = Database::fetch($overdueSql, $invoiceScopeParams)['count'] ?? 0;
+
+        $appointmentStartAliased = appointmentStartSql('a');
+        $appointmentsMonth = Database::fetch(
+            "SELECT COUNT(*) AS count FROM appointments a
+             WHERE {$appointmentStartAliased} >= DATE_FORMAT(NOW(), '%Y-%m-01')"
+        )['count'] ?? 0;
+
+        $avgSql = "SELECT COALESCE(AVG(i.total), 0) AS avg FROM invoices i{$invoiceScopeJoin}"
+            . ($invoiceScope !== '' ? $invoiceScope . ' AND' : ' WHERE')
+            . " i.{$invoiceStatus} = 'paid'";
+        $avgInvoiceValue = Database::fetch($avgSql, $invoiceScopeParams)['avg'] ?? 0;
     }
+
+    $totalBillable = (int) $paidInvoices + (int) $pendingInvoices + (int) $overdueInvoices;
+    $collectionRate = $totalBillable > 0
+        ? round(((int) $paidInvoices / $totalBillable) * 100, 1)
+        : 0.0;
 
     return [
         'total_clients'         => (int) $totalClients,
@@ -2065,7 +2203,60 @@ function getDashboardStats(): array
         'upcoming_appointments' => (int) $upcomingAppointments,
         'total_revenue'         => (float) $totalRevenue,
         'monthly_revenue'       => (float) $monthlyRevenue,
+        'weekly_revenue'        => (float) $weeklyRevenue,
+        'outstanding_balance'   => (float) $outstandingBalance,
+        'new_cases_month'       => (int) $newCasesMonth,
+        'completed_cases'       => (int) $completedCases,
+        'urgent_cases'          => (int) $urgentCases,
+        'cases_deadline_soon'   => (int) $casesDeadlineSoon,
+        'new_clients_month'     => (int) $newClientsMonth,
+        'overdue_invoices'      => (int) $overdueInvoices,
+        'appointments_month'    => (int) $appointmentsMonth,
+        'avg_invoice_value'     => (float) $avgInvoiceValue,
+        'collection_rate'       => $collectionRate,
     ];
+}
+
+function getCaseStatusBreakdown(): array
+{
+    $companyId = TenantService::id();
+    $rows = TenantService::isEnabled()
+        ? Database::fetchAll('SELECT status, COUNT(*) AS c FROM cases WHERE company_id = ? GROUP BY status', [$companyId])
+        : Database::fetchAll('SELECT status, COUNT(*) AS c FROM cases GROUP BY status');
+
+    $map = [
+        'pending'            => 0,
+        'in_progress'        => 0,
+        'waiting_for_client' => 0,
+        'completed'          => 0,
+        'closed'             => 0,
+    ];
+    foreach ($rows as $row) {
+        if (isset($map[$row['status']])) {
+            $map[$row['status']] = (int) $row['c'];
+        }
+    }
+
+    return $map;
+}
+
+function getTopServiceTypes(int $limit = 5): array
+{
+    $companyId = TenantService::id();
+
+    return TenantService::isEnabled()
+        ? Database::fetchAll(
+            "SELECT service_type, COUNT(*) AS c FROM cases
+             WHERE company_id = ? AND service_type != ''
+             GROUP BY service_type ORDER BY c DESC LIMIT ?",
+            [$companyId, $limit]
+        )
+        : Database::fetchAll(
+            "SELECT service_type, COUNT(*) AS c FROM cases
+             WHERE service_type != ''
+             GROUP BY service_type ORDER BY c DESC LIMIT ?",
+            [$limit]
+        );
 }
 
 function getRecentActivity(int $limit = 8): array

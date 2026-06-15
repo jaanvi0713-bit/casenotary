@@ -42,6 +42,14 @@ try {
         }
     } elseif ($tab === 'calendar') {
         SettingsService::updateCalendar($_POST);
+    } elseif ($tab === 'backup' && Auth::isAdmin()) {
+        $freq = $_POST['backup_frequency'] ?? 'never';
+        if (!in_array($freq, ['never', 'weekly', 'monthly'], true)) {
+            $freq = 'never';
+        }
+        SettingsService::saveSetting('backup_frequency', $freq, TenantService::id());
+        flash('success', 'Backup schedule saved.');
+        redirect('pages/settings.php?tab=backup');
     } elseif ($tab === 'ai') {
         if (!Auth::can(RoleAccess::PERMISSION_SETTINGS)) {
             throw new RuntimeException('You do not have permission to manage AI settings.');

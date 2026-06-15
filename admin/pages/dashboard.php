@@ -6,6 +6,10 @@ Auth::requirePage('dashboard');
 $pageTitle    = 'Dashboard';
 $pageSubtitle = 'Welcome back, ' . userFullName(Auth::user());
 $stats        = getDashboardStats();
+$canViewInsights     = Auth::can(RoleAccess::PERMISSION_INSIGHTS);
+$caseStatusBreakdown = $canViewInsights ? getCaseStatusBreakdown() : [];
+$topServiceTypes     = $canViewInsights ? getTopServiceTypes(5) : [];
+$totalCasesAll       = $canViewInsights ? array_sum($caseStatusBreakdown) : 0;
 $trends       = getDashboardTrends($stats);
 $chartData    = getRevenueChartData();
 $invoiceData  = getInvoiceChartData();
@@ -159,6 +163,10 @@ require __DIR__ . '/../includes/header.php';
             </div>
         </div>
     </div>
+
+    <?php if ($canViewInsights): ?>
+    <?php require __DIR__ . '/partials/dashboard-biz-insights.php'; ?>
+    <?php endif; ?>
 
     <!-- Appointments -->
     <div class="row g-4 mb-4">
@@ -551,6 +559,105 @@ document.addEventListener("DOMContentLoaded", function() {
             buildBarChart();
         }
     });
+' . ($canViewInsights ? '
+    document.querySelectorAll(".biz-tab").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+            var tab = this.dataset.bizTab;
+            document.querySelectorAll(".biz-tab").forEach(function(b) {
+                b.classList.remove("active");
+                b.setAttribute("aria-selected", "false");
+            });
+            this.classList.add("active");
+            this.setAttribute("aria-selected", "true");
+            document.querySelectorAll(".biz-tab-panel").forEach(function(p) { p.classList.remove("active"); });
+            var panel = document.getElementById("biz-panel-" + tab);
+            if (panel) panel.classList.add("active");
+        });
+    });
+
+    var sparkCtx = document.getElementById("bizRevenueSparkline");
+    if (sparkCtx && hasWeeklyChart) {
+        new Chart(sparkCtx, {
+            type: "line",
+            data: {
+                labels: weekLabels,
+                datasets: [{
+                    label: "Payments",
+                    data: weekPayments,
+                    borderColor: primary,
+                    backgroundColor: function(ctx) {
+                        var g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 64);
+                        g.addColorStop(0, "rgba(58, 175, 169, 0.22)");
+                        g.addColorStop(1, "rgba(58, 175, 169, 0.01)");
+                        return g;
+                    },
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    pointHoverBackgroundColor: primary
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: secondary,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(c) {
+                                return formatMoney(c.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false, beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    var donutCtx = document.getElementById("caseStatusDonut");
+    if (donutCtx) {
+        var statusCounts = ' . json_encode(array_values($caseStatusBreakdown)) . ';
+        var statusColors = ["#f59e0b", "#3aafa9", "#6366f1", "#10b981", "#64748b"];
+        var statusLabels = ["Pending", "In Progress", "Waiting for Client", "Completed", "Closed"];
+        var donutBorder = getComputedStyle(document.documentElement).getPropertyValue("--white").trim() || "#fff";
+        new Chart(donutCtx, {
+            type: "doughnut",
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusCounts,
+                    backgroundColor: statusColors,
+                    borderWidth: 2,
+                    borderColor: donutBorder,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: false,
+                cutout: "68%",
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(c) {
+                                return " " + c.label + ": " + c.parsed;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+' : '') . '
 
     const searchInput = document.getElementById("caseTableSearch");
     const rows = document.querySelectorAll("#casesTable tbody tr");

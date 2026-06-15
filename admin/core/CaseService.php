@@ -1545,6 +1545,7 @@ class CaseService
         $instructions = trim($case['client_instructions'] ?? '');
         $saved = ClientLetterService::getCurrentSavedLetter($caseId);
         if ($saved) {
+            ClientLetterService::regenerateSavedLetterFile((int) $saved['id']);
             $rel = ClientLetterService::getDownloadPath($saved);
             $letterPath = $rel ? self::documentPath($rel) : null;
         } else {
@@ -1710,6 +1711,18 @@ class CaseService
         $due    = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
         $bankAccount = SettingsService::normalizeBankAccountChoice($data['bank_account'] ?? null);
 
+        $paymentLink = null;
+        if (!empty($data['generate_payment_link']) && StripeService::isConfigured()) {
+            try {
+                $paymentLink = StripeService::createPaymentLink([
+                    'invoice_number' => $number,
+                    'case_number'    => $case['case_number'] ?? '',
+                ], $totals['total']);
+            } catch (Throwable $e) {
+                error_log('[InvoiceService] Could not create Stripe payment link: ' . $e->getMessage());
+            }
+        }
+
         $invoiceRow = self::withCaseCompanyId([
             'invoice_number'  => $number,
             'case_id'         => $caseId,
@@ -1729,6 +1742,7 @@ class CaseService
             'payment_terms'        => trim((string) ($data['payment_terms'] ?? '')) ?: null,
             'payment_instructions' => trim((string) ($data['payment_instructions'] ?? '')) ?: null,
             'bank_account'         => $bankAccount,
+            'payment_link'         => $paymentLink,
         ], $case, 'invoices');
 
         $id = insertTableRow('invoices', $invoiceRow);
@@ -2159,6 +2173,52 @@ class CaseService
         }
 
         self::saveHtmlDocument($caseId, 'invoice', $invoiceId);
+    }
+
+    public static function createInvoicePaymentLink(int $caseId, int $invoiceId): string
+    {
+        if (!StripeService::isConfigured()) {
+            throw new RuntimeException('Stripe is not configured. Add keys in Settings → Payments.');
+        }
+
+        $invoice = Database::fetch(
+            'SELECT i.*, c.case_number
+             FROM invoices i
+             LEFT JOIN cases c ON c.id = i.case_id
+             WHERE i.id = ? AND i.case_id = ?',
+            [$invoiceId, $caseId]
+        );
+        if (!$invoice) {
+            throw new RuntimeException('Invoice not found for this case.');
+        }
+
+        if (!empty($invoice['payment_link'])) {
+            return (string) $invoice['payment_link'];
+        }
+
+        $status = invoiceStatusValue($invoice);
+        if (!in_array($status, ['pending', 'partially_paid', 'overdue'], true)) {
+            throw new RuntimeException('Payment links can only be created for unpaid invoices.');
+        }
+
+        $amount = self::getInvoiceRemainingBalance($invoice);
+        if ($amount <= 0) {
+            throw new RuntimeException('Nothing left to pay on this invoice.');
+        }
+
+        $paymentLink = StripeService::createPaymentLink([
+            'id'             => $invoiceId,
+            'invoice_number' => $invoice['invoice_number'] ?? '',
+            'case_number'    => $invoice['case_number'] ?? '',
+        ], $amount);
+
+        if (Database::columnExists('invoices', 'payment_link')) {
+            Database::query('UPDATE invoices SET payment_link = ? WHERE id = ?', [$paymentLink, $invoiceId]);
+        }
+
+        self::regenerateInvoiceHtml($caseId, $invoiceId);
+
+        return $paymentLink;
     }
 
     public static function regenerateQuotationHtml(int $caseId, int $quotationId): void

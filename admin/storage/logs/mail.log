@@ -341,3 +341,27 @@ Invoice emailed to clientHi there,Invoice emailed to clientINV-2026-0007Open in 
 2026-06-15 04:33:54 | To: admin@admin.com
 Subject: Invoice emailed to client
 Invoice emailed to clientHi Admin User,Invoice emailed to clientINV-2026-0007Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 06:15:09 | To: Louismac@gmail.com
+Subject: Invoice generated
+Invoice generatedHi there,Invoice generatedINV-2026-UTSHY — £ 5,600.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 06:15:11 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-UTSHY — £ 5,600.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 06:19:44 | To: Louismac@gmail.com
+Subject: Invoice generated
+Invoice generatedHi there,Invoice generatedINV-2026-GXU9X — £ 7,400.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 06:19:46 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-GXU9X — £ 7,400.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 06:22:40 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 7,400.00 for INV-2026-GXU9XOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 06:22:43 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 7,400.00 for INV-2026-GXU9XOpen in portalYou can change notification preferences under Settings → Notification Preferences.

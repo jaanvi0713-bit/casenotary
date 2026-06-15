@@ -47,6 +47,9 @@ $defaultBankHtml = SettingsService::bankAccountDisplayHtml(
 if (!empty($_GET['cancelled'])) {
     flash('error', 'Payment was cancelled.');
 }
+if (!empty($_GET['paid'])) {
+    flash('success', 'Payment submitted! Your balance will update shortly once confirmed by Stripe.');
+}
 
 $successMsg = flash('success');
 $errorMsg   = flash('error');
@@ -171,6 +174,11 @@ require __DIR__ . '/../includes/header.php';
                                 <td class="text-end">
                                     <?php if (!empty($invoice['pdf_path'])): ?>
                                         <a href="<?= adminUrl('actions/document-download.php?path=' . urlencode($invoice['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank">PDF</a>
+                                    <?php endif; ?>
+                                    <?php if ($canPay && !empty($invoice['payment_link'])): ?>
+                                        <a href="<?= e($invoice['payment_link']) ?>" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+                                            &#128179; Pay Now
+                                        </a>
                                     <?php endif; ?>
                                     <?php if ($canPay && $stripeEnabled): ?>
                                         <form method="post" action="<?= clientUrl('actions/stripe-checkout.php') ?>" class="d-inline">

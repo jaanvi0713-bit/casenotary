@@ -17,10 +17,18 @@ $editableRoleKeys = $canManageSettings
     : [];
 
 if (!$canManageSettings) {
-    if (!in_array($tab, ['profile', 'notifications'], true)) {
+    if (!in_array($tab, ['profile', 'notifications', 'backup'], true)) {
         $tab = 'profile';
     }
-    $pageSubtitle = $tab === 'notifications' ? 'Notification Preferences' : 'Your profile';
+    $pageSubtitle = match ($tab) {
+        'notifications' => 'Notification Preferences',
+        'backup'        => 'Backup & Restore',
+        default         => 'Your profile',
+    };
+}
+
+if ($tab === 'backup' && !Auth::isAdmin()) {
+    $tab = 'profile';
 }
 
 $userId = Auth::id();
@@ -135,7 +143,189 @@ require __DIR__ . '/../includes/header.php';
 </div>
 <?php endif; ?>
 
-<?php if ($canManageSettings): ?>
+<?php if ($tab === 'backup' && Auth::isAdmin()): ?>
+<?php
+    $backupStats       = getDashboardStats();
+    $backupCompanyId   = TenantService::id();
+    $backupRecipients  = BackupService::recipients($backupCompanyId);
+    $backupEmailLabel  = $backupRecipients !== []
+        ? e($backupRecipients[0]) . (count($backupRecipients) > 1 ? ' +' . (count($backupRecipients) - 1) . ' more' : '')
+        : 'office email (not configured)';
+?>
+<div class="saas-card">
+    <div class="saas-card-header appointment-list-header">
+        <div>
+            <h2 class="saas-card-title">Website Data Backup</h2>
+            <p class="saas-card-subtitle mb-0">Export settings, clients, cases, invoices, payments, and all records</p>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <?php require __DIR__ . '/../includes/settings-nav.php'; ?>
+        <div class="p-4 backup-settings-page">
+            <div class="backup-settings-grid">
+                <div class="settings-form-section backup-settings-card">
+                    <div class="settings-form-section__header backup-settings-card__header backup-settings-card__header--download">
+                        <div class="backup-settings-card__icon" aria-hidden="true"><i class="bi bi-cloud-download"></i></div>
+                        <div>
+                            <h3 class="settings-form-section__title">Download website data</h3>
+                            <p class="settings-form-section__desc mb-0">Download a JSON file with all website records.</p>
+                        </div>
+                    </div>
+                    <div class="settings-form-section__body">
+                        <p class="backup-settings-card__hint">
+                            Includes company settings, <?= number_format($backupStats['total_clients']) ?> client(s),
+                            <?= number_format($backupStats['active_cases'] + $backupStats['completed_cases']) ?> case(s),
+                            invoices, payments, appointments, documents (paths), letters, proposals, and quotations.
+                            A copy is also emailed to <strong><?= $backupEmailLabel ?></strong>.
+                        </p>
+                        <a href="<?= url('actions/settings-backup.php') ?>" class="btn btn-primary">
+                            <i class="bi bi-download me-1"></i> Download Backup Now
+                        </a>
+                    </div>
+                </div>
+
+                <div class="settings-form-section backup-settings-card">
+                    <div class="settings-form-section__header backup-settings-card__header backup-settings-card__header--restore">
+                        <div class="backup-settings-card__icon" aria-hidden="true"><i class="bi bi-envelope-arrow-up"></i></div>
+                        <div>
+                            <h3 class="settings-form-section__title">Email website data</h3>
+                            <p class="settings-form-section__desc mb-0">Receive the backup file by email without downloading.</p>
+                        </div>
+                    </div>
+                    <div class="settings-form-section__body">
+                        <p class="backup-settings-card__hint mb-3">
+                            We will send the same JSON export to <strong><?= $backupEmailLabel ?></strong>.
+                            Administrators and office email only — clients are not included.
+                        </p>
+                        <form method="post" action="<?= url('actions/settings-backup-email.php') ?>">
+                            <?= CSRF::field() ?>
+                            <button type="submit" class="btn btn-soft" onclick="return confirm('Email the website backup to administrators?')">
+                                <i class="bi bi-envelope me-1"></i> Email Backup Now
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="settings-form-section backup-settings-card backup-settings-card--wide">
+                    <div class="settings-form-section__header backup-settings-card__header backup-settings-card__header--schedule">
+                        <div class="backup-settings-card__icon" aria-hidden="true"><i class="bi bi-clock-history"></i></div>
+                        <div>
+                            <h3 class="settings-form-section__title">Automatic backups</h3>
+                            <p class="settings-form-section__desc mb-0">Schedule weekly or monthly backups — saved on the server and emailed to admins.</p>
+                        </div>
+                    </div>
+                    <div class="settings-form-section__body">
+                        <form method="post" action="<?= url('actions/settings-action.php') ?>" class="backup-schedule-form mb-4">
+                            <?= CSRF::field() ?>
+                            <input type="hidden" name="tab" value="backup">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-5 col-lg-4">
+                                    <label class="form-label">Backup frequency</label>
+                                    <select name="backup_frequency" class="form-select">
+                                        <option value="never" <?= ($settings['backup_frequency'] ?? 'never') === 'never' ? 'selected' : '' ?>>Never (manual only)</option>
+                                        <option value="weekly" <?= ($settings['backup_frequency'] ?? 'never') === 'weekly' ? 'selected' : '' ?>>Every week</option>
+                                        <option value="monthly" <?= ($settings['backup_frequency'] ?? 'never') === 'monthly' ? 'selected' : '' ?>>Every month</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-7 col-lg-5">
+                                    <?php if (!empty($settings['last_backup_at'])): ?>
+                                        <p class="backup-last-run mb-2 mb-md-0">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                            Last automatic backup:
+                                            <strong><?= e(formatDateTime($settings['last_backup_at'])) ?></strong>
+                                        </p>
+                                    <?php else: ?>
+                                        <p class="backup-last-run backup-last-run--empty mb-2 mb-md-0">
+                                            <i class="bi bi-dash-circle"></i>
+                                            No automatic backup has run yet
+                                        </p>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="col-lg-3">
+                                    <button type="submit" class="btn btn-primary w-100 w-lg-auto">
+                                        <i class="bi bi-check-lg me-1"></i> Save Schedule
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="backup-schedule-info">
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-folder2"></i>
+                                <span>Stored in <code>admin/storage/backups/</code></span>
+                            </div>
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-terminal"></i>
+                                <span>Requires daily cron: <code>php admin/cron/auto-backup.php</code></span>
+                            </div>
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-arrow-repeat"></i>
+                                <span>Server copies kept for <?= BackupService::RETENTION_DAYS ?> days</span>
+                            </div>
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-envelope-check"></i>
+                                <span>Emailed to office email and admin users when created</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-form-section backup-settings-card backup-settings-card--wide">
+                    <div class="settings-form-section__header backup-settings-card__header backup-settings-card__header--schedule">
+                        <div class="backup-settings-card__icon" aria-hidden="true"><i class="bi bi-info-circle"></i></div>
+                        <div>
+                            <h3 class="settings-form-section__title">What is included</h3>
+                            <p class="settings-form-section__desc mb-0">Full website database export for this company.</p>
+                        </div>
+                    </div>
+                    <div class="settings-form-section__body">
+                        <div class="backup-schedule-info mb-4">
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-gear"></i>
+                                <span>Company settings (branding, SMTP, Stripe, bank accounts)</span>
+                            </div>
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-people"></i>
+                                <span>Clients, staff users, cases, invoices, payments, and receipts</span>
+                            </div>
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-calendar-event"></i>
+                                <span>Appointments, document paths, client letters, proposals, and quotations</span>
+                            </div>
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <span>Uploaded PDFs and logos are not embedded — only database paths</span>
+                            </div>
+                            <div class="backup-schedule-info__item">
+                                <i class="bi bi-shield-check"></i>
+                                <span>Restore currently applies company settings only</span>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h4 class="h6 mb-2">Restore from backup</h4>
+                        <p class="backup-settings-card__hint">Upload a previously exported backup file to restore company settings.</p>
+                        <form method="post" action="<?= url('actions/settings-restore.php') ?>" enctype="multipart/form-data" class="row g-3 align-items-end">
+                            <?= CSRF::field() ?>
+                            <div class="col-md-8 col-lg-6">
+                                <label class="form-label">Backup file (.json)</label>
+                                <input type="file" name="backup_file" class="form-control" accept=".json" required>
+                            </div>
+                            <div class="col-md-4 col-lg-3">
+                                <button type="submit" class="btn btn-soft w-100" onclick="return confirm('This will overwrite current settings. Continue?')">
+                                    <i class="bi bi-upload me-1"></i> Restore Settings
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($canManageSettings && $tab !== 'backup'): ?>
 <div class="saas-card<?= in_array($tab, ['profile', 'notifications'], true) ? ' mt-4' : '' ?>">
     <div class="saas-card-header appointment-calendar-header">
         <div>

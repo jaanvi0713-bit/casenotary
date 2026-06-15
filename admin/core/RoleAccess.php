@@ -8,6 +8,7 @@ declare(strict_types=1);
 class RoleAccess
 {
     public const PERMISSION_DASHBOARD = 'dashboard';
+    public const PERMISSION_INSIGHTS = 'insights';
     public const PERMISSION_COMPANIES = 'companies';
     public const PERMISSION_USERS = 'users';
     public const PERMISSION_CLIENTS = 'clients';
@@ -33,6 +34,7 @@ class RoleAccess
         'super_admin' => ['*'],
         'admin' => [
             self::PERMISSION_DASHBOARD,
+            self::PERMISSION_INSIGHTS,
             self::PERMISSION_USERS,
             self::PERMISSION_CLIENTS,
             self::PERMISSION_CASES,
@@ -45,6 +47,7 @@ class RoleAccess
         ],
         'manager' => [
             self::PERMISSION_DASHBOARD,
+            self::PERMISSION_INSIGHTS,
             self::PERMISSION_CLIENTS,
             self::PERMISSION_CASES,
             self::PERMISSION_PAYMENTS,

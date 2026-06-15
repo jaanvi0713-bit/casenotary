@@ -136,6 +136,7 @@ SQL);
             '{{matter_reference}}'    => 'Same as case_number',
             '{{date}}'                => 'Letter date (DD/MM/YYYY)',
             '{{fee_amount}}'          => 'Total fee for this case',
+            '{{vat_disclaimer}}'      => 'VAT status line (based on case billing)',
             '{{service_description}}' => 'Primary service description',
             '{{services_list}}'       => 'Itemised services and fees (optional)',
             '{{additional_notes}}'    => 'Case notes or client instructions',
@@ -152,7 +153,7 @@ HTML,
 <p class="cl-heading">Price:</p>
 <p>The fee for this transaction will be {{fee_amount}} which includes disbursements/legalisation fees/postage/consular agent fees/courier/travelling fees/translating costs</p>
 <p>Some documents require legalisation before they will be accepted for use in the receiving jurisdiction by obtaining an apostille through the UK Foreign and Commonwealth Office and, for some countries, additional legalisation is required through the relevant embassy or consulate.</p>
-<p>My fees are subject to VAT.</p>
+{{vat_disclaimer}}
 HTML,
             'payment_terms' => <<<'HTML'
 <p>Payment can be made by cash/card/bank transfer. Payment of my fee and disbursements is due when the document has been prepared which I may retain pending payment in full.</p>
@@ -456,13 +457,15 @@ HTML,
             $recipient = clientFullName($client) ?: 'Client';
         }
 
-        $feeAmount          = formatCurrency((float) (CaseService::getCaseBilling($case)['totals']['grand_total'] ?? $case['service_fee'] ?? 0));
+        $feeAmount          = formatCurrency((float) ($billing['totals']['grand_total'] ?? $case['service_fee'] ?? 0));
         $serviceDescription = trim((string) ($case['service_type'] ?? $case['title'] ?? 'Notary services'));
         $instructions       = trim((string) ($case['client_instructions'] ?? ''));
         $additionalNotes    = trim((string) ($case['description'] ?? ''));
         if ($additionalNotes === '' && $instructions !== '') {
             $additionalNotes = $instructions;
         }
+
+        $hasVat = self::billingHasVat($billing);
 
         $caseNumber = (string) ($case['case_number'] ?? '');
         $caseTitle  = (string) ($case['title'] ?? '');
@@ -499,6 +502,7 @@ HTML,
             'date'                => date('d/m/Y'),
             'fee_amount'          => $feeAmount,
             'total_fee'           => $feeAmount,
+            'vat_disclaimer'      => self::vatDisclaimerHtml($hasVat),
             'service_description' => e($serviceDescription),
             'services_list'       => '<ul class="cl-services-list">' . implode('', $serviceLines) . '</ul>',
             'additional_notes'    => $additionalNotes !== '' ? nl2br(e($additionalNotes)) : '',
@@ -515,6 +519,44 @@ HTML,
         return str_replace(array_keys($replacements), array_values($replacements), $content);
     }
 
+    public static function billingHasVat(array $billing): bool
+    {
+        if (($billing['vat'] ?? []) !== []) {
+            return true;
+        }
+
+        $totals = $billing['totals'] ?? [];
+
+        return (float) ($totals['vat_amount'] ?? 0) > 0.001
+            || (float) ($totals['vat_net_subtotal'] ?? 0) > 0.001
+            || (float) ($totals['vat_gross_subtotal'] ?? 0) > 0.001;
+    }
+
+    public static function vatDisclaimerHtml(bool $hasVat): string
+    {
+        return $hasVat
+            ? '<p>My fees are subject to VAT.</p>'
+            : '<p>My fees are not subject to VAT.</p>';
+    }
+
+    public static function applyPriceFeeVatDisclaimer(string $content, array $billing): string
+    {
+        $disclaimer = self::vatDisclaimerHtml(self::billingHasVat($billing));
+        $content    = str_replace('{{vat_disclaimer}}', $disclaimer, $content);
+        $content    = self::stripVatDisclaimerParagraphs($content);
+
+        return rtrim($content) . "\n" . $disclaimer;
+    }
+
+    private static function stripVatDisclaimerParagraphs(string $content): string
+    {
+        return preg_replace(
+            '/<p>\s*My fees are (?:not )?subject to VAT\.\s*<\/p>\s*/i',
+            '',
+            $content
+        ) ?? $content;
+    }
+
     public static function renderHtml(int $caseId, array $sections, bool $embed = false): string
     {
         $case = CaseService::getCaseById($caseId);
@@ -528,6 +570,7 @@ HTML,
         }
 
         $company  = getCompanySettings();
+        $billing  = CaseService::getCaseBilling($case);
         $context  = self::buildContext($case, $client, $company);
         $sections = self::normalizeSections($sections);
 
@@ -535,7 +578,50 @@ HTML,
             $sections[$key] = self::replacePlaceholders($content, $context);
         }
 
+        if (isset($sections['price_fee'])) {
+            $sections['price_fee'] = self::applyPriceFeeVatDisclaimer($sections['price_fee'], $billing);
+        }
+
         return self::wrapDocument($company, $case, $client, $sections, $context, $embed);
+    }
+
+    public static function regenerateGeneratedLetter(int $caseId): string
+    {
+        return self::generateFile($caseId, self::getSectionsForCase($caseId));
+    }
+
+    public static function regenerateSavedLetterFile(int $letterId): void
+    {
+        $letter = self::getById($letterId);
+        if (!$letter) {
+            throw new RuntimeException('Letter not found.');
+        }
+
+        $caseId = (int) ($letter['case_id']);
+        $html   = self::renderHtml($caseId, self::getSectionsForCase($caseId));
+
+        $config = require __DIR__ . '/../config/config.php';
+        $base   = rtrim($config['upload']['path'], '/\\');
+
+        if (!empty($letter['html_path'])) {
+            $htmlPath = $base . '/' . ltrim((string) $letter['html_path'], '/');
+            file_put_contents($htmlPath, $html);
+            $pdfPath = preg_replace('/\.html$/i', '.pdf', $htmlPath);
+            if ($pdfPath !== $htmlPath) {
+                self::generatePdfFromHtml($htmlPath, $pdfPath);
+            }
+
+            return;
+        }
+
+        if (!empty($letter['pdf_path'])) {
+            $pdfPath  = $base . '/' . ltrim((string) $letter['pdf_path'], '/');
+            $htmlPath = preg_replace('/\.pdf$/i', '.html', $pdfPath);
+            if ($htmlPath !== $pdfPath) {
+                file_put_contents($htmlPath, $html);
+                self::generatePdfFromHtml($htmlPath, $pdfPath);
+            }
+        }
     }
 
     public static function generateFile(int $caseId, array $sections): string

@@ -31,4 +31,9 @@
     </li>
     <?php endif; ?>
     <?php endif; ?>
+    <?php if (Auth::isAdmin()): ?>
+    <li class="nav-item">
+        <a class="nav-link <?= $settingsNavTab === 'backup' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=backup') ?>">Backup</a>
+    </li>
+    <?php endif; ?>
 </ul>

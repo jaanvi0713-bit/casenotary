@@ -135,6 +135,8 @@ CREATE TABLE IF NOT EXISTS invoices (
     payment_terms   TEXT DEFAULT NULL,
     payment_instructions TEXT DEFAULT NULL,
     bank_account    TINYINT UNSIGNED DEFAULT NULL,
+    issue_date      DATE DEFAULT NULL,
+    payment_link    VARCHAR(2000) DEFAULT NULL,
     pdf_path        VARCHAR(500) DEFAULT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -265,6 +267,8 @@ CREATE TABLE IF NOT EXISTS company_settings (
     smtp_encryption ENUM('tls', 'ssl', 'none') DEFAULT 'tls',
     stripe_public_key VARCHAR(255) DEFAULT NULL,
     stripe_secret_key VARCHAR(255) DEFAULT NULL,
+    backup_frequency VARCHAR(20) NOT NULL DEFAULT 'never',
+    last_backup_at DATETIME DEFAULT NULL,
     google_calendar_id VARCHAR(255) DEFAULT NULL,
     outlook_calendar_id VARCHAR(255) DEFAULT NULL,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

@@ -87,6 +87,19 @@ function chatbotGetProactiveInsights(): array
         }
     }
 
+    if (Auth::can(RoleAccess::PERMISSION_INSIGHTS) && Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+        $stats = getDashboardStats();
+        $outstanding = (float) ($stats['outstanding_balance'] ?? 0);
+        if ($outstanding > 0) {
+            $insights[] = [
+                'icon'    => 'bi-currency-dollar',
+                'title'   => 'Outstanding balance',
+                'message' => formatCurrency($outstanding) . ' in unpaid invoices.',
+                'prompt'  => 'Show unpaid invoices summary',
+            ];
+        }
+    }
+
     return array_slice($insights, 0, 4);
 }
 

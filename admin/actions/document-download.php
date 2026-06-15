@@ -32,6 +32,12 @@ if ($letterId > 0) {
         exit('Forbidden');
     }
 
+    try {
+        ClientLetterService::regenerateSavedLetterFile($letterId);
+    } catch (Throwable $e) {
+        // Fall back to the existing file if regeneration fails.
+    }
+
     $rel = ClientLetterService::getDownloadPath($letter);
     if (!$rel) {
         http_response_code(404);
@@ -58,6 +64,20 @@ if ($letterId > 0) {
     } elseif (preg_match('#^cases/(\d+)/generated/quotation_(\d+)\.html$#', $relative, $quotationMatch)) {
         try {
             CaseService::regenerateQuotationHtml((int) $quotationMatch[1], (int) $quotationMatch[2]);
+            $fullPath = CaseService::documentPath($relative);
+        } catch (Throwable $e) {
+            // Fall back to the existing file if regeneration fails.
+        }
+    } elseif (preg_match('#^cases/(\d+)/generated/client_letter\.(html|pdf)$#', $relative, $letterMatch)) {
+        try {
+            ClientLetterService::regenerateGeneratedLetter((int) $letterMatch[1]);
+            $fullPath = CaseService::documentPath($relative);
+        } catch (Throwable $e) {
+            // Fall back to the existing file if regeneration fails.
+        }
+    } elseif (preg_match('#^cases/(\d+)/letters/letter_(\d+)\.(html|pdf)$#', $relative, $savedLetterMatch)) {
+        try {
+            ClientLetterService::regenerateSavedLetterFile((int) $savedLetterMatch[2]);
             $fullPath = CaseService::documentPath($relative);
         } catch (Throwable $e) {
             // Fall back to the existing file if regeneration fails.

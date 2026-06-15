@@ -56,6 +56,7 @@ $roleHeaderIcons = [
 
 $permissionIcons = [
     RoleAccess::PERMISSION_DASHBOARD => 'bi-grid-1x2',
+    RoleAccess::PERMISSION_INSIGHTS => 'bi-bar-chart-line-fill',
     RoleAccess::PERMISSION_USERS => 'bi-person-badge',
     RoleAccess::PERMISSION_CLIENTS => 'bi-people',
     RoleAccess::PERMISSION_CASES => 'bi-briefcase',
