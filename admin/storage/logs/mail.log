@@ -328,3 +328,16 @@ FunTurtle CompanyAppointment ScheduledDear Emily Chen,An appointment has been sc
 2026-06-13 14:38:41 | To: admin@admin.com
 Subject: Appointment scheduled
 Appointment scheduledHi Admin User,Appointment scheduledEmily Chen — Appointment (Jun 21, 2026 12:00 PM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 04:33:49 | To: Louismac@gmail.com
+Subject: Invoice INV-2026-0007 — CASE-2026-0007
+Premier Notary ServicesInvoice — PROPDear Louis Macwell,Please find your invoice INV-2026-0007 for case CASE-2026-0007.Amount: £ 5,700.00Due date: Jun 17, 2026Log in to your client portal to view the invoice and pay online if available.View invoices &amp; payPremier Notary Services
+Attachments: C:\wamp64\www\casenotary\admin\config/../uploads/cases/7/generated/invoice_7.html
+------------------------------------------------------------
+2026-06-15 04:33:52 | To: Louismac@gmail.com
+Subject: Invoice emailed to client
+Invoice emailed to clientHi there,Invoice emailed to clientINV-2026-0007Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 04:33:54 | To: admin@admin.com
+Subject: Invoice emailed to client
+Invoice emailed to clientHi Admin User,Invoice emailed to clientINV-2026-0007Open in portalYou can change notification preferences under Settings → Notification Preferences.

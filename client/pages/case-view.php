@@ -15,6 +15,7 @@ if (!$case) {
 
 $workspace = CaseService::getWorkspace($caseId);
 $publishedLetters = ClientLetterService::getPublishedForClientCase($caseId, $clientId);
+$company = getCompanySettings();
 $pageTitle = $case['case_number'];
 $pageSubtitle = $case['title'] ?? '';
 
@@ -145,6 +146,14 @@ require __DIR__ . '/../includes/header.php';
                         <thead><tr><th>Invoice #</th><th>Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
                         <tbody>
                             <?php foreach ($workspace['invoices'] as $inv): ?>
+                                <?php
+                                $st = effectiveInvoiceStatus($inv);
+                                $remaining = CaseService::getInvoiceRemainingBalance($inv);
+                                $invoiceBankHtml = SettingsService::resolveInvoiceBankHtml($inv, $company);
+                                $showBank = in_array($st, ['pending', 'overdue', 'partially_paid'], true)
+                                    && $remaining > 0
+                                    && $invoiceBankHtml !== '';
+                                ?>
                                 <tr>
                                     <td><?= e($inv['invoice_number']) ?></td>
                                     <td><?= formatCurrency((float) $inv['total']) ?></td>
@@ -154,10 +163,6 @@ require __DIR__ . '/../includes/header.php';
                                         <?php if ($inv['pdf_path']): ?>
                                             <a href="<?= adminUrl('actions/document-download.php?path=' . urlencode($inv['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank">PDF</a>
                                         <?php endif; ?>
-                                        <?php
-                                        $st = effectiveInvoiceStatus($inv);
-                                        $remaining = CaseService::getInvoiceRemainingBalance($inv);
-                                        ?>
                                         <?php if (in_array($st, ['pending', 'overdue', 'partially_paid'], true) && $remaining > 0 && StripeService::isConfigured()): ?>
                                             <form method="post" action="<?= clientUrl('actions/stripe-checkout.php') ?>" class="d-inline">
                                                 <?= CSRF::field() ?>
@@ -165,8 +170,31 @@ require __DIR__ . '/../includes/header.php';
                                                 <button type="submit" class="btn btn-primary btn-sm">Pay</button>
                                             </form>
                                         <?php endif; ?>
+                                        <?php if ($showBank): ?>
+                                            <button type="button" class="btn btn-soft btn-sm" data-bs-toggle="collapse" data-bs-target="#case-bank-<?= (int) $inv['id'] ?>">
+                                                <i class="bi bi-bank2"></i> Bank
+                                            </button>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
+                                <?php if ($showBank): ?>
+                                <tr>
+                                    <td colspan="5" class="p-0 border-0">
+                                        <div class="collapse" id="case-bank-<?= (int) $inv['id'] ?>">
+                                            <div class="bank-transfer-inline">
+                                                <div class="bank-transfer-inline__head">
+                                                    <i class="bi bi-bank2"></i>
+                                                    <div>
+                                                        <strong><?= e($inv['invoice_number']) ?></strong>
+                                                        <span><?= formatCurrency($remaining) ?> due by bank transfer</span>
+                                                    </div>
+                                                </div>
+                                                <?= $invoiceBankHtml ?>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
                             <?php endforeach; ?>
                         </tbody>
                     </table>

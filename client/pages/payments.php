@@ -39,6 +39,10 @@ $paymentShowingTo = min($totalPayments, $paymentPage * $perPage);
 
 $stats = getClientDashboardStats($clientId);
 $stripeEnabled = StripeService::isConfigured();
+$company = getCompanySettings();
+$defaultBankHtml = SettingsService::bankAccountDisplayHtml(
+    SettingsService::resolveBankAccountText($company)
+);
 
 if (!empty($_GET['cancelled'])) {
     flash('error', 'Payment was cancelled.');
@@ -91,6 +95,22 @@ require __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<?php if ($defaultBankHtml !== ''): ?>
+<div class="saas-card bank-transfer-card mb-4">
+    <div class="bank-transfer-card__banner">
+        <div class="bank-transfer-card__icon" aria-hidden="true"><i class="bi bi-bank2"></i></div>
+        <div>
+            <h2 class="bank-transfer-card__title">Pay by bank transfer</h2>
+            <p class="bank-transfer-card__subtitle">Use these details when paying by bank transfer. Each invoice may use a different account — open <strong>Bank details</strong> on the invoice row or check your PDF.</p>
+        </div>
+    </div>
+    <div class="bank-transfer-card__body">
+        <div class="bank-transfer-card__chip"><i class="bi bi-star-fill"></i> Default payment account</div>
+        <?= $defaultBankHtml ?>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="saas-card mb-4" id="client-invoices">
     <div class="saas-card-header appointment-list-header">
         <div>
@@ -126,6 +146,7 @@ require __DIR__ . '/../includes/header.php';
                             $status = effectiveInvoiceStatus($invoice);
                             $remaining = CaseService::getInvoiceRemainingBalance($invoice);
                             $canPay = in_array($status, ['pending', 'overdue', 'partially_paid'], true) && $remaining > 0;
+                            $invoiceBankHtml = SettingsService::resolveInvoiceBankHtml($invoice, $company);
                             ?>
                             <tr>
                                 <td><strong><?= e($invoice['invoice_number']) ?></strong></td>
@@ -158,8 +179,31 @@ require __DIR__ . '/../includes/header.php';
                                             <button type="submit" class="btn btn-primary btn-sm">Pay <?= formatCurrency($remaining) ?></button>
                                         </form>
                                     <?php endif; ?>
+                                    <?php if ($canPay && $invoiceBankHtml !== ''): ?>
+                                        <button type="button" class="btn btn-soft btn-sm" data-bs-toggle="collapse" data-bs-target="#bank-transfer-<?= (int) $invoice['id'] ?>">
+                                            <i class="bi bi-bank2"></i> Bank details
+                                        </button>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
+                            <?php if ($canPay && $invoiceBankHtml !== ''): ?>
+                            <tr>
+                                <td colspan="6" class="p-0 border-0">
+                                    <div class="collapse" id="bank-transfer-<?= (int) $invoice['id'] ?>">
+                                        <div class="bank-transfer-inline">
+                                            <div class="bank-transfer-inline__head">
+                                                <i class="bi bi-bank2"></i>
+                                                <div>
+                                                    <strong><?= e($invoice['invoice_number']) ?></strong>
+                                                    <span><?= formatCurrency($remaining) ?> due by bank transfer</span>
+                                                </div>
+                                            </div>
+                                            <?= $invoiceBankHtml ?>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>

@@ -97,6 +97,57 @@ class MailService
         return self::send($client['email'], 'Client Letter — ' . $case['case_number'], $body, $attachments);
     }
 
+    public static function sendInvoiceEmail(array $client, array $case, array $invoice, ?string $documentPath = null): bool
+    {
+        $name          = clientFullName($client) ?: 'Client';
+        $invoiceNumber = (string) ($invoice['invoice_number'] ?? '');
+        $total         = (float) ($invoice['total'] ?? 0);
+        $remaining     = CaseService::getInvoiceRemainingBalance($invoice);
+        $dueDate       = !empty($invoice['due_date']) ? formatDate($invoice['due_date']) : '—';
+
+        $amountLine = $remaining < $total - 0.009
+            ? '<strong>Amount due:</strong> ' . formatCurrency($remaining) . '<br><strong>Invoice total:</strong> ' . formatCurrency($total) . '<br>'
+            : '<strong>Amount:</strong> ' . formatCurrency($total) . '<br>';
+
+        $body = self::wrapTemplate(
+            'Invoice — ' . e($case['title'] ?? $case['case_number']),
+            '<p>Dear ' . e($name) . ',</p>'
+            . '<p>Please find your invoice <strong>' . e($invoiceNumber) . '</strong> for case '
+            . '<strong>' . e($case['case_number']) . '</strong>.</p>'
+            . '<p>' . $amountLine
+            . '<strong>Due date:</strong> ' . e($dueDate) . '</p>'
+            . '<p>Log in to your client portal to view the invoice and pay online if available.</p>'
+            . '<p><a href="' . e(clientUrl('pages/payments.php')) . '" style="color:#3aafa9;">View invoices &amp; pay</a></p>'
+        );
+
+        $attachments = $documentPath && is_file($documentPath) ? [$documentPath] : [];
+
+        return self::send($client['email'], 'Invoice ' . $invoiceNumber . ' — ' . $case['case_number'], $body, $attachments);
+    }
+
+    public static function sendReceiptEmail(array $client, array $case, array $receipt, ?string $documentPath = null): bool
+    {
+        $name           = clientFullName($client) ?: 'Client';
+        $receiptNumber  = (string) ($receipt['receipt_number'] ?? '');
+        $invoiceNumber  = (string) ($receipt['invoice_number'] ?? '');
+        $amount         = (float) ($receipt['payment_amount'] ?? $receipt['amount'] ?? 0);
+        $method         = ucwords(str_replace('_', ' ', (string) ($receipt['payment_method'] ?? 'payment')));
+
+        $body = self::wrapTemplate(
+            'Payment Receipt — ' . e($case['case_number']),
+            '<p>Dear ' . e($name) . ',</p>'
+            . '<p>Thank you for your payment. Your receipt <strong>' . e($receiptNumber) . '</strong> '
+            . 'for invoice <strong>' . e($invoiceNumber) . '</strong> is attached.</p>'
+            . '<p><strong>Amount paid:</strong> ' . formatCurrency($amount) . '<br>'
+            . '<strong>Payment method:</strong> ' . e($method) . '</p>'
+            . '<p><a href="' . e(clientUrl('pages/payments.php')) . '" style="color:#3aafa9;">View payment history</a></p>'
+        );
+
+        $attachments = $documentPath && is_file($documentPath) ? [$documentPath] : [];
+
+        return self::send($client['email'], 'Receipt ' . $receiptNumber . ' — ' . $case['case_number'], $body, $attachments);
+    }
+
     public static function sendLoginEmail(array $client, string $instructions, ?string $plainPassword = null): bool
     {
         $name = clientFullName($client) ?: 'Client';

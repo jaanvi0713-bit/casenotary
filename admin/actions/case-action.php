@@ -263,6 +263,32 @@ try {
             redirectCase($caseId, 'invoices');
             break;
 
+        case 'send_invoice_email':
+            if ($isClient || !Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+                throw new RuntimeException('You do not have permission to email invoices.');
+            }
+            $invoiceId = (int) ($_POST['invoice_id'] ?? 0);
+            if ($caseId <= 0 || $invoiceId <= 0) {
+                throw new RuntimeException('Invalid invoice.');
+            }
+            CaseService::sendInvoiceToClient($caseId, $invoiceId);
+            flash('success', 'Invoice emailed to client.');
+            redirectCase($caseId, 'invoices');
+            break;
+
+        case 'send_receipt_email':
+            if ($isClient || !Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+                throw new RuntimeException('You do not have permission to email receipts.');
+            }
+            $receiptId = (int) ($_POST['receipt_id'] ?? 0);
+            if ($caseId <= 0 || $receiptId <= 0) {
+                throw new RuntimeException('Invalid receipt.');
+            }
+            CaseService::sendReceiptToClient($caseId, $receiptId);
+            flash('success', 'Receipt emailed to client.');
+            redirectCase($caseId, 'invoice-payments');
+            break;
+
         case 'record_payment':
             if ($isClient || !Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
                 throw new RuntimeException('You do not have permission to record payments.');

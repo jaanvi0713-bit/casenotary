@@ -402,6 +402,53 @@ body {
     line-height: 1.6;
     color: var(--fdoc-color-muted);
     margin-bottom: 20px;
+    padding: 18px 20px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--fdoc-primary) 4%, #fff);
+    border: 1px solid color-mix(in srgb, var(--fdoc-primary) 14%, #e2e8f0);
+}
+
+.fdoc-payment .bank-details-panel {
+    display: grid;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.fdoc-payment .bank-detail-row {
+    display: grid;
+    grid-template-columns: minmax(110px, 38%) 1fr;
+    gap: 8px 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--fdoc-primary) 10%, #e2e8f0);
+    background: transparent;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    border-radius: 0;
+}
+
+.fdoc-payment .bank-detail-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.fdoc-payment .bank-detail-row__content {
+    display: contents;
+}
+
+.fdoc-payment .bank-detail-row__label {
+    font-size: var(--fdoc-text-caption);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.fdoc-payment .bank-detail-row__value {
+    font-size: var(--fdoc-text-body);
+    font-weight: 600;
+    color: var(--fdoc-secondary);
+    word-break: break-word;
 }
 
 .fdoc-payment-label {
@@ -418,6 +465,22 @@ body {
     margin: 0;
     line-height: 1.6;
     font-size: var(--fdoc-text-body);
+}
+
+.fdoc-bank-line {
+    margin: 0 0 4px;
+    font-size: var(--fdoc-text-body);
+    color: var(--fdoc-color-text);
+    line-height: 1.5;
+}
+
+.fdoc-bank-line:last-child {
+    margin-bottom: 0;
+}
+
+.fdoc-bank-label {
+    font-weight: 600;
+    color: var(--fdoc-color-text-strong, #1e293b);
 }
 
 .fdoc-payee {

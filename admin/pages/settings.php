@@ -242,6 +242,118 @@ require __DIR__ . '/../includes/header.php';
                                     <label class="form-label">Country</label>
                                     <input type="text" name="country" class="form-control" value="<?= e($settings['country'] ?? '') ?>">
                                 </div>
+                                <?php
+                                $defaultBankAccount = SettingsService::defaultBankAccountChoice($settings);
+                                $bankAccountSlots = [
+                                    1 => 'Bank account 1',
+                                    2 => 'Bank account 2',
+                                    3 => 'Bank account 3',
+                                ];
+                                ?>
+                                <div class="col-12">
+                                    <div class="bank-accounts-block">
+                                        <div class="bank-accounts-block__header">
+                                            <div class="bank-accounts-block__icon" aria-hidden="true"><i class="bi bi-bank2"></i></div>
+                                            <div>
+                                                <h6 class="bank-accounts-block__title">Bank accounts for invoices</h6>
+                                                <p class="bank-accounts-block__desc">Set up to three accounts. The default is pre-selected on new invoices; you can change it per invoice when generating.</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="bank-format-tip">
+                                            <div class="bank-format-tip__label"><i class="bi bi-info-circle"></i> How this appears on invoices</div>
+                                            <div class="bank-format-tip__sample">
+                                                <?php foreach (SettingsService::BANK_FIELD_LABELS as $tipKey => $tipLabel): ?>
+                                                    <span class="bank-format-tip__line"><em><?= e($tipLabel) ?>:</em> …</span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+
+                                        <ul class="nav nav-pills bank-account-tabs" id="bankAccountTabs" role="tablist">
+                                            <?php foreach ($bankAccountSlots as $num => $slotLabel): ?>
+                                                <?php $hasDetails = SettingsService::bankAccountHasDetails($settings, $num); ?>
+                                                <li class="nav-item" role="presentation">
+                                                    <button
+                                                        class="nav-link<?= $num === 1 ? ' active' : '' ?>"
+                                                        id="bank-tab-<?= $num ?>"
+                                                        data-bs-toggle="tab"
+                                                        data-bs-target="#bank-pane-<?= $num ?>"
+                                                        type="button"
+                                                        role="tab"
+                                                        aria-controls="bank-pane-<?= $num ?>"
+                                                        <?= $num === 1 ? 'aria-selected="true"' : 'aria-selected="false"' ?>
+                                                    >
+                                                        <span class="bank-account-tabs__num"><?= $num ?></span>
+                                                        <?= e($slotLabel) ?>
+                                                        <?php if ($hasDetails): ?><span class="bank-account-tabs__dot" title="Configured"></span><?php endif; ?>
+                                                    </button>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+
+                                        <div class="tab-content bank-account-tab-panes">
+                                            <?php foreach ($bankAccountSlots as $num => $slotLabel):
+                                                $bankFields = SettingsService::bankAccountFieldsForSlot($settings, $num);
+                                            ?>
+                                            <div class="tab-pane fade<?= $num === 1 ? ' show active' : '' ?>" id="bank-pane-<?= $num ?>" role="tabpanel" aria-labelledby="bank-tab-<?= $num ?>" tabindex="0">
+                                                <div class="bank-account-card">
+                                                    <div class="bank-account-card__head">
+                                                        <span class="bank-account-card__badge"><?= $num ?></span>
+                                                        <div>
+                                                            <strong><?= e($slotLabel) ?></strong>
+                                                            <span class="text-muted small d-block">Shown on invoices when this account is selected</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row g-3">
+                                                        <?php foreach (SettingsService::BANK_FIELD_LABELS as $fieldKey => $fieldLabel): ?>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label" for="bank_<?= $num ?>_<?= e($fieldKey) ?>"><?= e($fieldLabel) ?></label>
+                                                                <div class="input-group bank-field-input">
+                                                                    <span class="input-group-text"><i class="bi <?= e(SettingsService::bankFieldIcon($fieldKey)) ?>"></i></span>
+                                                                    <input
+                                                                        type="text"
+                                                                        class="form-control"
+                                                                        id="bank_<?= $num ?>_<?= e($fieldKey) ?>"
+                                                                        name="bank_accounts[<?= $num ?>][<?= e($fieldKey) ?>]"
+                                                                        value="<?= e($bankFields[$fieldKey] ?? '') ?>"
+                                                                        placeholder="<?= e(match ($fieldKey) {
+                                                                            'bank_name' => 'Barclays Bank',
+                                                                            'account_name' => 'YOUR COMPANY LTD',
+                                                                            'account_number' => '12345678',
+                                                                            'sort_code' => '20-00-00',
+                                                                            'iban' => 'GB00 BARC 2000 0012 3456 78',
+                                                                            'bic' => 'BARCGB22',
+                                                                            'reference' => 'Quote invoice number',
+                                                                            default => '',
+                                                                        }) ?>"
+                                                                    >
+                                                                </div>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <?php endforeach; ?>
+                                        </div>
+
+                                        <div class="bank-accounts-default">
+                                            <label class="form-label" for="invoice_bank_account"><i class="bi bi-star-fill bank-accounts-default__icon me-1"></i> Default account on invoices</label>
+                                            <select name="invoice_bank_account" id="invoice_bank_account" class="form-select">
+                                                <?php foreach ($bankAccountSlots as $num => $slotLabel): ?>
+                                                    <?php
+                                                    $preview = SettingsService::bankAccountLabel(
+                                                        SettingsService::formatBankAccountText(
+                                                            SettingsService::bankAccountFieldsForSlot($settings, $num)
+                                                        ),
+                                                        $num
+                                                    );
+                                                    ?>
+                                                    <option value="<?= $num ?>" <?= $defaultBankAccount === $num ? 'selected' : '' ?>><?= e($preview) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -444,21 +556,8 @@ require __DIR__ . '/../includes/header.php';
                             <label class="form-label">Default payment terms</label>
                             <input type="text" name="default_invoice_payment_terms" class="form-control" value="<?= e($settings['default_invoice_payment_terms'] ?? '') ?>" placeholder="Payment due within 14 days">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Account number</label>
-                            <input type="text" name="bank_account_number" class="form-control" value="<?= e($settings['bank_account_number'] ?? '') ?>">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Sort code</label>
-                            <input type="text" name="bank_sort_code" class="form-control" value="<?= e($settings['bank_sort_code'] ?? '') ?>">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">IBAN</label>
-                            <input type="text" name="bank_iban" class="form-control" value="<?= e($settings['bank_iban'] ?? '') ?>">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">BIC</label>
-                            <input type="text" name="bank_bic" class="form-control" value="<?= e($settings['bank_bic'] ?? '') ?>">
+                        <div class="col-12">
+                            <p class="text-muted small mb-0">Bank account details are configured under <a href="<?= url('pages/settings.php?tab=branding') ?>">Branding → Company Information</a>.</p>
                         </div>
                     </div>
                 </div>

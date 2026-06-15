@@ -41,13 +41,6 @@ class FinancialDocumentRenderer
      */
     public static function lineItemsFromStored(array $stored, array $billing = []): array
     {
-        if ($billing !== []) {
-            $fromBilling = self::lineItemsFromBilling($billing);
-            if ($fromBilling !== []) {
-                return $fromBilling;
-            }
-        }
-
         $items = [];
         foreach ($stored as $row) {
             if (!is_array($row)) {
@@ -55,24 +48,34 @@ class FinancialDocumentRenderer
             }
             $qty       = (float) ($row['quantity'] ?? 1);
             $unit      = (float) ($row['unit_price'] ?? 0);
-            $lineTotal = (float) ($row['line_total'] ?? $row['amount'] ?? ($qty * $unit));
+            $net       = (float) ($row['net'] ?? round($qty * $unit, 2));
+            $vat       = (float) ($row['vat'] ?? $row['vat_amount'] ?? 0);
+            $lineTotal = (float) ($row['line_total'] ?? round($net + $vat, 2));
             $desc      = trim((string) ($row['description'] ?? $row['type'] ?? 'Item'));
             $desc      = preg_replace('/\s*\((?:Non-VAT|VAT net)\)\s*$/i', '', $desc) ?? $desc;
 
-            if ($unit <= 0 && $lineTotal > 0) {
-                $unit = $qty > 0 ? $lineTotal / $qty : $lineTotal;
+            if ($unit <= 0 && $net > 0) {
+                $unit = $qty > 0 ? $net / $qty : $net;
             }
 
             $items[] = [
                 'description' => $desc,
                 'quantity'    => $qty > 0 ? $qty : 1.0,
                 'unit_price'  => round($unit, 2),
-                'vat'         => round((float) ($row['vat'] ?? $row['vat_amount'] ?? 0), 2),
+                'vat'         => round($vat, 2),
                 'total'       => round($lineTotal, 2),
             ];
         }
 
-        return $items;
+        if ($items !== []) {
+            return $items;
+        }
+
+        if ($billing !== []) {
+            return self::lineItemsFromBilling($billing);
+        }
+
+        return [];
     }
 
     /**
@@ -173,6 +176,8 @@ class FinancialDocumentRenderer
             $notes[] = '<p class="fdoc-note"><strong>Notes:</strong> ' . nl2br(e($quotationNotes)) . '</p>';
         }
 
+        $company = getCompanySettings();
+
         return self::render([
             'type'        => 'quotation',
             'title'       => 'QUOTATION',
@@ -183,13 +188,14 @@ class FinancialDocumentRenderer
             'summary'     => $summary,
             'notes_html'  => implode('', $notes),
             'subject'     => (string) ($quotation['title'] ?? 'Quotation'),
+            'footer_html' => self::paymentFooterHtml($company, []),
         ]);
     }
 
     public static function renderInvoice(array $case, array $invoice): string
     {
-        $billing   = CaseService::getCaseBilling($case);
-        $stored    = InvoiceService::resolveLineItems($invoice, $case);
+        $stored    = InvoiceService::decodeLineItems((string) ($invoice['line_items'] ?? ''));
+        $billing   = $stored === [] ? CaseService::getCaseBilling($case) : [];
         $lineItems = self::lineItemsFromStored($stored, $billing);
 
         $invoiceId = (int) ($invoice['id'] ?? 0);
@@ -198,12 +204,21 @@ class FinancialDocumentRenderer
             ? CaseService::getInvoiceRemainingBalance($invoice)
             : max(0, (float) ($invoice['total'] ?? 0) - $amountPaid);
 
-        $summary = self::buildFinancialSummary($billing, [
-            'grand_total' => (float) ($invoice['total'] ?? 0),
-            'tax_amount'  => (float) ($invoice['tax_amount'] ?? 0),
-            'amount_paid' => $amountPaid,
-            'amount_due'  => $amountDue,
-        ]);
+        $summaryOpts = InvoiceService::financialSummaryOptions($invoice, $stored !== [] ? $stored : $lineItems, $amountPaid, $amountDue);
+        $summary = self::buildFinancialSummary(
+            [
+                'totals' => [
+                    'non_vat_net_subtotal'  => $summaryOpts['non_vat_net'] ?? 0,
+                    'non_vat_subtotal'      => $summaryOpts['non_vat_gross'] ?? 0,
+                    'vat_net_subtotal'      => $summaryOpts['vat_net'] ?? 0,
+                    'vat_gross_subtotal'    => $summaryOpts['vat_gross'] ?? 0,
+                    'vat_amount'            => $summaryOpts['vat_amount'] ?? 0,
+                    'non_vat_rate_amount'   => $summaryOpts['non_vat_rate_amount'] ?? 0,
+                    'grand_total'           => $summaryOpts['grand_total'] ?? ($invoice['total'] ?? 0),
+                ],
+            ],
+            $summaryOpts
+        );
 
         $company = getCompanySettings();
         $paymentTerms = trim((string) ($invoice['payment_terms'] ?? ''));
@@ -228,14 +243,7 @@ class FinancialDocumentRenderer
             $payableName = companyBrandName($company);
         }
 
-        $footerHtml = '<section class="fdoc-payment">'
-            . '<p class="fdoc-payment-label">Payable To:</p>'
-            . '<div class="fdoc-bank">'
-            . '<div class="fdoc-payee">' . e($payableName) . '</div>'
-            . self::bankDetailsHtml($company, $invoice)
-            . '</div>'
-            . '<p class="fdoc-vat-no"><span class="fdoc-date-label">VAT Number:</span> ' . e(InvoiceService::companyVatNumber($company)) . '</p>'
-            . '</section>';
+        $footerHtml = self::paymentFooterHtml($company, $invoice, $payableName);
 
         return self::render([
             'type'        => 'invoice',
@@ -253,8 +261,9 @@ class FinancialDocumentRenderer
 
     public static function renderReceipt(array $receipt, array $case, array $invoice): string
     {
-        $billing   = CaseService::getCaseBilling($case);
-        $lineItems = self::lineItemsFromBilling($billing);
+        $stored    = InvoiceService::decodeLineItems((string) ($invoice['line_items'] ?? ''));
+        $billing   = $stored === [] ? CaseService::getCaseBilling($case) : [];
+        $lineItems = self::lineItemsFromStored($stored, $billing);
 
         if ($lineItems === []) {
             $paymentAmount = (float) ($receipt['amount'] ?? $receipt['payment_amount'] ?? 0);
@@ -274,12 +283,21 @@ class FinancialDocumentRenderer
             ? CaseService::getInvoiceRemainingBalance($invoice)
             : max(0, $grand - $amountPaid);
 
-        $summary = self::buildFinancialSummary($billing, [
-            'grand_total' => $grand,
-            'tax_amount'  => (float) ($invoice['tax_amount'] ?? 0),
-            'amount_paid' => $amountPaid,
-            'amount_due'  => $amountDue,
-        ]);
+        $summaryOpts = InvoiceService::financialSummaryOptions($invoice, $stored !== [] ? $stored : $lineItems, $amountPaid, $amountDue);
+        $summary = self::buildFinancialSummary(
+            $stored === [] ? $billing : [
+                'totals' => [
+                    'non_vat_net_subtotal'  => $summaryOpts['non_vat_net'] ?? 0,
+                    'non_vat_subtotal'      => $summaryOpts['non_vat_gross'] ?? 0,
+                    'vat_net_subtotal'      => $summaryOpts['vat_net'] ?? 0,
+                    'vat_gross_subtotal'    => $summaryOpts['vat_gross'] ?? 0,
+                    'vat_amount'            => $summaryOpts['vat_amount'] ?? 0,
+                    'non_vat_rate_amount'   => $summaryOpts['non_vat_rate_amount'] ?? 0,
+                    'grand_total'           => $summaryOpts['grand_total'] ?? $grand,
+                ],
+            ],
+            $summaryOpts
+        );
 
         $method = ucwords(str_replace('_', ' ', (string) ($receipt['payment_method'] ?? 'other')));
         $paidAt = formatDateTimeStacked($receipt['paid_at'] ?? $receipt['created_at'] ?? '');
@@ -292,6 +310,8 @@ class FinancialDocumentRenderer
             $detailNote .= '<p class="fdoc-note"><strong>Notes:</strong> ' . nl2br(e($notes)) . '</p>';
         }
 
+        $company = getCompanySettings();
+
         return self::render([
             'type'        => 'receipt',
             'title'       => 'RECEIPT',
@@ -302,6 +322,7 @@ class FinancialDocumentRenderer
             'summary'     => $summary,
             'notes_html'  => $detailNote,
             'meta_html'   => '<p class="fdoc-meta-line"><strong>Invoice reference:</strong> ' . e($receipt['invoice_number'] ?? '') . '</p>',
+            'footer_html' => self::paymentFooterHtml($company, $invoice),
         ]);
     }
 
@@ -524,33 +545,31 @@ class FinancialDocumentRenderer
         return implode('<br>', array_map(static fn(string $line): string => e($line), $lines));
     }
 
+    public static function paymentFooterHtml(array $company, array $invoice = [], ?string $payableName = null): string
+    {
+        $payableName = trim((string) ($payableName ?? $company['invoice_payable_name'] ?? ''));
+        if ($payableName === '') {
+            $payableName = companyBrandName($company);
+        }
+
+        $bankHtml = self::bankDetailsHtml($company, $invoice);
+        if ($bankHtml === '' && $payableName === '') {
+            return '';
+        }
+
+        return '<section class="fdoc-payment">'
+            . '<p class="fdoc-payment-label">Payable To:</p>'
+            . '<div class="fdoc-bank">'
+            . '<div class="fdoc-payee">' . e($payableName) . '</div>'
+            . $bankHtml
+            . '</div>'
+            . '<p class="fdoc-vat-no"><span class="fdoc-date-label">VAT Number:</span> ' . e(InvoiceService::companyVatNumber($company)) . '</p>'
+            . '</section>';
+    }
+
     private static function bankDetailsHtml(array $company, array $invoice): string
     {
-        $custom = trim((string) ($invoice['payment_instructions'] ?? ''));
-        if ($custom !== '') {
-            return nl2br(e($custom));
-        }
-
-        $lines   = [];
-        $account = trim((string) ($company['bank_account_number'] ?? ''));
-        $sort    = trim((string) ($company['bank_sort_code'] ?? ''));
-        $iban    = trim((string) ($company['bank_iban'] ?? ''));
-        $bic     = trim((string) ($company['bank_bic'] ?? ''));
-
-        if ($account !== '') {
-            $lines[] = 'Account number: ' . e($account);
-        }
-        if ($sort !== '') {
-            $lines[] = 'Sort code: ' . e($sort);
-        }
-        if ($iban !== '') {
-            $lines[] = 'IBAN: ' . e($iban);
-        }
-        if ($bic !== '') {
-            $lines[] = 'BIC: ' . e($bic);
-        }
-
-        return $lines === [] ? '' : implode('<br>', $lines);
+        return SettingsService::resolveInvoiceBankHtml($invoice, $company);
     }
 
     private static function styles(string $primary, string $secondary, ?array $company = null): string
@@ -600,9 +619,18 @@ class FinancialDocumentRenderer
             .fdoc-summary-row--highlight{margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.32);font-size:18px;font-weight:700}
             .fdoc-summary-row--highlight:last-child{font-size:20px}
             .fdoc-note{font-size:14px;line-height:1.7;margin:0 0 16px;color:#64748b;padding:12px 16px;background:#f8fafc;border-radius:6px}
-            .fdoc-payment{font-size:14px;line-height:1.6;color:#475569;margin-bottom:20px}
-            .fdoc-payment-label{margin:0 0 10px;font-weight:700;color:#1e293b;font-size:14px}
+            .fdoc-payment{font-size:14px;line-height:1.6;color:#475569;margin-bottom:20px;padding:18px 20px;border-radius:10px;background:color-mix(in srgb,' . $primary . ' 4%,#fff);border:1px solid color-mix(in srgb,' . $primary . ' 14%,#e2e8f0)}
+            .fdoc-payment-label{margin:0 0 10px;font-weight:700;color:#1e293b;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
             .fdoc-bank{margin:0;line-height:1.6}
+            .fdoc-bank .bank-details-panel{display:grid;gap:6px;margin-top:4px}
+            .fdoc-bank .bank-detail-row{display:grid;grid-template-columns:minmax(110px,38%) 1fr;gap:8px 12px;padding:6px 0;border-bottom:1px solid color-mix(in srgb,' . $primary . ' 10%,#e2e8f0);background:transparent;border-radius:0}
+            .fdoc-bank .bank-detail-row:last-child{border-bottom:none;padding-bottom:0}
+            .fdoc-bank .bank-detail-row__content{display:contents}
+            .fdoc-bank .bank-detail-row__label{font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#64748b}
+            .fdoc-bank .bank-detail-row__value{font-size:14px;font-weight:600;color:' . $secondary . ';word-break:break-word}
+            .fdoc-bank-line{margin:0 0 4px;font-size:14px;color:#334155}
+            .fdoc-bank-line:last-child{margin-bottom:0}
+            .fdoc-bank-label{font-weight:600;color:#1e293b}
             .fdoc-payee{margin:0 0 6px;font-size:16px;font-weight:700;line-height:1.4;color:' . $primary . '}
             .fdoc-vat-no{margin:16px 0 0;font-size:14px;color:#475569}
             .fdoc-footer{margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}

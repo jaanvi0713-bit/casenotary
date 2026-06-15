@@ -152,7 +152,7 @@ HTML,
 <p class="cl-heading">Price:</p>
 <p>The fee for this transaction will be {{fee_amount}} which includes disbursements/legalisation fees/postage/consular agent fees/courier/travelling fees/translating costs</p>
 <p>Some documents require legalisation before they will be accepted for use in the receiving jurisdiction by obtaining an apostille through the UK Foreign and Commonwealth Office and, for some countries, additional legalisation is required through the relevant embassy or consulate.</p>
-<p>My fees are not subject to VAT.</p>
+<p>My fees are subject to VAT.</p>
 HTML,
             'payment_terms' => <<<'HTML'
 <p>Payment can be made by cash/card/bank transfer. Payment of my fee and disbursements is due when the document has been prepared which I may retain pending payment in full.</p>

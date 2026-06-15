@@ -187,6 +187,28 @@ class CaseService
     }
 
     /**
+     * @return array{version:int, vat_rate:float, non_vat:list, vat:list, totals:array<string, float>}
+     */
+    public static function parseInvoiceBillingFromRequest(array $data): array
+    {
+        $nonVat = self::parseServiceRowsFromRequest(
+            $data['invoice_services_non_vat']['type'] ?? null,
+            $data['invoice_services_non_vat']['fee'] ?? null
+        );
+        $vatNet = self::parseServiceRowsFromRequest(
+            $data['invoice_services_vat']['type'] ?? null,
+            $data['invoice_services_vat']['fee'] ?? null
+        );
+
+        $vatRate = self::vatRate();
+        if (isset($data['invoice_vat_rate']) && $data['invoice_vat_rate'] !== '') {
+            $vatRate = max(0.0, min(100.0, (float) $data['invoice_vat_rate']));
+        }
+
+        return self::buildCaseBilling($nonVat, $vatNet, $vatRate);
+    }
+
+    /**
      * @return list<array{type:string, fee:float}>
      */
     private static function parseLegacyServicesFromRequest(array $data): array
@@ -561,7 +583,7 @@ class CaseService
      */
     public static function billingToInvoiceLineItems(array $billing): array
     {
-        return InvoiceService::lineItemsFromBilling($billing);
+        return InvoiceService::billingToInvoiceLineItems($billing);
     }
 
     private static function insertCaseRow(array $row): int
@@ -1271,6 +1293,115 @@ class CaseService
         return MailService::sendClientLetterEmail($client, $case, $letterPath);
     }
 
+    public static function sendInvoiceToClient(int $caseId, int $invoiceId): bool
+    {
+        $case = self::getCaseById($caseId);
+        if (!$case) {
+            throw new RuntimeException('Case not found.');
+        }
+
+        $invoice = Database::fetch('SELECT * FROM invoices WHERE id = ? AND case_id = ?', [$invoiceId, $caseId]);
+        if (!$invoice) {
+            throw new RuntimeException('Invoice not found for this case.');
+        }
+
+        $client = ClientService::getById((int) ($invoice['client_id'] ?? $case['client_id'] ?? 0));
+        if (!$client || trim((string) ($client['email'] ?? '')) === '') {
+            throw new RuntimeException('Client email not found.');
+        }
+
+        $documentPath = self::ensureInvoiceDocumentPath($caseId, $invoiceId, $invoice);
+        $sent         = MailService::sendInvoiceEmail($client, $case, $invoice, $documentPath);
+
+        if (!$sent) {
+            throw new RuntimeException('Invoice email could not be sent. Check SMTP settings under Settings → Email.');
+        }
+
+        self::notifyCaseEvent(
+            $caseId,
+            'invoice',
+            'Invoice emailed to client',
+            (string) ($invoice['invoice_number'] ?? ''),
+            'pages/case-view.php?id=' . $caseId . '#invoices'
+        );
+
+        return true;
+    }
+
+    public static function sendReceiptToClient(int $caseId, int $receiptId): bool
+    {
+        $case = self::getCaseById($caseId);
+        if (!$case) {
+            throw new RuntimeException('Case not found.');
+        }
+
+        $receipt = ReceiptService::fetchForAdmin($receiptId);
+        if (!$receipt || (int) ($receipt['case_id'] ?? 0) !== $caseId) {
+            throw new RuntimeException('Receipt not found for this case.');
+        }
+
+        $client = ClientService::getById((int) ($case['client_id'] ?? 0));
+        if (!$client || trim((string) ($client['email'] ?? '')) === '') {
+            throw new RuntimeException('Client email not found.');
+        }
+
+        $documentPath = self::writeReceiptDocument($caseId, $receiptId, $receipt);
+        $sent         = MailService::sendReceiptEmail($client, $case, $receipt, $documentPath);
+
+        if (!$sent) {
+            throw new RuntimeException('Receipt email could not be sent. Check SMTP settings under Settings → Email.');
+        }
+
+        self::notifyCaseEvent(
+            $caseId,
+            'payment',
+            'Receipt emailed to client',
+            (string) ($receipt['receipt_number'] ?? ''),
+            'pages/case-view.php?id=' . $caseId . '#invoice-payments'
+        );
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $invoice
+     */
+    private static function ensureInvoiceDocumentPath(int $caseId, int $invoiceId, array $invoice): ?string
+    {
+        if (empty($invoice['pdf_path']) || !is_file(self::documentPath((string) $invoice['pdf_path']))) {
+            self::regenerateInvoiceHtml($caseId, $invoiceId);
+            $invoice = Database::fetch('SELECT * FROM invoices WHERE id = ?', [$invoiceId]) ?: $invoice;
+        }
+
+        $relative = trim((string) ($invoice['pdf_path'] ?? ''));
+        if ($relative === '') {
+            return null;
+        }
+
+        $path = self::documentPath($relative);
+
+        return is_file($path) ? $path : null;
+    }
+
+    private static function writeReceiptDocument(int $caseId, int $receiptId, array $receipt): ?string
+    {
+        $html = ReceiptService::renderHtml($receipt);
+        if ($html === '') {
+            return null;
+        }
+
+        $config = require __DIR__ . '/../config/config.php';
+        $dir    = rtrim($config['upload']['path'], '/\\') . '/cases/' . $caseId . '/generated';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $path = $dir . '/receipt_' . $receiptId . '.html';
+        file_put_contents($path, $html);
+
+        return is_file($path) ? $path : null;
+    }
+
     public static function generateProposal(int $caseId, array $data): int
     {
         $case    = self::getCaseById($caseId);
@@ -1299,70 +1430,27 @@ class CaseService
     {
         $case      = self::getCaseById($caseId);
         $number    = self::generateNumber('INV');
-        $billing   = self::getCaseBilling($case ?: []);
-        $bt        = $billing['totals'] ?? [];
-        $lineItems = self::parseInvoiceLineItems($data, $case ?: []);
-        $lineGross = round(array_reduce(
-            $lineItems,
-            static fn(float $sum, array $row): float => $sum + (float) ($row['line_total'] ?? 0),
-            0.0
-        ), 2);
+        $lineItems = InvoiceService::parseLineItemsFromRequest($data, $case ?: []);
 
-        if ($lineGross <= 0) {
-            $lineItems = self::billingToInvoiceLineItems($billing);
-            $lineGross = round(array_reduce(
-                $lineItems,
-                static fn(float $sum, array $row): float => $sum + (float) ($row['line_total'] ?? 0),
-                0.0
-            ), 2);
+        if ($lineItems === []) {
+            $lineItems = InvoiceService::billingToInvoiceLineItems(self::getCaseBilling($case ?: []));
         }
 
-        $grand         = (float) ($bt['grand_total'] ?? 0);
-        $vatAmt        = (float) ($bt['vat_amount'] ?? 0);
-        $nonVatRateAmt = (float) ($bt['non_vat_rate_amount'] ?? 0);
-        $vatNet        = (float) ($bt['vat_net_subtotal'] ?? 0);
-        $nonVatNet     = (float) ($bt['non_vat_net_subtotal'] ?? 0);
-        $taxTotal      = round($vatAmt + $nonVatRateAmt, 2);
-        $matchesBilling = $grand > 0 && ($lineGross <= 0 || abs($lineGross - $grand) < 0.02);
+        $totals = InvoiceService::totalsFromLineItems($lineItems);
+        $due    = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
+        $bankAccount = SettingsService::normalizeBankAccountChoice($data['bank_account'] ?? null);
 
-        $vatEnabled = !empty($data['include_vat']) ? 1 : ($taxTotal > 0 ? 1 : 0);
-
-        if ($matchesBilling) {
-            $total    = $grand;
-            $taxAmt   = $taxTotal;
-            $subtotal = round($nonVatNet + $vatNet, 2);
-            $tax      = $vatNet > 0 && $vatAmt > 0 ? round($vatAmt / $vatNet * 100, 2) : 0.0;
-        } elseif ($lineGross > 0) {
-            $subtotal = $lineGross;
-            if ($vatEnabled) {
-                $tax    = self::vatRate();
-                $taxAmt = round($subtotal * $tax / 100, 2);
-                $total  = round($subtotal + $taxAmt, 2);
-            } else {
-                $tax    = 0.0;
-                $taxAmt = 0.0;
-                $total  = $subtotal;
-            }
-        } else {
-            $subtotal = (float) ($data['amount'] ?? $case['service_fee'] ?? 0);
-            $tax      = $vatEnabled ? self::vatRate() : 0.0;
-            $taxAmt   = round($subtotal * $tax / 100, 2);
-            $total    = round($subtotal + $taxAmt, 2);
-        }
-
-        $due = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
-
-        $id = insertTableRow('invoices', self::withCaseCompanyId([
+        $invoiceRow = self::withCaseCompanyId([
             'invoice_number'  => $number,
             'case_id'         => $caseId,
             'client_id'       => $case['client_id'],
-            'amount'          => $subtotal,
+            'amount'          => $totals['subtotal'],
             'line_items'      => json_encode($lineItems, JSON_UNESCAPED_UNICODE),
-            'subtotal'        => $subtotal,
-            'tax_rate'        => $tax,
-            'tax_amount'      => $taxAmt,
-            'total'           => $total,
-            'vat_enabled'     => $vatEnabled,
+            'subtotal'        => $totals['subtotal'],
+            'tax_rate'        => $totals['tax_rate'],
+            'tax_amount'      => $totals['tax_amount'],
+            'total'           => $totals['total'],
+            'vat_enabled'     => $totals['vat_enabled'] ? 1 : 0,
             'payment_status'  => 'pending',
             'status'          => 'pending',
             'issue_date'      => date('Y-m-d'),
@@ -1370,72 +1458,16 @@ class CaseService
             'notes'           => $data['notes'] ?? null,
             'payment_terms'        => trim((string) ($data['payment_terms'] ?? '')) ?: null,
             'payment_instructions' => trim((string) ($data['payment_instructions'] ?? '')) ?: null,
-        ], $case, 'invoices'));
+            'bank_account'         => $bankAccount,
+        ], $case, 'invoices');
+
+        $id = insertTableRow('invoices', $invoiceRow);
 
         self::saveHtmlDocument($caseId, 'invoice', $id);
 
-        self::notifyCaseEvent($caseId, 'invoice', 'Invoice generated', $number . ' — ' . formatCurrency($total), 'pages/case-view.php?id=' . $caseId . '#invoice-payments');
+        self::notifyCaseEvent($caseId, 'invoice', 'Invoice generated', $number . ' — ' . formatCurrency($totals['total']), 'pages/case-view.php?id=' . $caseId . '#invoice-payments');
 
         return $id;
-    }
-
-    /** @return list<array{description:string, quantity:float, unit_price:float, line_total:float}> */
-    private static function parseInvoiceLineItems(array $data, array $case): array
-    {
-        $descriptions = $data['item_description'] ?? [];
-        $qtys         = $data['item_qty'] ?? [];
-        $prices       = $data['item_amount'] ?? [];
-
-        if (!is_array($descriptions) || !is_array($qtys) || !is_array($prices)) {
-            $billing = self::getCaseBilling($case);
-            $items   = self::billingToInvoiceLineItems($billing);
-            if ($items !== []) {
-                return $items;
-            }
-
-            return [[
-                'description' => (string) ($case['service_type'] ?? 'Notary Service'),
-                'quantity'    => 1.0,
-                'unit_price'  => (float) ($case['service_fee'] ?? 0),
-                'line_total'  => (float) ($case['service_fee'] ?? 0),
-            ]];
-        }
-
-        $rows = [];
-        $max = max(count($descriptions), count($qtys), count($prices));
-        for ($i = 0; $i < $max; $i++) {
-            $description = trim((string) ($descriptions[$i] ?? ''));
-            $qty         = (float) ($qtys[$i] ?? 0);
-            $unit        = (float) ($prices[$i] ?? 0);
-
-            if ($description === '' && $qty <= 0 && $unit <= 0) {
-                continue;
-            }
-
-            if ($qty <= 0) {
-                $qty = 1.0;
-            }
-
-            $lineTotal = round($qty * $unit, 2);
-            $rows[] = [
-                'description' => $description !== '' ? $description : 'Service',
-                'quantity'    => $qty,
-                'unit_price'  => $unit,
-                'line_total'  => $lineTotal,
-            ];
-        }
-
-        if ($rows === []) {
-            $fee = (float) ($case['service_fee'] ?? 0);
-            $rows[] = [
-                'description' => (string) ($case['service_type'] ?? 'Notary Service'),
-                'quantity'    => 1.0,
-                'unit_price'  => $fee,
-                'line_total'  => $fee,
-            ];
-        }
-
-        return $rows;
     }
 
     public static function getInvoicePaidTotal(int $invoiceId): float

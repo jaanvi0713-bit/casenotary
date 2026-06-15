@@ -1761,3 +1761,52 @@
 [data-theme="dark"] .loading-inline {
     color: var(--text-body);
 }
+
+[data-theme="dark"] .bank-accounts-block,
+[data-theme="dark"] .bank-account-card,
+[data-theme="dark"] .bank-preview-card,
+[data-theme="dark"] .bank-transfer-card,
+[data-theme="dark"] .bank-transfer-card__icon {
+    background: var(--surface);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .bank-accounts-block {
+    background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 8%, var(--surface)) 0%, var(--surface) 55%);
+}
+
+[data-theme="dark"] .bank-format-tip,
+[data-theme="dark"] .bank-transfer-inline {
+    background: var(--surface-raised);
+    border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .bank-account-tabs .nav-link {
+    background: var(--surface-raised);
+    border-color: var(--border-default);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .bank-account-tabs .nav-link.active {
+    color: #fff;
+}
+
+[data-theme="dark"] .bank-detail-row {
+    background: var(--surface-raised);
+    border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .bank-detail-row__value,
+[data-theme="dark"] .bank-accounts-block__title,
+[data-theme="dark"] .bank-transfer-card__title {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .bank-transfer-card__banner {
+    background: linear-gradient(120deg, color-mix(in srgb, var(--primary) 14%, var(--surface)), var(--surface-raised));
+}
+
+[data-theme="dark"] .bank-accounts-default {
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    border-color: color-mix(in srgb, var(--primary) 30%, var(--border-default));
+}

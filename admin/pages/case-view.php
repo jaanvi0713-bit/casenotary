@@ -17,20 +17,22 @@ if (!$workspace) {
 $case         = $workspace['case'];
 $caseBilling  = CaseService::getCaseBilling($case);
 $billingTotals = $caseBilling['totals'];
-$invNet          = (float) ($billingTotals['non_vat_net_subtotal'] ?? $billingTotals['non_vat_subtotal'])
-    + (float) $billingTotals['vat_net_subtotal'];
-$invoicePrefillItems = CaseService::billingToInvoiceLineItems($caseBilling);
-if ($invoicePrefillItems === []) {
-    $invoicePrefillItems = [[
-        'description' => $case['service_type'] ?? 'Notary service',
-        'quantity'    => 1,
-        'unit_price'  => (float) $case['service_fee'],
-        'line_total'  => (float) $case['service_fee'],
-    ]];
+$invoiceNonVatServices = ($caseBilling['non_vat'] ?? []) !== [] ? $caseBilling['non_vat'] : [['type' => '', 'net' => 0]];
+$invoiceVatServices    = ($caseBilling['vat'] ?? []) !== [] ? $caseBilling['vat'] : [['type' => '', 'net' => 0]];
+$invoiceVatRate        = (float) ($caseBilling['vat_rate'] ?? CaseService::vatRate());
+$companySettings       = getCompanySettings();
+$defaultBankAccount    = SettingsService::defaultBankAccountChoice($companySettings);
+$companyBankAccounts   = SettingsService::bankAccounts($companySettings);
+$invoiceBankPreviews   = [];
+for ($bankPreviewNum = 1; $bankPreviewNum <= 3; $bankPreviewNum++) {
+    $invoiceBankPreviews[$bankPreviewNum] = SettingsService::bankAccountDisplayHtml(
+        SettingsService::resolveBankAccountText($companySettings, $bankPreviewNum)
+    );
 }
 $pageTitle  = $case['case_number'];
 $pageSubtitle = $case['title'];
 $canEditCases        = Auth::canManage(RoleAccess::PERMISSION_CASES);
+$canManagePayments   = Auth::can(RoleAccess::PERMISSION_PAYMENTS);
 $clientLetterPath    = CaseService::getClientLetterRelativePath($caseId);
 $clientLetterPaths  = ClientLetterService::getGeneratedLetterPaths($caseId);
 $letterSections     = ClientLetterService::getSectionsForCase($caseId);
@@ -62,7 +64,6 @@ $pagedActivity = array_slice(
 );
 $activityShowingFrom = $totalActivity > 0 ? paginationOffset($activityPage, $activityPerPage) + 1 : 0;
 $activityShowingTo   = min($totalActivity, $activityPage * $activityPerPage);
-$canEditCases        = Auth::canManage(RoleAccess::PERMISSION_CASES);
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -356,7 +357,16 @@ require __DIR__ . '/../includes/header.php';
                                         <td><?= statusBadge($invStatus) ?></td>
                                         <td class="text-nowrap">
                                             <?php if (!empty($inv['pdf_path'])): ?>
-                                                <a href="<?= url('actions/document-download.php?path=' . urlencode($inv['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener"><i class="bi bi-receipt"></i> View</a>
+                                                <a href="<?= url('actions/document-download.php?path=' . urlencode($inv['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener" title="View invoice"><i class="bi bi-receipt"></i></a>
+                                            <?php endif; ?>
+                                            <?php if ($canManagePayments): ?>
+                                                <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Email this invoice to the client?');">
+                                                    <?= CSRF::field() ?>
+                                                    <input type="hidden" name="action" value="send_invoice_email">
+                                                    <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                    <input type="hidden" name="invoice_id" value="<?= (int) $inv['id'] ?>">
+                                                    <button type="submit" class="btn btn-soft btn-sm" title="Email to client"><i class="bi bi-envelope"></i></button>
+                                                </form>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -412,7 +422,18 @@ require __DIR__ . '/../includes/header.php';
                                 <?php foreach ($workspace['receipts'] as $r): ?>
                                     <li>
                                         <div><strong><?= e($r['receipt_number']) ?></strong><small><?= formatCurrency((float) ($r['amount'] ?? $r['payment_amount'] ?? 0)) ?></small></div>
-                                        <a href="<?= url('actions/receipt-download.php?id=' . (int) $r['id']) ?>" class="btn btn-soft btn-sm" target="_blank"><i class="bi bi-receipt"></i> View</a>
+                                        <div class="d-flex gap-1">
+                                            <a href="<?= url('actions/receipt-download.php?id=' . (int) $r['id']) ?>" class="btn btn-soft btn-sm" target="_blank" title="View receipt"><i class="bi bi-receipt"></i></a>
+                                            <?php if ($canManagePayments): ?>
+                                                <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Email this receipt to the client?');">
+                                                    <?= CSRF::field() ?>
+                                                    <input type="hidden" name="action" value="send_receipt_email">
+                                                    <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                    <input type="hidden" name="receipt_id" value="<?= (int) $r['id'] ?>">
+                                                    <button type="submit" class="btn btn-soft btn-sm" title="Email to client"><i class="bi bi-envelope"></i></button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
@@ -702,47 +723,114 @@ require __DIR__ . '/../includes/header.php';
 
 <!-- Modals -->
 <div class="modal fade" id="modalInvoice" tabindex="-1">
-    <div class="modal-dialog"><div class="modal-content">
-        <form method="post" action="<?= url('actions/case-action.php') ?>">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <form method="post" action="<?= url('actions/case-action.php') ?>" id="invoiceForm">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="generate_invoice">
             <input type="hidden" name="case_id" value="<?= $caseId ?>">
             <div class="modal-header"><h5 class="modal-title">Generate Invoice</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Line items</label>
-                    <div id="invoiceItems">
-                        <?php foreach ($invoicePrefillItems as $item): ?>
-                            <?php $isVatLine = str_contains((string) ($item['description'] ?? ''), '(VAT net)'); ?>
-                            <div class="row g-2 mb-2 invoice-item-row" data-vat-line="<?= $isVatLine ? '1' : '0' ?>">
-                                <div class="col-2"><input type="number" step="0.01" min="0" name="item_qty[]" class="form-control form-control-sm invoice-item-qty" value="<?= e((string) ($item['quantity'] ?? 1)) ?>" placeholder="Qty"></div>
-                                <div class="col-6"><input type="text" name="item_description[]" class="form-control form-control-sm" value="<?= e($item['description']) ?>" placeholder="Description"></div>
-                                <div class="col-4"><input type="number" step="0.01" min="0" name="item_amount[]" class="form-control form-control-sm invoice-item-amount" value="<?= e((string) ($item['unit_price'] ?? 0)) ?>" placeholder="Unit amount"></div>
+                <p class="text-muted small mb-3">Line items use net amounts. VAT is calculated per section and shown on the invoice PDF.</p>
+
+                <div class="case-billing-part mb-3">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <h6 class="case-billing-part-title mb-0">Non-VAT services</h6>
+                        <button type="button" class="btn btn-soft btn-sm js-invoice-add-row" data-billing-part="non_vat">
+                            <i class="bi bi-plus-lg"></i> Add service
+                        </button>
+                    </div>
+                    <div id="invoice-services-non-vat" class="invoice-services-list" data-billing-part="non_vat">
+                        <?php foreach ($invoiceNonVatServices as $index => $service): ?>
+                            <div class="row g-2 mb-2 invoice-service-row">
+                                <div class="col-7">
+                                    <input type="text" name="invoice_services_non_vat[type][]" class="form-control form-control-sm invoice-service-type" placeholder="Service description" value="<?= e($service['type'] ?? '') ?>">
+                                </div>
+                                <div class="col-4">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><?= e(currencySymbol()) ?></span>
+                                        <input type="number" step="0.01" min="0" name="invoice_services_non_vat[fee][]" class="form-control invoice-service-fee" data-billing-part="non_vat" value="<?= e((string) ($service['net'] ?? '0')) ?>">
+                                    </div>
+                                </div>
+                                <div class="col-1">
+                                    <button type="button" class="btn btn-soft-danger btn-sm invoice-service-remove" title="Remove"<?= $index === 0 ? ' hidden' : '' ?>>×</button>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
-                    <button type="button" class="btn btn-soft btn-sm mt-1" id="addInvoiceItemBtn"><i class="bi bi-plus-lg"></i> Add item</button>
                 </div>
-                <div class="row g-2 mb-3 small">
-                    <div class="col-md-6">
-                        <div class="p-2 border rounded-2">
-                            <div><strong>Net subtotal:</strong> <span id="invoiceSubtotalPreview"><?= formatCurrency($invNet) ?></span></div>
-                            <div><strong>VAT:</strong> <span id="invoiceVatPreview"><?= formatCurrency((float) $billingTotals['vat_amount']) ?></span></div>
-                            <div><strong>Total:</strong> <span id="invoiceTotalPreview"><?= formatCurrency((float) $billingTotals['grand_total']) ?></span></div>
+
+                <div class="case-billing-part mb-3">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <h6 class="case-billing-part-title mb-0">VAT services</h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="small text-muted mb-0" for="invoiceVatRate">VAT rate (%)</label>
+                            <input type="number" step="0.01" min="0" max="100" id="invoiceVatRate" name="invoice_vat_rate" class="form-control form-control-sm case-billing-rate-input" value="<?= e(rtrim(rtrim(number_format($invoiceVatRate, 2), '0'), '.')) ?>">
+                            <button type="button" class="btn btn-soft btn-sm js-invoice-add-row" data-billing-part="vat">
+                                <i class="bi bi-plus-lg"></i> Add service
+                            </button>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-check mt-1">
-                            <input class="form-check-input" type="checkbox" id="invoiceIncludeVat" name="include_vat" value="1"<?= (float) ($billingTotals['vat_amount'] ?? 0) > 0 ? ' checked' : '' ?>>
-                            <label class="form-check-label" for="invoiceIncludeVat">Include VAT</label>
+                    <div id="invoice-services-vat" class="invoice-services-list" data-billing-part="vat">
+                        <?php foreach ($invoiceVatServices as $index => $service): ?>
+                            <div class="row g-2 mb-2 invoice-service-row">
+                                <div class="col-7">
+                                    <input type="text" name="invoice_services_vat[type][]" class="form-control form-control-sm invoice-service-type" placeholder="Service description" value="<?= e($service['type'] ?? '') ?>">
+                                </div>
+                                <div class="col-4">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><?= e(currencySymbol()) ?></span>
+                                        <input type="number" step="0.01" min="0" name="invoice_services_vat[fee][]" class="form-control invoice-service-fee" data-billing-part="vat" value="<?= e((string) ($service['net'] ?? '0')) ?>">
+                                    </div>
+                                </div>
+                                <div class="col-1">
+                                    <button type="button" class="btn btn-soft-danger btn-sm invoice-service-remove" title="Remove"<?= $index === 0 ? ' hidden' : '' ?>>×</button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="case-billing-summary card border-0 bg-light mb-3">
+                    <div class="card-body py-3">
+                        <div class="row g-2 small">
+                            <div class="col-sm-6">
+                                <div class="d-flex justify-content-between"><span>Non-VAT net</span><strong id="invoiceNonVatNet"><?= formatCurrency((float) ($billingTotals['non_vat_net_subtotal'] ?? 0)) ?></strong></div>
+                                <div class="d-flex justify-content-between"><span>VAT services net</span><strong id="invoiceVatNet"><?= formatCurrency((float) ($billingTotals['vat_net_subtotal'] ?? 0)) ?></strong></div>
+                                <div class="d-flex justify-content-between"><span>Net subtotal</span><strong id="invoiceSubtotalPreview"><?= formatCurrency((float) (($billingTotals['non_vat_net_subtotal'] ?? 0) + ($billingTotals['vat_net_subtotal'] ?? 0))) ?></strong></div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="d-flex justify-content-between"><span>VAT amount</span><strong id="invoiceVatPreview"><?= formatCurrency((float) ($billingTotals['vat_amount'] ?? 0)) ?></strong></div>
+                                <div class="d-flex justify-content-between fs-6 mt-2 pt-2 border-top"><span>Invoice total</span><strong id="invoiceTotalPreview"><?= formatCurrency((float) ($billingTotals['grand_total'] ?? 0)) ?></strong></div>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="mb-3 invoice-bank-picker">
+                    <label class="form-label" for="invoiceBankAccount"><i class="bi bi-bank2 me-1 text-primary"></i> Bank account on invoice</label>
+                    <select name="bank_account" id="invoiceBankAccount" class="form-select">
+                        <?php for ($bankNum = 1; $bankNum <= 3; $bankNum++): ?>
+                            <?php
+                            $bankText = $companyBankAccounts[$bankNum] ?? '';
+                            $bankLabel = SettingsService::bankAccountLabel($bankText, $bankNum);
+                            if ($bankText === '') {
+                                $bankLabel .= ' (not configured)';
+                            }
+                            ?>
+                            <option value="<?= $bankNum ?>" <?= $defaultBankAccount === $bankNum ? 'selected' : '' ?>><?= e($bankLabel) ?></option>
+                        <?php endfor; ?>
+                    </select>
+                    <div id="invoiceBankPreview" class="bank-preview-card mt-2<?= ($invoiceBankPreviews[$defaultBankAccount] ?? '') === '' ? ' d-none' : '' ?>">
+                        <div class="bank-preview-card__label"><i class="bi bi-eye"></i> Preview on invoice</div>
+                        <div class="bank-preview-block"><?= $invoiceBankPreviews[$defaultBankAccount] ?? '' ?></div>
+                    </div>
+                    <div class="form-text mt-2">Configure accounts under <strong>Settings → Branding → Company Information</strong>.</div>
                 </div>
                 <div class="mb-3"><label class="form-label">Due Date</label><input type="date" name="due_date" class="form-control" value="<?= date('Y-m-d', strtotime('+14 days')) ?>"></div>
                 <?php $defaultPayTerms = trim((string) (getCompanySettings()['default_invoice_payment_terms'] ?? '')); ?>
                 <div class="mb-3"><label class="form-label">Payment Terms</label><input type="text" name="payment_terms" class="form-control" value="<?= e($defaultPayTerms !== '' ? $defaultPayTerms : 'Payment due within 14 days') ?>"></div>
-                <div class="mb-3"><label class="form-label">Payment Instructions</label><textarea name="payment_instructions" class="form-control" rows="2" placeholder="Optional override — bank details from Settings are used when empty"></textarea></div>
-                <div class="mb-3"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+                <div class="mb-3"><label class="form-label">Payment Instructions</label><textarea name="payment_instructions" class="form-control" rows="2" placeholder="Optional override — replaces the selected bank account on this invoice"></textarea></div>
+                <div class="mb-0"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Generate</button></div>
         </form>
@@ -759,7 +847,8 @@ require __DIR__ . '/../includes/header.php';
             <div class="modal-body">
                 <div class="mb-3"><label class="form-label">Title</label><input type="text" name="title" class="form-control" value="Quotation — <?= e($case['title']) ?>"></div>
                 <div class="mb-3"><label class="form-label">Amount (total incl. VAT)</label><input type="number" step="0.01" name="amount" class="form-control" value="<?= e((string) $billingTotals['grand_total']) ?>"></div>
-                <div class="mb-3"><label class="form-label">Tax Rate (%)</label><input type="number" step="0.01" name="tax_rate" class="form-control" value="<?= (float) $billingTotals['vat_amount'] > 0 && $invNet > 0 ? e((string) round($billingTotals['vat_amount'] / $invNet * 100, 2)) : '0' ?>"></div>
+                <?php $quotationVatNet = (float) ($billingTotals['vat_net_subtotal'] ?? 0); ?>
+                <div class="mb-3"><label class="form-label">Tax Rate (%)</label><input type="number" step="0.01" name="tax_rate" class="form-control" value="<?= (float) ($billingTotals['vat_amount'] ?? 0) > 0 && $quotationVatNet > 0 ? e((string) round($billingTotals['vat_amount'] / $quotationVatNet * 100, 2)) : e((string) ($caseBilling['vat_rate'] ?? CaseService::vatRate())) ?>"></div>
                 <div class="mb-3"><label class="form-label">Valid Until</label><input type="date" name="valid_until" class="form-control" value="<?= date('Y-m-d', strtotime('+30 days')) ?>"></div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Generate</button></div>
@@ -915,70 +1004,151 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    var itemsWrap = document.getElementById("invoiceItems");
-    var addItemBtn = document.getElementById("addInvoiceItemBtn");
-    var includeVat = document.getElementById("invoiceIncludeVat");
-    var subtotalEl = document.getElementById("invoiceSubtotalPreview");
-    var vatEl = document.getElementById("invoiceVatPreview");
-    var totalEl = document.getElementById("invoiceTotalPreview");
+    var invoiceLists = {
+        non_vat: document.getElementById("invoice-services-non-vat"),
+        vat: document.getElementById("invoice-services-vat")
+    };
+    var invoiceVatRateInput = document.getElementById("invoiceVatRate");
+    var invoiceForm = document.getElementById("invoiceForm");
+    var invoiceBankSelect = document.getElementById("invoiceBankAccount");
+    var invoiceBankPreview = document.getElementById("invoiceBankPreview");
+    var invoiceBankPreviews = ' . json_encode($invoiceBankPreviews) . ';
+    var currencySymbol = ' . json_encode(currencySymbol()) . ';
+    var currencyLocale = ' . json_encode(currencyLocale()) . ';
 
     function formatMoney(num) {
-        return "£" + (Math.round((num || 0) * 100) / 100).toFixed(2);
+        return currencySymbol + Number(num || 0).toLocaleString(currencyLocale, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
     }
 
-    var invoiceVatRate = ' . json_encode((float) $caseBilling['vat_rate']) . ';
+    function roundMoney(value) {
+        return Math.round((value || 0) * 100) / 100;
+    }
+
+    function sumInvoicePart(part) {
+        var total = 0;
+        var list = invoiceLists[part];
+        if (!list) return 0;
+        list.querySelectorAll(".invoice-service-fee").forEach(function(input) {
+            total += parseFloat(input.value || "0") || 0;
+        });
+        return total;
+    }
+
+    function refreshInvoiceRemoveButtons(list) {
+        var rows = list.querySelectorAll(".invoice-service-row");
+        rows.forEach(function(row) {
+            var btn = row.querySelector(".invoice-service-remove");
+            if (btn) btn.hidden = rows.length === 1;
+        });
+    }
 
     function recalcInvoicePreview() {
-        if (!itemsWrap || !subtotalEl || !vatEl || !totalEl) return;
-        var subtotal = 0;
-        var vatBase = 0;
-        itemsWrap.querySelectorAll(".invoice-item-row").forEach(function(row) {
-            var qty = parseFloat((row.querySelector(".invoice-item-qty") || {}).value || "0") || 0;
-            var unit = parseFloat((row.querySelector(".invoice-item-amount") || {}).value || "0") || 0;
-            if (qty <= 0) qty = 1;
-            var line = qty * unit;
-            subtotal += line;
-            if (row.getAttribute("data-vat-line") === "1") {
-                vatBase += line;
+        var nonVatNet = sumInvoicePart("non_vat");
+        var vatNet = sumInvoicePart("vat");
+        var vatRate = invoiceVatRateInput ? Math.max(0, parseFloat(invoiceVatRateInput.value || "0") || 0) : 0;
+        var vatAmount = roundMoney(vatNet * vatRate / 100);
+        var subtotal = roundMoney(nonVatNet + vatNet);
+        var total = roundMoney(nonVatNet + vatNet + vatAmount);
+
+        var elNonVatNet = document.getElementById("invoiceNonVatNet");
+        var elVatNet = document.getElementById("invoiceVatNet");
+        var elSubtotal = document.getElementById("invoiceSubtotalPreview");
+        var elVat = document.getElementById("invoiceVatPreview");
+        var elTotal = document.getElementById("invoiceTotalPreview");
+
+        if (elNonVatNet) elNonVatNet.textContent = formatMoney(nonVatNet);
+        if (elVatNet) elVatNet.textContent = formatMoney(vatNet);
+        if (elSubtotal) elSubtotal.textContent = formatMoney(subtotal);
+        if (elVat) elVat.textContent = formatMoney(vatAmount);
+        if (elTotal) elTotal.textContent = formatMoney(total);
+    }
+
+    function bindInvoiceRow(row, list, part) {
+        row.querySelectorAll(".invoice-service-fee").forEach(function(input) {
+            input.addEventListener("input", recalcInvoicePreview);
+        });
+        var removeBtn = row.querySelector(".invoice-service-remove");
+        if (removeBtn) {
+            removeBtn.addEventListener("click", function() {
+                if (list.querySelectorAll(".invoice-service-row").length <= 1) return;
+                row.remove();
+                refreshInvoiceRemoveButtons(list);
+                recalcInvoicePreview();
+            });
+        }
+    }
+
+    Object.keys(invoiceLists).forEach(function(part) {
+        var list = invoiceLists[part];
+        if (!list) return;
+        list.querySelectorAll(".invoice-service-row").forEach(function(row) {
+            bindInvoiceRow(row, list, part);
+        });
+        refreshInvoiceRemoveButtons(list);
+    });
+    recalcInvoicePreview();
+
+    if (invoiceVatRateInput) {
+        invoiceVatRateInput.addEventListener("input", recalcInvoicePreview);
+        invoiceVatRateInput.addEventListener("change", recalcInvoicePreview);
+    }
+
+    function refreshInvoiceBankPreview() {
+        if (!invoiceBankSelect || !invoiceBankPreview) return;
+        var choice = invoiceBankSelect.value || "1";
+        var html = invoiceBankPreviews[choice] || "";
+        var body = invoiceBankPreview.querySelector(".bank-preview-block");
+        if (body) body.innerHTML = html;
+        invoiceBankPreview.classList.toggle("d-none", !html);
+    }
+
+    if (invoiceBankSelect) {
+        invoiceBankSelect.addEventListener("change", refreshInvoiceBankPreview);
+        refreshInvoiceBankPreview();
+    }
+
+    document.querySelectorAll(".js-invoice-add-row").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+            var part = btn.getAttribute("data-billing-part");
+            var list = invoiceLists[part];
+            if (!list) return;
+            var row = document.createElement("div");
+            row.className = "row g-2 mb-2 invoice-service-row";
+            var namePrefix = part === "vat" ? "invoice_services_vat" : "invoice_services_non_vat";
+            row.innerHTML =
+                "<div class=\"col-7\"><input type=\"text\" name=\"" + namePrefix + "[type][]\" class=\"form-control form-control-sm invoice-service-type\" placeholder=\"Service description\"></div>" +
+                "<div class=\"col-4\"><div class=\"input-group input-group-sm\"><span class=\"input-group-text\">" + currencySymbol + "</span>" +
+                "<input type=\"number\" step=\"0.01\" min=\"0\" name=\"" + namePrefix + "[fee][]\" class=\"form-control invoice-service-fee\" data-billing-part=\"" + part + "\" value=\"0\"></div></div>" +
+                "<div class=\"col-1\"><button type=\"button\" class=\"btn btn-soft-danger btn-sm invoice-service-remove\" title=\"Remove\">×</button></div>";
+            list.appendChild(row);
+            bindInvoiceRow(row, list, part);
+            refreshInvoiceRemoveButtons(list);
+            row.querySelector(".invoice-service-type").focus();
+            recalcInvoicePreview();
+        });
+    });
+
+    if (invoiceForm) {
+        invoiceForm.addEventListener("submit", function(e) {
+            var hasLine = false;
+            Object.keys(invoiceLists).forEach(function(part) {
+                var list = invoiceLists[part];
+                if (!list) return;
+                list.querySelectorAll(".invoice-service-row").forEach(function(row) {
+                    var type = (row.querySelector(".invoice-service-type").value || "").trim();
+                    var fee = parseFloat(row.querySelector(".invoice-service-fee").value || "0") || 0;
+                    if (type !== "" || fee > 0) hasLine = true;
+                });
+            });
+            if (!hasLine) {
+                e.preventDefault();
+                alert("Add at least one service under Non-VAT or VAT.");
             }
         });
-        var vat = (includeVat && includeVat.checked) ? Math.round(vatBase * invoiceVatRate) / 100 : 0;
-        var total = subtotal + vat;
-        subtotalEl.textContent = formatMoney(subtotal);
-        vatEl.textContent = formatMoney(vat);
-        totalEl.textContent = formatMoney(total);
     }
-
-    if (addItemBtn && itemsWrap) {
-        addItemBtn.addEventListener("click", function() {
-            var row = document.createElement("div");
-            row.className = "row g-2 mb-2 invoice-item-row";
-            row.setAttribute("data-vat-line", "0");
-            row.innerHTML =
-                "<div class=\"col-2\"><input type=\"number\" step=\"0.01\" min=\"0\" name=\"item_qty[]\" class=\"form-control form-control-sm invoice-item-qty\" value=\"1\" placeholder=\"Qty\"></div>" +
-                "<div class=\"col-5\"><input type=\"text\" name=\"item_description[]\" class=\"form-control form-control-sm\" placeholder=\"Description\"></div>" +
-                "<div class=\"col-4\"><input type=\"number\" step=\"0.01\" min=\"0\" name=\"item_amount[]\" class=\"form-control form-control-sm invoice-item-amount\" value=\"0\" placeholder=\"Unit amount\"></div>" +
-                "<div class=\"col-1\"><button type=\"button\" class=\"btn btn-soft btn-sm invoice-item-remove\">×</button></div>";
-            itemsWrap.appendChild(row);
-            recalcInvoicePreview();
-        });
-
-        itemsWrap.addEventListener("click", function(e) {
-            var btn = e.target.closest(".invoice-item-remove");
-            if (!btn) return;
-            var rows = itemsWrap.querySelectorAll(".invoice-item-row");
-            if (rows.length <= 1) return;
-            btn.closest(".invoice-item-row").remove();
-            recalcInvoicePreview();
-        });
-
-        itemsWrap.addEventListener("input", recalcInvoicePreview);
-    }
-
-    if (includeVat) {
-        includeVat.addEventListener("change", recalcInvoicePreview);
-    }
-    recalcInvoicePreview();
 });
 </script>';
 require __DIR__ . '/../includes/footer.php';

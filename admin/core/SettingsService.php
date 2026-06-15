@@ -6,6 +6,17 @@ class SettingsService
 {
     private static ?array $cache = null;
 
+    /** @var array<string, string> */
+    public const BANK_FIELD_LABELS = [
+        'bank_name'      => 'Bank name',
+        'account_name'   => 'Account name',
+        'account_number' => 'Account number',
+        'sort_code'      => 'Sort code',
+        'iban'           => 'IBAN',
+        'bic'            => 'BIC / SWIFT',
+        'reference'      => 'Reference',
+    ];
+
     /** @var list<string> */
     private const BRANDING_FIELDS = [
         'company_name',
@@ -25,6 +36,10 @@ class SettingsService
         'company_website',
         'registration_number',
         'tax_vat_number',
+        'bank_account_1',
+        'bank_account_2',
+        'bank_account_3',
+        'invoice_bank_account',
         'facebook_url',
         'instagram_url',
         'linkedin_url',
@@ -183,6 +198,17 @@ class SettingsService
 
         $businessHours = trim($data['business_hours'] ?? '') ?: null;
 
+        if ($tab === 'branding' && isset($data['bank_accounts']) && is_array($data['bank_accounts'])) {
+            foreach ([1, 2, 3] as $slot) {
+                if (!isset($data['bank_accounts'][$slot]) || !is_array($data['bank_accounts'][$slot])) {
+                    continue;
+                }
+                $data['bank_account_' . $slot] = self::formatBankAccountText(
+                    self::normalizeBankAccountFields($data['bank_accounts'][$slot])
+                );
+            }
+        }
+
         $incoming = [
             'company_name'        => trim($data['company_name'] ?? '') ?: 'Your Company',
             'primary_color'       => self::normalizeColor($data['primary_color'] ?? '#3aafa9'),
@@ -201,6 +227,10 @@ class SettingsService
             'company_website'     => self::optionalUrl($data['company_website'] ?? null, 'Company website'),
             'registration_number' => self::optionalString($data['registration_number'] ?? null),
             'tax_vat_number'      => self::optionalString($data['tax_vat_number'] ?? null),
+            'bank_account_1'      => self::optionalString($data['bank_account_1'] ?? null),
+            'bank_account_2'      => self::optionalString($data['bank_account_2'] ?? null),
+            'bank_account_3'      => self::optionalString($data['bank_account_3'] ?? null),
+            'invoice_bank_account' => self::normalizeBankAccountChoice($data['invoice_bank_account'] ?? null),
             'invoice_payable_name' => self::optionalString($data['invoice_payable_name'] ?? null),
             'bank_account_number' => self::optionalString($data['bank_account_number'] ?? null),
             'bank_sort_code'      => self::optionalString($data['bank_sort_code'] ?? null),
@@ -266,6 +296,312 @@ class SettingsService
     public static function logoUrl(?array $settings = null): ?string
     {
         return companyLogoUrl($settings);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function emptyBankAccountFields(): array
+    {
+        $fields = [];
+        foreach (array_keys(self::BANK_FIELD_LABELS) as $key) {
+            $fields[$key] = '';
+        }
+
+        return $fields;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function parseBankAccountText(string $text): array
+    {
+        $fields  = self::emptyBankAccountFields();
+        $text    = trim($text);
+        if ($text === '') {
+            return $fields;
+        }
+
+        $aliases = [
+            'bank'            => 'bank_name',
+            'bank name'       => 'bank_name',
+            'account name'    => 'account_name',
+            'payable to'      => 'account_name',
+            'beneficiary'     => 'account_name',
+            'account number'  => 'account_number',
+            'account no'      => 'account_number',
+            'sort code'       => 'sort_code',
+            'iban'            => 'iban',
+            'bic'             => 'bic',
+            'bic / swift'     => 'bic',
+            'swift'           => 'bic',
+            'reference'       => 'reference',
+            'payment reference' => 'reference',
+        ];
+
+        foreach (self::BANK_FIELD_LABELS as $key => $label) {
+            $aliases[strtolower($label)] = $key;
+        }
+
+        $matched = false;
+        foreach (preg_split('/\r\n|\r|\n/', $text) ?: [] as $line) {
+            $line = trim((string) $line);
+            if ($line === '' || !str_contains($line, ':')) {
+                continue;
+            }
+
+            [$label, $value] = array_map('trim', explode(':', $line, 2));
+            $key = $aliases[strtolower($label)] ?? null;
+            if ($key !== null && $value !== '') {
+                $fields[$key] = $value;
+                $matched = true;
+            }
+        }
+
+        if (!$matched) {
+            $fields['account_name'] = $text;
+        }
+
+        return $fields;
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     */
+    public static function formatBankAccountText(array $fields): string
+    {
+        $fields = self::normalizeBankAccountFields($fields);
+        $lines  = [];
+
+        foreach (self::BANK_FIELD_LABELS as $key => $label) {
+            $value = trim((string) ($fields[$key] ?? ''));
+            if ($value !== '') {
+                $lines[] = "{$label}: {$value}";
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     * @return array<string, string>
+     */
+    public static function normalizeBankAccountFields(array $fields): array
+    {
+        $normalized = self::emptyBankAccountFields();
+        foreach (array_keys(self::BANK_FIELD_LABELS) as $key) {
+            $normalized[$key] = trim((string) ($fields[$key] ?? ''));
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function bankAccountFieldsForSlot(?array $settings, int $slot): array
+    {
+        $settings ??= self::get();
+        $slot     = self::normalizeBankAccountChoice($slot);
+
+        return self::parseBankAccountText((string) ($settings['bank_account_' . $slot] ?? ''));
+    }
+
+    public static function bankAccountTemplateExample(): string
+    {
+        return self::formatBankAccountText([
+            'bank_name'      => 'Barclays Bank',
+            'account_name'   => 'YOUR COMPANY LTD',
+            'account_number' => '12345678',
+            'sort_code'      => '20-00-00',
+            'iban'           => 'GB00 BARC 2000 0012 3456 78',
+            'bic'            => 'BARCGB22',
+            'reference'      => 'Please quote invoice number',
+        ]);
+    }
+
+    public static function bankAccountDisplayHtml(string $text, bool $withIcons = true): string
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return '';
+        }
+
+        $fields = self::parseBankAccountText($text);
+        if (self::formatBankAccountText($fields) !== '') {
+            $rows = '';
+            foreach (self::BANK_FIELD_LABELS as $key => $label) {
+                $value = trim((string) ($fields[$key] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+                $icon = $withIcons
+                    ? '<span class="bank-detail-row__icon" aria-hidden="true"><i class="bi ' . e(self::bankFieldIcon($key)) . '"></i></span>'
+                    : '';
+                $rows .= '<div class="bank-detail-row fdoc-bank-line" data-field="' . e($key) . '">'
+                    . $icon
+                    . '<div class="bank-detail-row__content">'
+                    . '<span class="bank-detail-row__label fdoc-bank-label">' . e($label) . '</span>'
+                    . '<span class="bank-detail-row__value">' . e($value) . '</span>'
+                    . '</div></div>';
+            }
+
+            return $rows === '' ? '' : '<div class="bank-details-panel' . ($withIcons ? '' : ' bank-details-panel--document') . '">' . $rows . '</div>';
+        }
+
+        return '<div class="bank-details-panel bank-details-panel--plain' . ($withIcons ? '' : ' bank-details-panel--document') . '">' . nl2br(e($text)) . '</div>';
+    }
+
+    public static function bankFieldIcon(string $key): string
+    {
+        return match ($key) {
+            'bank_name'      => 'bi-bank2',
+            'account_name'   => 'bi-building',
+            'account_number' => 'bi-credit-card-2-front',
+            'sort_code'      => 'bi-hash',
+            'iban'           => 'bi-globe2',
+            'bic'            => 'bi-shield-check',
+            'reference'      => 'bi-bookmark',
+            default          => 'bi-dot',
+        };
+    }
+
+    public static function bankAccountHasDetails(?array $settings, int $slot): bool
+    {
+        $settings ??= self::get();
+        $slot     = self::normalizeBankAccountChoice($slot);
+
+        return trim((string) ($settings['bank_account_' . $slot] ?? '')) !== '';
+    }
+
+    /**
+     * @return array{1:string, 2:string, 3:string}
+     */
+    public static function bankAccounts(?array $settings = null): array
+    {
+        $settings ??= self::get();
+
+        return [
+            1 => trim((string) ($settings['bank_account_1'] ?? '')),
+            2 => trim((string) ($settings['bank_account_2'] ?? '')),
+            3 => trim((string) ($settings['bank_account_3'] ?? '')),
+        ];
+    }
+
+    public static function defaultBankAccountChoice(?array $settings = null): int
+    {
+        $settings ??= self::get();
+
+        return self::normalizeBankAccountChoice($settings['invoice_bank_account'] ?? 1);
+    }
+
+    public static function resolveBankAccountText(?array $settings = null, ?int $choice = null): string
+    {
+        $settings ??= self::get();
+        $accounts = self::bankAccounts($settings);
+        $choice   = self::normalizeBankAccountChoice($choice ?? self::defaultBankAccountChoice($settings));
+
+        $text = $accounts[$choice] ?? '';
+        if ($text !== '') {
+            return $text;
+        }
+
+        foreach ([$choice, 1, 2, 3] as $candidate) {
+            $candidate = self::normalizeBankAccountChoice($candidate);
+            if (($accounts[$candidate] ?? '') !== '') {
+                return $accounts[$candidate];
+            }
+        }
+
+        return self::legacyBankAccountText($settings);
+    }
+
+    public static function bankAccountLabel(string $text, int $number): string
+    {
+        $fields = self::parseBankAccountText($text);
+        $name   = trim((string) ($fields['account_name'] ?? ''));
+        if ($name === '') {
+            $name = trim((string) ($fields['bank_name'] ?? ''));
+        }
+        if ($name === '') {
+            $name = trim(strtok($text, "\n") ?: '');
+        }
+        if ($name === '') {
+            return 'Bank account ' . $number;
+        }
+
+        return strlen($name) > 48 ? substr($name, 0, 45) . '…' : $name;
+    }
+
+    /**
+     * @param array<string, mixed> $invoice
+     * @param array<string, mixed>|null $settings
+     */
+    public static function resolveInvoiceBankHtml(array $invoice, ?array $settings = null): string
+    {
+        $settings ??= self::get();
+        $custom   = trim((string) ($invoice['payment_instructions'] ?? ''));
+        if ($custom !== '') {
+            return nl2br(e($custom));
+        }
+
+        $choice = (int) ($invoice['bank_account'] ?? 0);
+        if ($choice < 1 || $choice > 3) {
+            $choice = self::defaultBankAccountChoice($settings);
+        }
+
+        $text = self::resolveBankAccountText($settings, $choice);
+
+        return self::bankAccountDisplayHtml($text, false);
+    }
+
+    /**
+     * @param array<string, mixed> $invoice
+     * @param array<string, mixed>|null $settings
+     */
+    public static function resolveInvoiceBankText(array $invoice, ?array $settings = null): string
+    {
+        $settings ??= self::get();
+        $custom   = trim((string) ($invoice['payment_instructions'] ?? ''));
+        if ($custom !== '') {
+            return $custom;
+        }
+
+        $choice = (int) ($invoice['bank_account'] ?? 0);
+        if ($choice < 1 || $choice > 3) {
+            $choice = self::defaultBankAccountChoice($settings);
+        }
+
+        return self::resolveBankAccountText($settings, $choice);
+    }
+
+    public static function normalizeBankAccountChoice(mixed $value): int
+    {
+        $choice = (int) ($value ?? 1);
+
+        return max(1, min(3, $choice > 0 ? $choice : 1));
+    }
+
+    /** @param array<string, mixed> $settings */
+    private static function legacyBankAccountText(array $settings): string
+    {
+        $lines = [];
+        foreach (
+            [
+                'bank_account_number' => 'Account number',
+                'bank_sort_code'      => 'Sort code',
+                'bank_iban'           => 'IBAN',
+                'bank_bic'            => 'BIC',
+            ] as $column => $label
+        ) {
+            $value = trim((string) ($settings[$column] ?? ''));
+            if ($value !== '') {
+                $lines[] = "{$label}: {$value}";
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -401,6 +737,10 @@ class SettingsService
             'company_website'     => null,
             'registration_number' => null,
             'tax_vat_number'      => null,
+            'bank_account_1'      => null,
+            'bank_account_2'      => null,
+            'bank_account_3'      => null,
+            'invoice_bank_account' => 1,
             'invoice_payable_name' => null,
             'bank_account_number' => null,
             'bank_sort_code'      => null,
