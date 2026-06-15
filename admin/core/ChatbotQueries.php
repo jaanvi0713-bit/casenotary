@@ -30,9 +30,10 @@ function getChatbotDefaultQuickPrompts(): array
         ['icon' => 'bi-question-circle', 'label' => 'What is an apostille?', 'prompt' => 'What is an apostille?'],
         ['icon' => 'bi-clipboard-check', 'label' => 'Case checklist', 'prompt' => "What's missing on my latest active case?"],
         ['icon' => 'bi-graph-up', 'label' => 'Revenue by month', 'prompt' => 'Revenue by month'],
-        ['icon' => 'bi-search', 'label' => 'Find documents', 'prompt' => 'Find documents with passport'],
-        ['icon' => 'bi-file-pdf', 'label' => 'Search PDF text', 'prompt' => 'Search PDFs for power of attorney'],
         ['icon' => 'bi-pencil-square', 'label' => 'Update case status', 'prompt' => 'Set latest case status to in progress'],
+        ['icon' => 'bi-journal-text', 'label' => 'Add case note', 'prompt' => 'Add note to latest case: Follow up with client'],
+        ['icon' => 'bi-check2-circle', 'label' => 'Confirm appointment', 'prompt' => 'Confirm next appointment'],
+        ['icon' => 'bi-bell-slash', 'label' => 'Mark alerts read', 'prompt' => 'Mark all notifications as read'],
     ];
 }
 
@@ -65,6 +66,10 @@ function chatbotExtractAppointmentStatusFilter(string $message): ?string
 
 function chatbotIsAppointmentRelatedMessage(string $message): bool
 {
+    if (chatbotIsDraftRequest($message)) {
+        return false;
+    }
+
     $normalized = strtolower(trim($message));
 
     if (preg_match('/\b(appointment|appointments|schedule|meeting|calendar)\b/', $normalized)) {
@@ -100,6 +105,10 @@ function chatbotWantsAppointmentListFollowUp(string $normalized): bool
 
 function chatbotLooksLikeAppointmentClientRefinement(string $message): bool
 {
+    if (chatbotIsDraftRequest($message)) {
+        return false;
+    }
+
     $normalized = strtolower(trim($message));
 
     if (chatbotIsAdviceOrHowToQuery($message)) {
@@ -267,6 +276,10 @@ function chatbotSetAppointmentPendingContext(array $filter, int $count): void
 
 function chatbotReplyForAppointmentFollowUp(string $message): ?string
 {
+    if (chatbotIsDraftRequest($message)) {
+        return null;
+    }
+
     $pending = $_SESSION['chatbot_appointment_pending'] ?? null;
     if (!is_array($pending) || empty($pending['where_sql'])) {
         return null;
@@ -340,6 +353,10 @@ function chatbotReplyForAppointmentFollowUp(string $message): ?string
 
 function chatbotReplyForAppointmentQueries(string $message): ?string
 {
+    if (chatbotIsDraftRequest($message)) {
+        return null;
+    }
+
     if (!chatbotIsAppointmentRelatedMessage($message)) {
         return null;
     }
@@ -869,9 +886,13 @@ function chatbotReplyForDateFilteredQueries(string $message): ?string
 
 function chatbotReplyForCalculations(string $message): ?string
 {
+    if (chatbotMessageLooksLikeDateOrTime($message)) {
+        return null;
+    }
+
     $normalized = strtolower(trim($message));
 
-    if (preg_match('/(\d+(?:\.\d+)?)\s*%\s*of\s+(?:the\s+)?(?:total\s+)?revenue/u', $normalized, $matches)) {
+    if (preg_match('/(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?(?:the\s+)?(?:total\s+)?revenue/u', $normalized, $matches)) {
         $pct = (float) $matches[1];
         $stats = getDashboardStats();
         $total = (float) ($stats['total_revenue'] ?? 0);
@@ -914,9 +935,13 @@ function chatbotReplyForCalculations(string $message): ?string
     }
 
     if (preg_match('/\b([\d+\-*\/().\s]{3,})\b/u', trim($message), $matches)
-        && !preg_match('/\b(client|case|appointment|invoice|payment|revenue|notification)\b/i', $message)) {
+        && !preg_match('/\b(client|case|appointment|invoice|payment|revenue|notification)\b/i', $message)
+        && !chatbotMessageLooksLikeDateOrTime($matches[1])) {
         $expr = preg_replace('/\s+/', '', $matches[1]);
         if (!preg_match('/^[\d+\-*\/().]+$/', $expr) || !preg_match('/[\+\-*\/]/', $expr)) {
+            return null;
+        }
+        if (preg_match('/\d{4}-\d{2}-\d{2}/', $expr)) {
             return null;
         }
 

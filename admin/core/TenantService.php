@@ -51,7 +51,9 @@ class TenantService
         unset(
             $_SESSION['chatbot_last_topic'],
             $_SESSION['chatbot_last_entity'],
-            $_SESSION['chatbot_appointment_pending']
+            $_SESSION['chatbot_appointment_pending'],
+            $_SESSION['chatbot_schedule_pending'],
+            $_SESSION['chatbot_pending_action']
         );
     }
 

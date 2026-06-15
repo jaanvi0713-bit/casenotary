@@ -41,6 +41,7 @@ function chatbotClearSession(): void
         $_SESSION['chatbot_last_entity'],
         $_SESSION['chatbot_history'],
         $_SESSION['chatbot_appointment_pending'],
+        $_SESSION['chatbot_schedule_pending'],
         $_SESSION['chatbot_pending_action'],
         $_SESSION['chatbot_last_draft']
     );

@@ -14,7 +14,9 @@ function chatbotCanExecuteActions(): bool
     }
 
     return Auth::canManage(RoleAccess::PERMISSION_CASES)
-        || Auth::canManage(RoleAccess::PERMISSION_APPOINTMENTS);
+        || Auth::canManage(RoleAccess::PERMISSION_APPOINTMENTS)
+        || Auth::canManage(RoleAccess::PERMISSION_PAYMENTS)
+        || Auth::can(RoleAccess::PERMISSION_NOTIFICATIONS);
 }
 
 function chatbotAppendCaseScope(array &$where, array &$params, string $caseAlias = 'cs', string $clientAlias = 'cl'): void

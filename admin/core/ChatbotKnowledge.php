@@ -21,6 +21,10 @@ function chatbotLookupStopWords(): array
 
 function chatbotIsSystemDataQuestion(string $message): bool
 {
+    if (chatbotMessageHasDocumentDraftIntent($message)) {
+        return false;
+    }
+
     return (bool) preg_match(
         '/\b(how many|list|show|count|dashboard|summary|snapshot|pending|clients?|cases?|payments?|invoices?|appointments?|notifications?|revenue|active cases?|upcoming|confirmed|scheduled|case-\d|total revenue|any pending|document|documents|doc|docs|upload|uploaded|file|files|receipt|quotation|proposal|overdue|activity|tell me if|any client|are there)\b/i',
         $message
@@ -190,7 +194,7 @@ function chatbotReplyForGeneralKnowledge(string $message): ?string
 
     foreach ($topics as $pattern => $answer) {
         if (preg_match($pattern, $normalized)) {
-            return $answer;
+            return chatbotMaybeFormatAsDefinition($message, $answer);
         }
     }
 
@@ -399,7 +403,7 @@ function chatbotReplyForExpandedKnowledge(string $message): ?string
 
     foreach ($topics as $pattern => $answer) {
         if (preg_match($pattern, $normalized)) {
-            return $answer;
+            return chatbotMaybeFormatAsDefinition($message, $answer);
         }
     }
 
@@ -493,8 +497,10 @@ function chatbotTemplateWhatIs(string $subject): string
         return $known;
     }
 
-    return "**{$subject}:** A term used in legal or notarial work — exact meaning depends on **jurisdiction** and **document type**. "
+    $fallback = "**{$subject}:** A term used in legal or notarial work — exact meaning depends on **jurisdiction** and **document type**. "
         . 'Name a **specific term** (e.g. *apostille*, *affidavit*) for a precise definition.';
+
+    return chatbotMaybeFormatAsDefinition($subject, $fallback);
 }
 
 function chatbotTemplateHowTo(string $subject, string $message): string
@@ -579,12 +585,11 @@ function chatbotTemplateOpenAnswer(string $subject, string $message): string
 
 function chatbotIsDraftRequest(string $message): bool
 {
-    $normalized = strtolower(trim($message));
+    return trim($message) !== '' && chatbotMessageHasDocumentDraftIntent($message);
+}
 
-    if ($normalized === '' || chatbotIsSystemDataQuestion($message)) {
-        return false;
-    }
-
+function chatbotMessageHasDocumentDraftIntent(string $message): bool
+{
     if (!preg_match('/\b(draft|write|compose|prepare|create|generate|help me write|help me draft)\b/i', $message)) {
         return false;
     }
@@ -756,6 +761,155 @@ function chatbotIsDefinitionRequest(string $message): bool
     return chatbotLooksLikeKnowledgeQuery($message);
 }
 
+function chatbotMessageLooksLikeDefinitionQuery(string $message): bool
+{
+    return (bool) preg_match(
+        '/\b(what is|what are|what\'s|whats|define|definition of|meaning of|explain|tell me about)\b/i',
+        $message
+    );
+}
+
+/**
+ * @return array{title: string, short: string, long: string}|null
+ */
+function chatbotMatchStructuredDefinition(string $message): ?array
+{
+    $normalized = strtolower(trim($message));
+    $term       = strtolower(chatbotExtractDefinitionTerm($message));
+
+    foreach (chatbotStructuredDefinitions() as $key => $definition) {
+        $pattern = '/\b' . preg_quote((string) $key, '/') . '\b/i';
+        if (preg_match($pattern, $normalized) || ($term !== '' && preg_match($pattern, $term))) {
+            return $definition;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @return array<string, array{title: string, short: string, long: string}>
+ */
+function chatbotStructuredDefinitions(): array
+{
+    return [
+        'apostille' => [
+            'title' => 'Apostille',
+            'short' => 'An official certificate that authenticates a public document so it can be used in countries that accept the Hague Apostille Convention.',
+            'long'  => "An **apostille** confirms the origin of a public document — the signature, seal, or stamp — for use abroad.\n\n"
+                . "• **Not the same as notarization** — documents are often notarized first; the apostille is usually issued by a government office (e.g. FCDO in the UK)\n"
+                . "• **Hague Convention countries** accept a single apostille instead of a long chain of embassy certifications\n"
+                . "• **Other countries** may require embassy or consular legalization instead of (or after) an apostille\n"
+                . "• **In your practice** — ask clients where the document will be used and allow extra processing time",
+        ],
+        'affidavit' => [
+            'title' => 'Affidavit',
+            'short' => 'A written statement made under oath or affirmation, used as sworn evidence in legal proceedings.',
+            'long'  => "An **affidavit** is a written declaration of facts that the signer swears or affirms is true before a notary, commissioner for oaths, or other authorized officer.\n\n"
+                . "• The signer must usually appear in person and sign in the officer's presence (unless remote rules apply)\n"
+                . "• Wording and format requirements vary by court and jurisdiction\n"
+                . "• **Tip for your portal** — use **client instructions** on the case telling clients to bring valid ID and arrive with the statement unsigned until the appointment",
+        ],
+        'notary' => [
+            'title' => 'Notary public',
+            'short' => 'An official who verifies identity, witnesses signatures, administers oaths, and certifies copies of documents.',
+            'long'  => "A **notary public** helps prevent fraud by confirming that signers appear willingly, are who they claim to be, and understand what they are signing.\n\n"
+                . "• Common acts include acknowledgments, jurats, oaths/affirmations, and copy certifications\n"
+                . "• Powers and record-keeping rules vary by jurisdiction\n"
+                . "• In your portal, each matter is tracked as a **case** with **appointments** and **instructions** for clients",
+        ],
+        'notary public' => [
+            'title' => 'Notary public',
+            'short' => 'An official who verifies identity, witnesses signatures, administers oaths, and certifies copies of documents.',
+            'long'  => "A **notary public** helps prevent fraud by confirming that signers appear willingly, are who they claim to be, and understand what they are signing.\n\n"
+                . "• Common acts include acknowledgments, jurats, oaths/affirmations, and copy certifications\n"
+                . "• Powers and record-keeping rules vary by jurisdiction\n"
+                . "• In your portal, each matter is tracked as a **case** with **appointments** and **instructions** for clients",
+        ],
+        'power of attorney' => [
+            'title' => 'Power of attorney',
+            'short' => 'A legal document that lets one person act on another person\'s behalf in specified legal or financial matters.',
+            'long'  => "A **power of attorney (POA)** authorizes an **agent** to act for a **principal**. Scope can be broad (general) or limited to specific tasks (special).\n\n"
+                . "• Witnessing, notarization, and registration rules vary widely by jurisdiction\n"
+                . "• Verify identity carefully, assess capacity, and note witnessing requirements on the **case** record\n"
+                . "• Some POAs must be registered before they take effect",
+        ],
+        'poa' => [
+            'title' => 'Power of attorney',
+            'short' => 'A legal document that lets one person act on another person\'s behalf in specified legal or financial matters.',
+            'long'  => "A **power of attorney (POA)** authorizes an **agent** to act for a **principal**. Scope can be broad (general) or limited to specific tasks (special).\n\n"
+                . "• Witnessing, notarization, and registration rules vary widely by jurisdiction\n"
+                . "• Verify identity carefully, assess capacity, and note witnessing requirements on the **case** record\n"
+                . "• Some POAs must be registered before they take effect",
+        ],
+    ];
+}
+
+function chatbotFormatDefinitionAnswer(string $short, string $long, string $title = ''): string
+{
+    $lines = [];
+    if (trim($title) !== '') {
+        $lines[] = '**' . trim($title) . '**';
+        $lines[] = '';
+    }
+    $lines[] = '**Short answer:**';
+    $lines[] = trim($short);
+    $lines[] = '';
+    $lines[] = '**More detail:**';
+    $lines[] = trim($long);
+    $lines[] = '';
+    $lines[] = '_General information only, not legal advice._';
+
+    return implode("\n", $lines);
+}
+
+function chatbotBuildDefinitionShort(string $content): string
+{
+    $lines = preg_split('/\R+/', trim($content)) ?: [];
+    $first = trim($lines[0] ?? '');
+    $first = preg_replace('/^•\s+/', '', $first) ?? $first;
+
+    if (preg_match('/^(.+?[.!?])(\s|$)/u', $first, $matches)) {
+        return trim($matches[1]);
+    }
+
+    return mb_strimwidth($first, 0, 200, '…');
+}
+
+function chatbotFormatKnowledgeDefinition(string $message, string $content): string
+{
+    if (str_contains($content, '**Short answer:**')) {
+        return $content;
+    }
+
+    $structured = chatbotMatchStructuredDefinition($message);
+    if ($structured !== null) {
+        return chatbotFormatDefinitionAnswer(
+            (string) $structured['short'],
+            (string) $structured['long'],
+            (string) ($structured['title'] ?? '')
+        );
+    }
+
+    $term  = chatbotExtractDefinitionTerm($message);
+    $title = $term !== '' ? ucwords($term) : '';
+
+    return chatbotFormatDefinitionAnswer(
+        chatbotBuildDefinitionShort($content),
+        trim($content),
+        $title
+    );
+}
+
+function chatbotMaybeFormatAsDefinition(string $message, string $content): string
+{
+    if (!chatbotMessageLooksLikeDefinitionQuery($message)) {
+        return $content;
+    }
+
+    return chatbotFormatKnowledgeDefinition($message, $content);
+}
+
 /**
  * Flexible knowledge lookup — does not require exact phrasing ("apostille meaning", "poa", etc.).
  */
@@ -773,6 +927,17 @@ function chatbotReplyForFlexibleKnowledge(string $message): ?string
         return null;
     }
 
+    if (chatbotMessageLooksLikeDefinitionQuery($message)) {
+        $structured = chatbotMatchStructuredDefinition($message);
+        if ($structured !== null) {
+            return chatbotFormatDefinitionAnswer(
+                (string) $structured['short'],
+                (string) $structured['long'],
+                (string) ($structured['title'] ?? '')
+            );
+        }
+    }
+
     foreach (chatbotKnowledgeSearchTerms($message) as $term) {
         if ($term === '' || strlen($term) < 2) {
             continue;
@@ -780,18 +945,18 @@ function chatbotReplyForFlexibleKnowledge(string $message): ?string
 
         $general = chatbotReplyForGeneralKnowledge($term);
         if ($general !== null) {
-            return $general;
+            return chatbotMaybeFormatAsDefinition($message, $general);
         }
 
         $expanded = chatbotReplyForExpandedKnowledge($term);
         if ($expanded !== null) {
-            return $expanded;
+            return chatbotMaybeFormatAsDefinition($message, $expanded);
         }
     }
 
     $fused = chatbotFuseKnowledgeByKeywords($message);
     if ($fused !== null) {
-        return $fused;
+        return chatbotMaybeFormatAsDefinition($message, $fused);
     }
 
     return null;
@@ -879,10 +1044,13 @@ function chatbotFetchWikipediaSummary(string $term): ?string
     $display = (string) ($payload['title'] ?? $title);
     $link = (string) ($payload['content_urls']['desktop']['page'] ?? 'https://en.wikipedia.org/wiki/' . rawurlencode(str_replace(' ', '_', $title)));
 
-    return "**{$display}** (from Wikipedia)\n\n"
-        . $extract
-        . "\n\n[Read more on Wikipedia]({$link})"
-        . "\n\n_Note: For notary-specific workflow, also check your portal data or ask about a **client** or **case**._";
+    $long = $extract . "\n\n[Read more on Wikipedia]({$link})";
+
+    return chatbotFormatDefinitionAnswer(
+        chatbotBuildDefinitionShort($extract),
+        $long,
+        $display
+    ) . "\n\n_Note: For notary-specific workflow, also check your portal data or ask about a **client** or **case**._";
 }
 
 function chatbotWikipediaResolveTitle(string $term): ?string
@@ -1003,10 +1171,72 @@ function chatbotReplyForDraftRequest(string $message): ?string
         return null;
     }
 
-    $draft = chatbotTemplateDraftContent($message);
+    $draft = chatbotBuildDraftContent($message);
     chatbotRememberDraft($draft);
 
     return $draft . "\n\n_Say **save draft to CASE-2026-0001** to apply as client instructions (confirm with yes)._";
+}
+
+function chatbotBuildDraftContent(string $message): string
+{
+    if (preg_match('/\b(client letter|letter)\b/i', $message)
+        && preg_match('/\b(appointment|appointments)\b/i', $message)) {
+        return chatbotDraftClientAppointmentLetter($message);
+    }
+
+    return chatbotTemplateDraftContent($message);
+}
+
+function chatbotDraftClientAppointmentLetter(string $message): string
+{
+    $company = getCompanySettings();
+    $brand   = companyBrandName($company);
+    $footer  = "\n\n_Not legal advice. Edit all [brackets] before use. For portal PDFs use **Cases → Client Letter** or **Generate Quotation**._";
+    $appointments = getUpcomingAppointments(1);
+
+    if ($appointments !== []) {
+        $appt       = $appointments[0];
+        $clientName = clientFullName($appt);
+        $start      = appointmentStart($appt);
+        $end        = appointmentEnd($appt);
+        $when       = $start ? formatDateTime($start) : '[Date and time]';
+        $title      = (string) ($appt['title'] ?? 'Appointment');
+        $location   = trim((string) ($appt['location'] ?? '')) ?: '[Office address / video link]';
+
+        $lines = [
+            '**Draft client letter** — upcoming appointment:',
+            '',
+            date('F j, Y'),
+            '',
+            'Dear **' . $clientName . '**,',
+            '',
+            'This letter confirms your upcoming appointment with **' . $brand . '**:',
+            '',
+            '• **Date & time:** ' . $when,
+        ];
+
+        if ($end) {
+            $lines[] = '• **End time:** ' . formatDateTime($end);
+        }
+
+        $lines[] = '• **Purpose:** ' . $title;
+        $lines[] = '• **Location:** ' . $location;
+        $lines[] = '';
+        $lines[] = '**Please bring:**';
+        $lines[] = '• Valid government-issued photo ID';
+        $lines[] = '• [Unsigned document(s) if applicable]';
+        $lines[] = '• [Witnesses if required]';
+        $lines[] = '';
+        $lines[] = 'To reschedule, contact us at [phone/email] at least [X] hours in advance.';
+        $lines[] = '';
+        $lines[] = 'Kind regards,';
+        $lines[] = '[Your name]';
+        $lines[] = $brand;
+
+        return implode("\n", $lines) . $footer;
+    }
+
+    return chatbotTemplateDraftContent($message);
 }
 
 function chatbotReplyForDefinitionRequest(string $message): ?string
@@ -1027,8 +1257,10 @@ function chatbotTemplateDefinition(string $subject, string $message): string
 
     $subject = trim($subject) !== '' ? trim($subject) : 'this term';
 
-    return "**{$subject}** — a term used in legal or notarial contexts; meaning varies by **jurisdiction**. "
-        . '_General information only, not legal advice._';
+    return chatbotMaybeFormatAsDefinition(
+        $message,
+        "**{$subject}** — a term used in legal or notarial contexts; meaning varies by **jurisdiction**."
+    );
 }
 
 function chatbotDetectDraftDocumentType(string $message): string
@@ -1037,7 +1269,7 @@ function chatbotDetectDraftDocumentType(string $message): string
 
     $map = [
         'email'              => '/\b(email|e-mail)\b/',
-        'appointment_confirm'=> '/\b(appointment confirmation|confirm appointment|booking confirmation)\b/',
+        'appointment_confirm'=> '/\b(appointment confirmation|confirm appointment|booking confirmation)\b|\b(client letter|letter)\b.*\b(appointment|appointments)\b|\b(appointment|appointments)\b.*\b(client letter|letter)\b/',
         'reminder'           => '/\b(reminder|follow.?up|overdue reminder)\b/',
         'quotation'          => '/\b(quotation|quote|estimate|fee proposal)\b/',
         'invoice'            => '/\binvoice\b/',

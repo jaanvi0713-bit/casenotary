@@ -1,0 +1,31 @@
+Print / Save as PDF
+
+INVOICE
+#INV-2026-0001
+
+Nexa Digital
+Palma Road
+Quatre Bornes, 364456
+Mauritius
+Date: 09/06/2026
+Due Date: 23/06/2026
+
+Bill To:
+Sammy well
+Louis Street
+Test, 2566125
+Test
+Germany
+
+Notary Service | Amount | 
+Disbursement | £ 1,050.00 | 
+Notarisation | £ 6,000.00 | 
+Net Amount (Including VAT)£ 5,000.00
+VAT Amount£ 1,050.00
+Net Amount (Excluding VAT)£ 1,050.00
+Total£ 7,050.00
+
+Payable To:
+Nexa Digital
+
+VAT Number: 715 5815 56

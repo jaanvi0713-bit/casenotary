@@ -1,0 +1,23 @@
+Print / Save as PDF
+Notary Management Pro
+office@notary.local
+
+Invoice
+INV-2026-0007
+June 1, 2026
+
+Bill toharry potter
+potter@gmail.com
+Active Services
+
+Case referenceCASE-2026-0003
+Theft
+
+Invoice for CASE-2026-0003
+Description | Amount | 
+Theft — Theft | £ 5,000.00 | 
+Subtotal | £ 5,000.00 | 
+Tax (10.00%) | £ 500.00 | 
+Total | £ 5,500.00 | 
+Due date: Jun 15, 2026
+Thank you for your business.

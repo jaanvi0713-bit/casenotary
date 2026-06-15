@@ -320,3 +320,11 @@ FunTurtle CompanyAppointment CancelledDear Emily Chen,Your appointment has been 
 2026-06-10 08:40:27 | To: admin@admin.com
 Subject: Appointment cancelled
 Appointment cancelledHi Admin User,Appointment cancelledEmily Chen — test (Jun 10, 2026 12:00 PM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-13 14:38:39 | To: emily.chen@email.com
+Subject: Appointment: Appointment
+FunTurtle CompanyAppointment ScheduledDear Emily Chen,An appointment has been scheduled for you.AppointmentWhen: Jun 21, 2026 12:00 PMLocation: To be confirmedAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalFunTurtle Company
+------------------------------------------------------------
+2026-06-13 14:38:41 | To: admin@admin.com
+Subject: Appointment scheduled
+Appointment scheduledHi Admin User,Appointment scheduledEmily Chen — Appointment (Jun 21, 2026 12:00 PM)Open in portalYou can change notification preferences under Settings → Notification Preferences.

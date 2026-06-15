@@ -1,25 +1,74 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Invoice INV-2026-0004</title><style>
-            body{font-family:Montserrat,Arial,sans-serif;color:#0f172a;margin:40px;line-height:1.5}
-            .no-print{margin-bottom:24px}
-            .no-print button{padding:10px 18px;background:#3aafa9;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit}
-            .header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e2e8f0}
-            .brand{font-size:22px;font-weight:700;color:#00182c;margin-bottom:6px}
-            .doc-meta{text-align:right}
-            h1{color:#3aafa9;margin:0 0 4px;font-size:28px}
-            .doc-number{font-size:16px;font-weight:700;color:#00182c}
-            .muted{color:#64748b;font-size:13px}
-            .parties{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}
-            .subject{font-size:16px;color:#00182c;margin:0 0 16px}
-            table.items{width:100%;border-collapse:collapse;margin:16px 0}
-            table.items th,table.items td{padding:12px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:14px}
-            table.items th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#64748b}
-            table.totals{width:280px;margin-left:auto;margin-top:8px;border-collapse:collapse}
-            table.totals td{padding:8px 12px;font-size:14px}
-            table.totals tr.grand td{font-size:18px;font-weight:700;color:#00182c;border-top:2px solid #e2e8f0;padding-top:12px}
-            .num{text-align:right;white-space:nowrap}
-            .content-block{background:#f8fafc;border-radius:8px;padding:16px;margin:16px 0;font-size:14px}
-            .total-line{font-size:16px;margin-top:16px}
-            .note{font-size:13px;color:#475569;margin-top:16px}
-            .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}
-            @media print{body{margin:20px}.no-print{display:none}}
-        </style></head><body><div class="no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div><div class="header"><div><div class="brand">Notary Management Pro</div><div class="muted">office@notary.local</div></div><div class="doc-meta"><h1>Invoice</h1><div class="doc-number">INV-2026-0004</div><div class="muted">June 1, 2026</div></div></div><div class="parties"><div><strong>Bill to</strong><div>Louis Macwell</div><div class="muted">Louismac@gmail.com</div><div class="muted">TEST</div></div><div><strong>Case reference</strong><div>CASE-2026-0006</div><div class="muted">Prop Transfer</div></div></div><h2 class="subject">Invoice for CASE-2026-0006</h2><table class="items"><thead><tr><th>Description</th><th class="num">Amount</th></tr></thead><tbody><tr><td>signing — Prop Transfer</td><td class="num">£ 1,000.00</td></tr></tbody></table><table class="totals"><tr><td>Subtotal</td><td class="num">£ 1,000.00</td></tr><tr><td>Tax (2.00%)</td><td class="num">£ 20.00</td></tr><tr class="grand"><td>Total</td><td class="num">£ 1,020.00</td></tr></table><p class="note"><strong>Due date:</strong> Jun 15, 2026</p><div class="footer">Thank you for your business.</div></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>INVOICE INV-2026-0004</title><style>
+            *,*::before,*::after{box-sizing:border-box}
+            body{font-family:Montserrat, Arial, sans-serif;color:#1e293b;margin:0;padding:40px 48px 48px;font-size:15px;line-height:1.6;background:#fff;-webkit-font-smoothing:antialiased}
+            .no-print{max-width:900px;margin:0 auto 24px}
+            .no-print button{padding:10px 20px;background:#3aafa9;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;font-size:14px}
+            .fdoc-doc{max-width:900px;margin:0 auto}
+            .fdoc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;padding-bottom:28px;margin-bottom:32px;border-bottom:1px solid #e2e8f0}
+            .fdoc-logo{max-height:96px;max-width:280px;object-fit:contain;display:block}
+            .fdoc-logo-text{font-size:20px;font-weight:700;color:#00182c;letter-spacing:.02em}
+            .fdoc-heading{text-align:right;flex-shrink:0}
+            .fdoc-heading h1{margin:0;color:#3aafa9;font-size:40px;font-weight:700;letter-spacing:.06em;line-height:1}
+            .fdoc-number{font-size:20px;font-weight:700;color:#00182c;margin-top:8px;letter-spacing:.02em}
+            .fdoc-parties{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:start;margin-bottom:28px;width:100%}
+            .fdoc-from{min-width:0}
+            .fdoc-bill-to{text-align:right;min-width:0;padding-right:2px}
+            .fdoc-from-name{font-size:16px;font-weight:700;color:#00182c;margin:0 0 10px}
+            .fdoc-address,.fdoc-contact{margin:0;font-size:14px;line-height:1.75;color:#475569}
+            .fdoc-contact{margin-top:2px}
+            .fdoc-bill-to-label{margin:0 0 10px;font-size:14px;font-weight:700;color:#1e293b;text-align:right}
+            .fdoc-bill-to-name{margin:0 0 6px;font-size:14px;font-weight:600;color:#334155;line-height:1.75;text-align:right}
+            .fdoc-bill-to-line{margin:0;font-size:14px;line-height:1.75;color:#475569;text-align:right}
+            .fdoc-dates{margin-top:18px;padding-top:16px;border-top:1px solid #f1f5f9}
+            .fdoc-dates p{margin:0 0 8px;font-size:14px;color:#1e293b}
+            .fdoc-dates p:last-child{margin-bottom:0}
+            .fdoc-date-label{font-weight:600;color:#334155}
+            .fdoc-meta-line{margin:0 0 20px;font-size:14px;color:#475569}
+            .fdoc-subject{font-size:16px;font-weight:600;color:#00182c;margin:0 0 16px}
+            .fdoc-table{width:100%;border-collapse:collapse;margin-bottom:28px;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden}
+            .fdoc-table thead th{background:#00182c;color:#fff;font-weight:600;font-size:13px;letter-spacing:.02em;padding:12px 14px;border:none;text-align:left}
+            .fdoc-table tbody td{padding:12px 14px;font-size:14px;color:#1e293b;border:none;border-top:1px solid #e2e8f0;vertical-align:top}
+            .fdoc-table tbody tr:first-child td{border-top:none}
+            .fdoc-table .num{text-align:right;white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums}
+            .fdoc-table thead th.num{padding-right:14px}
+            .fdoc-empty{color:#94a3b8;font-style:italic;text-align:center}
+            .fdoc-summary{background:#3aafa9;color:#fff;padding:20px 24px;margin-bottom:28px;border-radius:6px}
+            .fdoc-summary-row{display:flex;justify-content:space-between;align-items:baseline;gap:24px;padding:4px 0;font-size:15px;font-weight:500;line-height:1.55}
+            .fdoc-summary-label{opacity:.95}
+            .fdoc-summary-value{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;min-width:120px}
+            .fdoc-summary-row--highlight{margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.32);font-size:18px;font-weight:700}
+            .fdoc-summary-row--highlight:last-child{font-size:20px}
+            .fdoc-note{font-size:14px;line-height:1.7;margin:0 0 16px;color:#64748b;padding:12px 16px;background:#f8fafc;border-radius:6px}
+            .fdoc-payment{font-size:14px;line-height:1.6;color:#475569;margin-bottom:20px}
+            .fdoc-payment-label{margin:0 0 10px;font-weight:700;color:#1e293b;font-size:14px}
+            .fdoc-bank{margin:0;line-height:1.6}
+            .fdoc-payee{margin:0 0 6px;font-size:16px;font-weight:700;line-height:1.4;color:#3aafa9}
+            .fdoc-vat-no{margin:16px 0 0;font-size:14px;color:#475569}
+            .fdoc-footer{margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}
+            @page{size:A4 portrait;margin:8mm 10mm}
+            @media print{
+                html,body{height:auto;margin:0;padding:0;font-size:13px;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+                .no-print{display:none!important}
+                .fdoc-doc{max-width:none;margin:0;padding:0}
+                .fdoc-top{gap:20px;padding-bottom:14px;margin-bottom:16px}
+                .fdoc-logo{max-height:84px;max-width:240px}
+                .fdoc-heading h1{font-size:32px}
+                .fdoc-number{font-size:17px;margin-top:6px}
+                .fdoc-parties{column-gap:36px;margin-bottom:16px}
+                .fdoc-from-name{margin-bottom:6px;font-size:13px}
+                .fdoc-address,.fdoc-contact,.fdoc-bill-to-name,.fdoc-bill-to-line{font-size:12px;line-height:1.5}
+                .fdoc-bill-to-label{margin-bottom:6px;font-size:12px}
+                .fdoc-dates{margin-top:10px;padding-top:8px}
+                .fdoc-dates p{margin-bottom:5px;font-size:12px}
+                .fdoc-table{margin-bottom:14px;border-radius:0}
+                .fdoc-table thead th{padding:8px 10px;font-size:11px}
+                .fdoc-table tbody td{padding:8px 10px;font-size:12px}
+                .fdoc-summary{padding:12px 14px;margin-bottom:14px;border-radius:0;break-inside:avoid;page-break-inside:avoid}
+                .fdoc-summary-row{padding:2px 0;font-size:12px;line-height:1.4}
+                .fdoc-summary-row--highlight{font-size:15px}
+                .fdoc-summary-row--highlight:last-child{font-size:16px}
+                .fdoc-note{font-size:11px;line-height:1.45;margin-bottom:10px;padding:8px 10px}
+                .fdoc-payment{font-size:12px;break-inside:avoid;page-break-inside:avoid}
+                .fdoc-top,.fdoc-parties,.fdoc-table{break-inside:avoid;page-break-inside:avoid}
+            }
+        </style></head><body><div class="no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div><div class="fdoc-doc"><header class="fdoc-top"><div class="fdoc-brand"><img src="http://localhost/casenotary/admin/actions/company-logo.php?v=1780471950" alt="FunTurtle Company" class="fdoc-logo"></div><div class="fdoc-heading"><h1>INVOICE</h1><div class="fdoc-number">#INV-2026-0004</div></div></header><section class="fdoc-parties"><div class="fdoc-from"><div class="fdoc-from-name">FunTurtle Company</div><div class="fdoc-address">Labourdonnais Street<br>Port LOuis, 321560<br>Mauritius</div><div class="fdoc-contact">office@notary.local</div><div class="fdoc-contact">+23052512345</div><div class="fdoc-dates"><p><span class="fdoc-date-label">Issue Date:</span> 01/06/2026</p><p><span class="fdoc-date-label">Due Date:</span> 15/06/2026</p></div></div><div class="fdoc-bill-to"><p class="fdoc-bill-to-label">Bill To:</p><p class="fdoc-bill-to-name">Louis Macwell</p><p class="fdoc-bill-to-line">royal rd<br>moka, 58692<br>mauritius</p><p class="fdoc-bill-to-line">Louismac@gmail.com</p></div></section><table class="fdoc-table"><thead><tr><th>Description</th><th class="num">Quantity</th><th class="num">Unit Price</th><th class="num">VAT</th><th class="num">Total</th></tr></thead><tbody><tr><td>signing</td><td class="num">1</td><td class="num">£ 1,000.00</td><td class="num">£ 0.00</td><td class="num">£ 1,000.00</td></tr></tbody></table><section class="fdoc-summary" aria-label="Financial summary"><div class="fdoc-summary-row"><span class="fdoc-summary-label">Subtotal</span><span class="fdoc-summary-value">£ 1,000.00</span></div><div class="fdoc-summary-row"><span class="fdoc-summary-label">VAT Amount</span><span class="fdoc-summary-value">£ 20.00</span></div><div class="fdoc-summary-row"><span class="fdoc-summary-label">Net Amount (Excluding VAT)</span><span class="fdoc-summary-value">£ 1,000.00</span></div><div class="fdoc-summary-row"><span class="fdoc-summary-label">Net Amount (Including VAT)</span><span class="fdoc-summary-value">£ 0.00</span></div><div class="fdoc-summary-row"><span class="fdoc-summary-label">Amount Paid</span><span class="fdoc-summary-value">£ 1,020.00</span></div><div class="fdoc-summary-row fdoc-summary-row--highlight"><span class="fdoc-summary-label">Amount Due</span><span class="fdoc-summary-value">£ 0.00</span></div><div class="fdoc-summary-row fdoc-summary-row--highlight"><span class="fdoc-summary-label">Grand Total</span><span class="fdoc-summary-value">£ 1,000.00</span></div></section><section class="fdoc-payment"><p class="fdoc-payment-label">Payable To:</p><div class="fdoc-bank"><div class="fdoc-payee">FunTurtle Company</div>Account number: 52261440<br>Sort code: 50-15-01<br>IBAN: NGCHYTKDYMVG144855<br>BIC: NHKUYG9K</div><p class="fdoc-vat-no"><span class="fdoc-date-label">VAT Number:</span> 118 2022 00</p></section><div class="fdoc-footer">Thank you for your business.</div></div></body></html>

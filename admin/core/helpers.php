@@ -783,19 +783,201 @@ function calendarEventDateTime(?string $datetime): ?string
     return date('Y-m-d\TH:i:s', $timestamp);
 }
 
-function normalizeDateTimeInput(string $value): string
+function parseFlexibleDateTime(string $value, bool $defaultTimeIfMissing = true): string
 {
-    $value = trim(str_replace('T', ' ', $value));
+    $value = trim(preg_replace('/\s+/u', ' ', str_replace('T', ' ', $value)));
 
     if ($value === '') {
         return '';
     }
 
-    if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $value)) {
-        $value .= ':00';
+    if (preg_match('/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/', $value, $matches)) {
+        $hour = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+        $seconds = $matches[4] ?? '00';
+
+        return $matches[1] . ' ' . $hour . ':' . $matches[3] . ':' . $seconds;
     }
 
-    return $value;
+    if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/', $value)) {
+        return substr_count($value, ':') === 1 ? $value . ':00' : $value;
+    }
+
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+        return $value . ($defaultTimeIfMissing ? ' 09:00:00' : ' 00:00:00');
+    }
+
+    if (preg_match('/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})(?:\s+(.+))?$/', $value, $matches)) {
+        $year = strlen($matches[3]) === 2 ? '20' . $matches[3] : $matches[3];
+        foreach ([
+            sprintf('%s-%02d-%02d', $year, (int) $matches[2], (int) $matches[1]),
+            sprintf('%s-%02d-%02d', $year, (int) $matches[1], (int) $matches[2]),
+        ] as $isoDate) {
+            $candidate = trim($isoDate . ' ' . ($matches[4] ?? ''));
+            $timestamp = strtotime($candidate);
+            if ($timestamp !== false) {
+                return chatbotFormatParsedTimestamp($timestamp, $candidate, $defaultTimeIfMissing);
+            }
+        }
+    }
+
+    $cleaned = preg_replace('/(\d+)(st|nd|rd|th)\b/i', '$1', $value) ?? $value;
+    $cleaned = preg_replace('/^the\s+/i', '', $cleaned) ?? $cleaned;
+    $cleaned = preg_replace('/\bof\b/i', '', $cleaned) ?? $cleaned;
+
+    $candidates = array_unique(array_filter([
+        $value,
+        $cleaned,
+        preg_replace('/^(?:at|on)\s+/i', '', $cleaned) ?? '',
+        preg_replace('/,\s*/', ' ', $cleaned) ?? '',
+    ]));
+
+    foreach ($candidates as $candidate) {
+        $candidate = trim((string) $candidate);
+        if ($candidate === '') {
+            continue;
+        }
+
+        $timestamp = strtotime($candidate);
+        if ($timestamp === false) {
+            continue;
+        }
+
+        return chatbotFormatParsedTimestamp($timestamp, $candidate, $defaultTimeIfMissing);
+    }
+
+    return '';
+}
+
+function chatbotFormatParsedTimestamp(int $timestamp, string $candidate, bool $defaultTimeIfMissing): string
+{
+    $hasExplicitTime = (bool) preg_match(
+        '/\b(\d{1,2}:\d{2}(?::\d{2})?|\d{1,2}\s*(?:am|pm)|\bat\s+\d{1,2})/i',
+        $candidate
+    );
+
+    if (!$hasExplicitTime && $defaultTimeIfMissing) {
+        $timestamp = strtotime(date('Y-m-d', $timestamp) . ' 09:00:00');
+    }
+
+    return date('Y-m-d H:i:s', $timestamp);
+}
+
+function normalizeDateTimeInput(string $value): string
+{
+    return parseFlexibleDateTime($value);
+}
+
+function chatbotTextLooksLikeClockTime(string $text): bool
+{
+    $text = trim(preg_replace('/^(?:at\s+)/i', '', $text) ?? '');
+
+    return (bool) preg_match('/^\d{1,2}(:\d{2}(?::\d{2})?)?\s*(?:am|pm)?$/i', $text);
+}
+
+function chatbotMergeDateAndTime(string $dateYmd, string $timeText): string
+{
+    $timeText = trim(preg_replace('/^(?:at\s+)/i', '', $timeText) ?? '');
+    if ($timeText === '') {
+        return '';
+    }
+
+    $timestamp = strtotime($dateYmd . ' ' . $timeText);
+
+    return $timestamp === false ? '' : date('Y-m-d H:i:s', $timestamp);
+}
+
+/**
+ * @return array{starts_at: string, ends_at: string}|null
+ */
+function parseAppointmentTimeAdjustment(string $message, string $existingStartsAt): ?array
+{
+    $message = trim($message);
+    if ($message === '') {
+        return null;
+    }
+
+    $baseTimestamp = strtotime($existingStartsAt);
+    if ($baseTimestamp === false) {
+        $baseTimestamp = time();
+    }
+    $baseDate = date('Y-m-d', $baseTimestamp);
+
+    if (preg_match('/^(?:from\s+)?(.+?)\s*(?:to|until|–|—|-)\s*(.+)$/iu', $message, $matches)) {
+        $startPart = trim($matches[1]);
+        $endPart   = trim($matches[2]);
+
+        if (chatbotTextLooksLikeClockTime($startPart) && chatbotTextLooksLikeClockTime($endPart)) {
+            $startsAt = chatbotMergeDateAndTime($baseDate, $startPart);
+            $endsAt   = chatbotMergeDateAndTime($baseDate, $endPart);
+            if ($startsAt !== '' && $endsAt !== '') {
+                if (strtotime($endsAt) <= strtotime($startsAt)) {
+                    $endsAt = date('Y-m-d H:i:s', strtotime($endsAt) + 86400);
+                }
+
+                return ['starts_at' => $startsAt, 'ends_at' => $endsAt];
+            }
+        }
+    }
+
+    if (chatbotTextLooksLikeClockTime($message)) {
+        $startsAt = chatbotMergeDateAndTime($baseDate, $message);
+        if ($startsAt !== '') {
+            return [
+                'starts_at' => $startsAt,
+                'ends_at'   => date('Y-m-d H:i:s', strtotime($startsAt) + 3600),
+            ];
+        }
+    }
+
+    if (chatbotMessageLooksLikeDateOrTime($message)) {
+        $parsed = parseFlexibleDateTime($message);
+        if ($parsed !== '') {
+            return [
+                'starts_at' => $parsed,
+                'ends_at'   => date('Y-m-d H:i:s', strtotime($parsed) + 3600),
+            ];
+        }
+    }
+
+    return null;
+}
+
+function chatbotMessageLooksLikeDateOrTime(string $message): bool
+{
+    $message = trim($message);
+    if ($message === '') {
+        return false;
+    }
+
+    if (preg_match('/\d{4}-\d{2}-\d{2}/', $message)) {
+        return true;
+    }
+
+    if (preg_match('/\b\d{1,2}:\d{2}(?::\d{2})?\b/', $message)) {
+        return true;
+    }
+
+    if (preg_match('/\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i', $message)) {
+        return true;
+    }
+
+    if (preg_match('/\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}/i', $message)) {
+        return true;
+    }
+
+    if (preg_match('/\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b/', $message)) {
+        return true;
+    }
+
+    if (preg_match('/\b\d{1,2}\s*(?:am|pm)\b/i', $message)) {
+        return true;
+    }
+
+    if (preg_match('/\b(?:today|tomorrow|next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i', $message)) {
+        return true;
+    }
+
+    return parseFlexibleDateTime($message) !== '';
 }
 
 function paymentStatusValue(array $payment): string
@@ -4036,6 +4218,13 @@ function generateChatbotReply(string $message): string
     if (preg_match('/appointment|schedule/', $message)
         || (function_exists('chatbotIsAppointmentRelatedMessage') && chatbotIsAppointmentRelatedMessage($message))
     ) {
+        if (function_exists('chatbotIsDraftRequest') && chatbotIsDraftRequest($message)) {
+            $draftReply = chatbotReplyForDraftRequest($message);
+            if ($draftReply !== null) {
+                return $draftReply;
+            }
+        }
+
         if (function_exists('chatbotReplyForAppointmentQueries')) {
             $appointmentReply = chatbotReplyForAppointmentQueries($message);
             if ($appointmentReply !== null) {

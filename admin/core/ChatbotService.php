@@ -89,6 +89,11 @@ class ChatbotService
             return $actionFlow;
         }
 
+        $draftReply = chatbotReplyForDraftRequest($message);
+        if ($draftReply !== null) {
+            return $draftReply;
+        }
+
         $followUp = chatbotTryFollowUpReply($message);
         if ($followUp !== null) {
             return $followUp;
@@ -137,11 +142,6 @@ class ChatbotService
         $calculation = chatbotReplyForCalculations($message);
         if ($calculation !== null) {
             return $calculation;
-        }
-
-        $draftReply = chatbotReplyForDraftRequest($message);
-        if ($draftReply !== null) {
-            return $draftReply;
         }
 
         $portalClient = chatbotReplyForPortalClientLookup($message);

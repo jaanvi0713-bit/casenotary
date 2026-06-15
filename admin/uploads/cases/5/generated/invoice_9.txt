@@ -1,0 +1,25 @@
+Print / Save as PDF
+Eagle Company
+Quatre Bornes
+
+INVOICE
+#INV-2026-0009
+
+Bill To:harry potter
+Active Services
+potter@gmail.com
+royal road, moka, 33333, llllllllll, Mauritius
+
+Date: Jun 02, 2026
+Due Date: Jun 16, 2026
+
+Qty | Notary Service | Unit Price | Amount | 
+1 | Theft | £ 10,000.00 | £ 10,000.00 | 
+Subtotal: £ 10,000.00
+VAT (20%): £ 2,000.00
+Net Amount (Excluding VAT): £ 10,000.00
+Net Amount (Including VAT): £ 12,000.00
+Total: £ 12,000.00
+
+Payment terms: Payment due within 14 days
+Payable To:Eagle Company

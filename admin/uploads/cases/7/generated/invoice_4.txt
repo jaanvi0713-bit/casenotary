@@ -1,0 +1,22 @@
+Print / Save as PDF
+Notary Management Pro
+office@notary.local
+
+Invoice
+INV-2026-0004
+June 1, 2026
+
+Bill toStefan Salvatore
+stefan@gmail.com
+Active Services
+
+Case referenceCASE-2026-0005
+Property
+
+Invoice for CASE-2026-0005
+Description | Amount | 
+property — Property | £ 0.00 | 
+Subtotal | £ 0.00 | 
+Total | £ 5,000.00 | 
+Due date: Jun 15, 2026
+Thank you for your business.

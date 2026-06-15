@@ -1,0 +1,28 @@
+Print / Save as PDF
+
+INVOICE
+#INV-2026-0001
+
+Creative Design
+Date: 09/06/2026
+Due Date: 30/06/2026
+
+Bill To:
+Lisa Pond
+Will Street
+Test, 3662563
+Test2
+Mauritius
+
+Notary Service | Amount | 
+Disbursement | £ 1,020.00 | 
+Notarisation | £ 1,680.00 | 
+Net Amount (Including VAT)£ 1,500.00
+VAT Amount£ 200.00
+Net Amount (Excluding VAT)£ 1,020.00
+Total£ 2,700.00
+
+Payable To:
+Creative Design
+
+VAT Number: 811 3347 19

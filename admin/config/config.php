@@ -55,7 +55,7 @@ return [
         ],
     ],
 
-    // Optional: enable for the widest answers (any topic). Set OPENAI_API_KEY in the environment.
+    // Optional external AI (OpenAI/Ollama). Built-in assistant works without this.
     'ai' => [
         'enabled'     => filter_var(getenv('CHATBOT_AI_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN),
         'provider'    => getenv('CHATBOT_AI_PROVIDER') ?: 'openai',

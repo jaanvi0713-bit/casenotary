@@ -1,0 +1,40 @@
+Print / Save as PDF
+
+INVOICE
+#INV-2026-0004
+
+FunTurtle Company
+Labourdonnais Street
+Port LOuis, 321560
+Mauritius
+office@notary.local
++23052512345
+Issue Date: 01/06/2026
+Due Date: 15/06/2026
+
+Bill To:
+Louis Macwell
+royal rd
+moka, 58692
+mauritius
+Louismac@gmail.com
+
+Description | Quantity | Unit Price | VAT | Total | 
+signing | 1 | £ 1,000.00 | £ 0.00 | £ 1,000.00 | 
+Subtotal£ 1,000.00
+VAT Amount£ 20.00
+Net Amount (Excluding VAT)£ 1,000.00
+Net Amount (Including VAT)£ 0.00
+Amount Paid£ 1,020.00
+Amount Due£ 0.00
+Grand Total£ 1,000.00
+
+Payable To:
+FunTurtle Company
+Account number: 52261440
+Sort code: 50-15-01
+IBAN: NGCHYTKDYMVG144855
+BIC: NHKUYG9K
+VAT Number: 118 2022 00
+
+Thank you for your business.

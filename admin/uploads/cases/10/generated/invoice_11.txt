@@ -1,0 +1,28 @@
+Print / Save as PDF
+
+INVOICE
+#INV-2026-0002
+
+Creative Design
+Date: 09/06/2026
+Due Date: 23/06/2026
+
+Bill To:
+Jeff Satur
+Louis Street
+Test, 2566932
+Test1
+US
+
+Notary Service | Amount | 
+Test | £ 2,575.00 | 
+Test2 | £ 4,600.00 | 
+Net Amount (Including VAT)£ 4,000.00
+VAT Amount£ 675.00
+Net Amount (Excluding VAT)£ 2,575.00
+Total£ 7,175.00
+
+Payable To:
+Creative Design
+
+VAT Number: 811 3347 19
