@@ -104,7 +104,6 @@ function chatbotResolveCaseFromClientName(string $message): ?array
 function chatbotSummarizeCase(array $case): string
 {
     $caseId = (int) ($case['id'] ?? 0);
-    $status = ucwords(str_replace('_', ' ', $case['status'] ?? 'unknown'));
     $client = clientFullName($case);
 
     $docCount = (int) (Database::fetch(
@@ -141,16 +140,11 @@ function chatbotSummarizeCase(array $case): string
         '',
         '• **Title:** ' . ($case['title'] ?? '—'),
         '• **Client:** ' . $client,
-        '• **Status:** *' . $status . '*',
         '• **Service:** ' . ($case['service_type'] ?? '—'),
         '• **Assigned:** ' . $assignedName,
         '• **Documents:** ' . $docCount,
         '• **Pending invoices:** ' . $pendingInvoices,
     ];
-
-    if (!empty($case['deadline'])) {
-        $lines[] = '• **Deadline:** ' . formatDate($case['deadline']);
-    }
 
     if ($nextAppt) {
         $when = !empty($nextAppt['start_time']) ? formatDateTime($nextAppt['start_time']) : 'TBD';

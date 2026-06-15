@@ -210,14 +210,6 @@ require __DIR__ . '/../includes/header.php';
                         <i class="bi bi-search"></i>
                         <input type="search" id="caseTableSearch" class="form-control form-control-sm" placeholder="Filter cases...">
                     </div>
-                    <select id="caseStatusFilter" class="form-select form-select-sm table-filter">
-                        <option value="">All statuses</option>
-                        <option value="pending">Pending</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="waiting_for_client">Waiting</option>
-                        <option value="completed">Completed</option>
-                        <option value="closed">Closed</option>
-                    </select>
                 </div>
                 <?php if (empty($recentCases)): ?>
                     <div class="empty-state empty-state-panel py-4">
@@ -232,12 +224,11 @@ require __DIR__ . '/../includes/header.php';
                             <tr>
                                 <th>Case</th>
                                 <th>Client</th>
-                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($recentCases as $case): ?>
-                                <tr data-status="<?= e($case['status']) ?>">
+                                <tr>
                                     <td>
                                         <a href="<?= url('pages/case-view.php?id=' . $case['id']) ?>" class="cases-table-link">
                                             <span class="table-primary"><?= e($case['case_number']) ?></span>
@@ -245,7 +236,6 @@ require __DIR__ . '/../includes/header.php';
                                         </a>
                                     </td>
                                     <td><?= e(clientFullName($case)) ?></td>
-                                    <td><?= statusBadge($case['status']) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -563,22 +553,18 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     const searchInput = document.getElementById("caseTableSearch");
-    const statusFilter = document.getElementById("caseStatusFilter");
     const rows = document.querySelectorAll("#casesTable tbody tr");
 
     function filterCases() {
         const q = (searchInput?.value || "").toLowerCase();
-        const status = statusFilter?.value || "";
         rows.forEach(function(row) {
             const text = row.textContent.toLowerCase();
             const matchSearch = !q || text.includes(q);
-            const matchStatus = !status || row.dataset.status === status;
-            row.style.display = matchSearch && matchStatus ? "" : "none";
+            row.style.display = matchSearch ? "" : "none";
         });
     }
 
     searchInput?.addEventListener("input", filterCases);
-    statusFilter?.addEventListener("change", filterCases);
 });
 </script>';
 

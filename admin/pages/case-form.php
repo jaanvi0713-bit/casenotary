@@ -72,26 +72,11 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
                 <div class="row g-3">
-                    <div class="col-lg-8">
+                    <div class="col-12">
                         <label class="case-form-label" for="title">Case Title <span class="text-danger">*</span></label>
                         <input type="text" id="title" name="title" class="form-control case-form-control" required
                                placeholder="e.g. Smith Property Transfer"
                                value="<?= e($case['title'] ?? ($_SESSION['old']['title'] ?? '')) ?>">
-                    </div>
-                    <div class="col-lg-4">
-                        <label class="case-form-label" for="status">Status</label>
-                        <select id="status" name="status" class="form-select case-form-control">
-                            <?php
-                            $statusOptions = $isEdit
-                                ? CaseService::getAllowedStatuses($case['status'] ?? 'pending')
-                                : CaseService::STATUSES;
-                            foreach ($statusOptions as $st):
-                            ?>
-                                <option value="<?= $st ?>" <?= ($case['status'] ?? 'pending') === $st ? 'selected' : '' ?>>
-                                    <?= CaseService::statusLabel($st) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
                     </div>
                     <div class="col-12">
                         <label class="case-form-label" for="description">Description</label>
@@ -178,8 +163,8 @@ require __DIR__ . '/../includes/header.php';
                 <div class="case-form-section-head">
                     <i class="bi bi-cash-stack"></i>
                     <div>
-                        <h2 class="case-form-section-title">Service & Schedule</h2>
-                        <p class="case-form-section-desc">Billing, priority, and target completion date.</p>
+                        <h2 class="case-form-section-title">Service & Billing</h2>
+                        <p class="case-form-section-desc">Services, fees, and totals used for invoices and client documents.</p>
                     </div>
                 </div>
                 <div class="case-services-block">
@@ -332,22 +317,6 @@ require __DIR__ . '/../includes/header.php';
                                 <strong class="case-services-total-value fs-5 mb-0" id="billingGrandTotal"><?= formatCurrency((float) ($caseBilling['totals']['grand_total'] ?? 0)) ?></strong>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="row g-3 mt-1">
-                    <div class="col-md-6 col-lg-4">
-                        <label class="case-form-label" for="priority">Priority</label>
-                        <select id="priority" name="priority" class="form-select case-form-control">
-                            <?php foreach (['low','medium','high','urgent'] as $p): ?>
-                                <option value="<?= $p ?>" <?= ($case['priority'] ?? 'medium') === $p ? 'selected' : '' ?>><?= ucfirst($p) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-6 col-lg-4">
-                        <label class="case-form-label" for="deadline">Deadline</label>
-                        <input type="date" id="deadline" name="deadline" class="form-control case-form-control"
-                               value="<?= e($case['deadline'] ?? '') ?>">
                     </div>
                 </div>
             </div>

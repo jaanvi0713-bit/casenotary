@@ -3104,25 +3104,15 @@ function appendCaseTenantScope(array &$where, array &$params, string $caseAlias 
     $params[] = $companyId;
 }
 
-function countCases(?string $search = null, ?string $status = null, ?string $priority = null): int
+function countCases(?string $search = null): int
 {
     $search = normalizeSearchTerm($search);
-    $status = normalizeSearchTerm($status);
-    $priority = normalizeSearchTerm($priority);
     $where = [];
     $params = [];
 
     if ($search !== '') {
         $where[] = 'CONCAT_WS(" ", cs.case_number, cs.title, cs.service_type, cl.first_name, cl.last_name, cl.company_name) LIKE ?';
         $params[] = '%' . $search . '%';
-    }
-    if ($status !== '') {
-        $where[] = 'cs.status = ?';
-        $params[] = $status;
-    }
-    if ($priority !== '') {
-        $where[] = 'cs.priority = ?';
-        $params[] = $priority;
     }
 
     TenantService::appendScope($where, $params, 'cs');
@@ -3136,11 +3126,9 @@ function countCases(?string $search = null, ?string $status = null, ?string $pri
     return (int) (Database::fetch($sql, $params)['c'] ?? 0);
 }
 
-function getCasesPaginated(int $page, int $perPage = 10, ?string $search = null, ?string $status = null, ?string $priority = null): array
+function getCasesPaginated(int $page, int $perPage = 10, ?string $search = null): array
 {
     $search = normalizeSearchTerm($search);
-    $status = normalizeSearchTerm($status);
-    $priority = normalizeSearchTerm($priority);
     $offset = paginationOffset($page, $perPage);
     $where = [];
     $params = [];
@@ -3148,14 +3136,6 @@ function getCasesPaginated(int $page, int $perPage = 10, ?string $search = null,
     if ($search !== '') {
         $where[] = 'CONCAT_WS(" ", cs.case_number, cs.title, cs.service_type, cl.first_name, cl.last_name, cl.company_name) LIKE ?';
         $params[] = '%' . $search . '%';
-    }
-    if ($status !== '') {
-        $where[] = 'cs.status = ?';
-        $params[] = $status;
-    }
-    if ($priority !== '') {
-        $where[] = 'cs.priority = ?';
-        $params[] = $priority;
     }
 
     TenantService::appendScope($where, $params, 'cs');
@@ -3809,19 +3789,13 @@ function formatChatbotClientDetail(array $client): string
 
 function formatChatbotCaseDetail(array $case): string
 {
-    $status = ucwords(str_replace('_', ' ', $case['status'] ?? 'unknown'));
     $client = clientFullName($case);
     $lines = [
         '**' . ($case['case_number'] ?? 'Case') . '** — ' . ($case['title'] ?? 'Untitled'),
         '',
         '• Client: **' . $client . '**',
-        '• Status: *' . $status . '*',
         '• Service: ' . ($case['service_type'] ?? '—'),
     ];
-
-    if (!empty($case['deadline'])) {
-        $lines[] = '• Deadline: ' . formatDate($case['deadline']);
-    }
 
     if (!empty($case['description'])) {
         $lines[] = '• Notes: ' . mb_substr((string) $case['description'], 0, 160);

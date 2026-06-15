@@ -1291,7 +1291,7 @@ PROMPT;
     private static function generalCaseGuide(): string
     {
         return "**Case workflow:**\n\n"
-            . "• **New Case** — select client, services, fees, deadline, and client instructions.\n"
+            . "• **New Case** — select client, services, fees, and client instructions.\n"
             . "• **Case View** — documents, activity, client letter, payments, and status updates.\n"
             . "• **Statuses** — Pending → In Progress → Waiting for Client → Completed/Closed.\n"
             . "• Search a **case number** (e.g. CASE-2026-0003) or ask **list active cases**.";

@@ -53,7 +53,6 @@ require __DIR__ . '/../includes/header.php';
                             <th>Case #</th>
                             <th>Title</th>
                             <th>Service</th>
-                            <th>Status</th>
                             <th>Documents</th>
                             <th>Updated</th>
                             <th></th>
@@ -65,7 +64,6 @@ require __DIR__ . '/../includes/header.php';
                                 <td><strong><?= e($case['case_number']) ?></strong></td>
                                 <td><?= e($case['title']) ?></td>
                                 <td><?= e($case['service_type']) ?></td>
-                                <td><?= statusBadge($case['status']) ?></td>
                                 <td><?= number_format((int) ($case['document_count'] ?? 0)) ?></td>
                                 <td class="text-muted"><?= formatDate($case['updated_at']) ?></td>
                                 <td class="text-end text-nowrap">

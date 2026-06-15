@@ -12,7 +12,7 @@ $quickPrompts = [
     ['icon' => 'bi-calendar-event', 'label' => 'My appointments', 'prompt' => 'When is my next appointment?'],
     ['icon' => 'bi-file-earmark-text', 'label' => 'Documents needed', 'prompt' => 'What documents do I need to bring?'],
     ['icon' => 'bi-credit-card', 'label' => 'Outstanding invoices', 'prompt' => 'Show my outstanding invoices'],
-    ['icon' => 'bi-briefcase', 'label' => 'Case status', 'prompt' => 'What is the status of my cases?'],
+    ['icon' => 'bi-briefcase', 'label' => 'My cases', 'prompt' => 'List my cases'],
     ['icon' => 'bi-telephone', 'label' => 'Contact office', 'prompt' => 'What are your office hours and contact details?'],
 ];
 

@@ -760,11 +760,6 @@ class CaseService
 
         $caseNumber   = self::generateNumber('CASE');
         $instructions = trim($data['client_instructions'] ?? '') ?: null;
-        $status       = $data['status'] ?? 'pending';
-
-        if (!self::isValidStatus($status)) {
-            throw new RuntimeException('Invalid case status.');
-        }
 
         $resolved = self::resolveCaseServices($data);
         $client   = ClientService::getById((int) $data['client_id']);
@@ -780,9 +775,9 @@ class CaseService
             'service_fee'       => $resolved['service_fee'],
             'client_id'         => (int) $data['client_id'],
             'assigned_admin_id' => self::resolveAssignedAdminId($data, $adminId),
-            'priority'          => $data['priority'] ?? 'medium',
-            'deadline'          => !empty($data['deadline']) ? $data['deadline'] : null,
-            'status'            => $status,
+            'priority'          => 'medium',
+            'deadline'          => null,
+            'status'            => 'pending',
         ];
 
         if (TenantService::isEnabled() && Database::columnExists('cases', 'company_id')) {
@@ -918,12 +913,6 @@ class CaseService
             throw new RuntimeException('Case not found.');
         }
 
-        $newStatus = $data['status'] ?? $existing['status'];
-        if (!self::isValidStatus($newStatus)) {
-            throw new RuntimeException('Invalid case status.');
-        }
-        self::assertStatusTransition($existing['status'], $newStatus);
-
         $instructions = trim($data['client_instructions'] ?? '') ?: null;
         $resolved     = self::resolveCaseServices($data);
         $row          = [
@@ -933,9 +922,9 @@ class CaseService
             'service_fee'       => $resolved['service_fee'],
             'client_id'         => (int) $data['client_id'],
             'assigned_admin_id' => self::resolveAssignedAdminIdForUpdate($data, $existing),
-            'priority'          => $data['priority'] ?? 'medium',
-            'deadline'          => !empty($data['deadline']) ? $data['deadline'] : null,
-            'status'            => $newStatus,
+            'priority'          => $existing['priority'] ?? 'medium',
+            'deadline'          => $existing['deadline'] ?? null,
+            'status'            => $existing['status'] ?? 'pending',
         ];
 
         if (Database::columnExists('cases', 'client_instructions') && array_key_exists('client_instructions', $data)) {
@@ -953,13 +942,6 @@ class CaseService
         }
 
         self::updateCaseRow($id, $row);
-
-        if ($existing['status'] !== $newStatus) {
-            self::logCaseEvent($id, 'status_changed', [
-                'from' => $existing['status'],
-                'to'   => $newStatus,
-            ], Auth::id());
-        }
 
         self::notifyCaseEvent($id, 'case', 'Case updated', 'Case details were updated.', 'pages/case-view.php?id=' . $id);
     }

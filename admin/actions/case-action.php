@@ -100,16 +100,6 @@ try {
             redirectCase($caseId);
             break;
 
-        case 'update_status':
-            if ($isClient) {
-                throw new RuntimeException('Access denied.');
-            }
-            $newStatus = $_POST['status'] ?? 'pending';
-            CaseService::updateStatus($caseId, $newStatus, Auth::id());
-            flash('success', 'Case status updated.');
-            redirectCase($caseId);
-            break;
-
         case 'upload_document':
             $source = $isClient ? 'client' : 'admin';
             if ($isClient) {

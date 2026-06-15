@@ -27,7 +27,6 @@ require __DIR__ . '/../includes/header.php';
             <a href="<?= clientUrl('pages/cases.php') ?>" class="btn btn-primary btn-sm case-back-btn"><i class="bi bi-arrow-left"></i> My Cases</a>
             <div class="case-workspace-title-row">
                 <h1 class="case-workspace-title"><?= e($case['case_number']) ?></h1>
-                <?= statusBadge($case['status']) ?>
             </div>
             <p class="case-workspace-subtitle"><?= e($case['title']) ?></p>
         </div>
@@ -50,10 +49,6 @@ require __DIR__ . '/../includes/header.php';
                     <div class="case-detail-item case-detail-item--billing">
                         <span class="case-detail-label">Services &amp; fees</span>
                         <?= CaseService::formatCaseBillingOverviewHtml($case) ?>
-                    </div>
-                    <div class="case-detail-item">
-                        <span class="case-detail-label">Deadline</span>
-                        <strong><?= formatDate($case['deadline']) ?></strong>
                     </div>
                 </div>
                 <?php if ($case['description']): ?>

@@ -30,8 +30,8 @@ if ($invoicePrefillItems === []) {
 }
 $pageTitle  = $case['case_number'];
 $pageSubtitle = $case['title'];
-$allowedStatuses = CaseService::getAllowedStatuses($case['status']);
-$clientLetterPath   = CaseService::getClientLetterRelativePath($caseId);
+$canEditCases        = Auth::canManage(RoleAccess::PERMISSION_CASES);
+$clientLetterPath    = CaseService::getClientLetterRelativePath($caseId);
 $clientLetterPaths  = ClientLetterService::getGeneratedLetterPaths($caseId);
 $letterSections     = ClientLetterService::getSectionsForCase($caseId);
 $letterLabels       = ClientLetterService::sectionLabels(); // hidden fields for standard template
@@ -91,35 +91,11 @@ require __DIR__ . '/../includes/header.php';
             <a href="<?= url('pages/cases.php') ?>" class="btn btn-primary btn-sm case-back-btn"><i class="bi bi-arrow-left"></i> Cases</a>
             <div class="case-workspace-title-row">
                 <h1 class="case-workspace-title"><?= e($case['case_number']) ?></h1>
-                <?= statusBadge($case['status']) ?>
-                <?= priorityBadge($case['priority']) ?>
             </div>
             <p class="case-workspace-subtitle"><?= e($case['title']) ?></p>
         </div>
         <?php if ($canEditCases): ?>
         <div class="case-workspace-actions">
-            <form method="post" action="<?= url('actions/case-action.php') ?>" class="case-status-form">
-                <?= CSRF::field() ?>
-                <input type="hidden" name="action" value="update_status">
-                <input type="hidden" name="case_id" value="<?= $caseId ?>">
-                <label class="case-status-label" for="caseStatusSelect">Status</label>
-                <select id="caseStatusSelect" name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <?php foreach ($allowedStatuses as $st): ?>
-                        <option value="<?= $st ?>" <?= $case['status'] === $st ? 'selected' : '' ?>>
-                            <?= CaseService::statusLabel($st) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <?php
-                $nextStatuses = array_values(array_filter(
-                    CaseService::STATUS_TRANSITIONS[$case['status']] ?? [],
-                    fn($st) => $st !== $case['status']
-                ));
-                if ($nextStatuses !== []):
-                ?>
-                <small class="case-status-hint">Next: <?= e(implode(', ', array_map([CaseService::class, 'statusLabel'], $nextStatuses))) ?></small>
-                <?php endif; ?>
-            </form>
             <a href="<?= url('pages/case-form.php?id=' . $caseId) ?>" class="btn btn-soft btn-sm">Edit</a>
             <div class="dropdown">
                 <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">Quick Actions</button>
@@ -176,10 +152,6 @@ require __DIR__ . '/../includes/header.php';
                             <div class="case-detail-item">
                                 <span class="case-detail-label">Assigned admin</span>
                                 <strong><?= e($case['admin_name'] ?? 'Unassigned') ?></strong>
-                            </div>
-                            <div class="case-detail-item">
-                                <span class="case-detail-label">Deadline</span>
-                                <strong><?= formatDate($case['deadline']) ?></strong>
                             </div>
                             <div class="case-detail-item case-detail-item--billing">
                                 <span class="case-detail-label">Services &amp; fees</span>
@@ -517,7 +489,6 @@ require __DIR__ . '/../includes/header.php';
                     <select class="form-select form-select-sm case-filter-select" id="activityTypeFilter" data-filter-target="#activityTimeline .case-timeline-item" data-filter-attr="data-type">
                         <option value="">All activity</option>
                         <option value="case_created">Case created</option>
-                        <option value="status">Status changes</option>
                         <option value="document">Documents</option>
                         <option value="quotation">Quotations</option>
                         <option value="proposal">Proposals</option>

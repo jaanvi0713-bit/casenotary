@@ -102,7 +102,6 @@ require __DIR__ . '/../includes/header.php';
                             <thead>
                                 <tr>
                                     <th>Case</th>
-                                    <th>Status</th>
                                     <th>Updated</th>
                                 </tr>
                             </thead>
@@ -115,7 +114,6 @@ require __DIR__ . '/../includes/header.php';
                                                 <span class="table-secondary d-block"><?= e($case['title']) ?></span>
                                             </a>
                                         </td>
-                                        <td><?= statusBadge($case['status']) ?></td>
                                         <td class="text-muted"><?= formatDate($case['updated_at']) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
