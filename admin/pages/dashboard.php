@@ -560,6 +560,45 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 ' . ($canViewInsights ? '
+    var bizCaseDonutChart = null;
+
+    function buildBizCaseDonut() {
+        var donutCtx = document.getElementById("caseStatusDonut");
+        if (!donutCtx || bizCaseDonutChart) return;
+
+        var statusCounts = ' . json_encode(array_values($caseStatusBreakdown)) . ';
+        var statusColors = ["#f59e0b", "#3aafa9", "#6366f1", "#10b981", "#64748b"];
+        var statusLabels = ["Pending", "In Progress", "Waiting for Client", "Completed", "Closed"];
+        var donutBorder = getComputedStyle(document.documentElement).getPropertyValue("--white").trim() || "#fff";
+        bizCaseDonutChart = new Chart(donutCtx, {
+            type: "doughnut",
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusCounts,
+                    backgroundColor: statusColors,
+                    borderWidth: 2,
+                    borderColor: donutBorder,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: false,
+                cutout: "68%",
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(c) {
+                                return " " + c.label + ": " + c.parsed;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     document.querySelectorAll(".biz-tab").forEach(function(btn) {
         btn.addEventListener("click", function() {
             var tab = this.dataset.bizTab;
@@ -572,6 +611,9 @@ document.addEventListener("DOMContentLoaded", function() {
             document.querySelectorAll(".biz-tab-panel").forEach(function(p) { p.classList.remove("active"); });
             var panel = document.getElementById("biz-panel-" + tab);
             if (panel) panel.classList.add("active");
+            if (tab === "cases") {
+                buildBizCaseDonut();
+            }
         });
     });
 
@@ -618,41 +660,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 scales: {
                     x: { display: false },
                     y: { display: false, beginAtZero: true }
-                }
-            }
-        });
-    }
-
-    var donutCtx = document.getElementById("caseStatusDonut");
-    if (donutCtx) {
-        var statusCounts = ' . json_encode(array_values($caseStatusBreakdown)) . ';
-        var statusColors = ["#f59e0b", "#3aafa9", "#6366f1", "#10b981", "#64748b"];
-        var statusLabels = ["Pending", "In Progress", "Waiting for Client", "Completed", "Closed"];
-        var donutBorder = getComputedStyle(document.documentElement).getPropertyValue("--white").trim() || "#fff";
-        new Chart(donutCtx, {
-            type: "doughnut",
-            data: {
-                labels: statusLabels,
-                datasets: [{
-                    data: statusCounts,
-                    backgroundColor: statusColors,
-                    borderWidth: 2,
-                    borderColor: donutBorder,
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: false,
-                cutout: "68%",
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(c) {
-                                return " " + c.label + ": " + c.parsed;
-                            }
-                        }
-                    }
                 }
             }
         });

@@ -19,9 +19,6 @@
                         <button class="biz-tab" data-biz-tab="clients" type="button" role="tab" aria-selected="false">Clients</button>
                         <button class="biz-tab" data-biz-tab="appointments" type="button" role="tab" aria-selected="false">Appointments</button>
                     </div>
-                    <span class="biz-admin-badge" title="Controlled by Role Access → Insights permission">
-                        <i class="bi bi-shield-lock-fill"></i> Insights access
-                    </span>
                 </div>
             </div>
 
@@ -35,10 +32,7 @@
                             <span class="biz-kpi-icon"><i class="bi bi-calendar-week"></i></span>
                             <span class="biz-kpi-label">This Week</span>
                         </div>
-                        <div class="biz-kpi-value-row">
-                            <span class="biz-kpi-value biz-kpi-value--money"><?= formatCurrency($stats['weekly_revenue']) ?></span>
-                            <?= kpiTrendBadge($trends['revenue'], true) ?>
-                        </div>
+                        <span class="biz-kpi-value biz-kpi-value--money"><?= formatCurrency($stats['weekly_revenue']) ?></span>
                         <span class="biz-kpi-sub">Completed payments — last 7 days</span>
                     </div>
 
@@ -47,7 +41,10 @@
                             <span class="biz-kpi-icon"><i class="bi bi-calendar3"></i></span>
                             <span class="biz-kpi-label">This Month</span>
                         </div>
-                        <span class="biz-kpi-value biz-kpi-value--money"><?= formatCurrency($stats['monthly_revenue']) ?></span>
+                        <div class="biz-kpi-value-row">
+                            <span class="biz-kpi-value biz-kpi-value--money"><?= formatCurrency($stats['monthly_revenue']) ?></span>
+                            <?= kpiTrendBadge($trends['revenue'], true) ?>
+                        </div>
                         <span class="biz-kpi-sub">Completed in <?= date('F') ?></span>
                     </div>
 

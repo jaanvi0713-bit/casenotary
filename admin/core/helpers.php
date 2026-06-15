@@ -2739,10 +2739,9 @@ function getUpcomingAppointments(int $limit = 5): array
 
     return Database::fetchAll(
         "SELECT a.*, {$startSql} AS start_time, {$endSql} AS end_time,
-                c.company_name, cu.first_name, cu.last_name
+                c.first_name, c.last_name, c.company_name
          FROM appointments a
          JOIN clients c ON c.id = a.client_id
-         JOIN users cu ON cu.id = c.user_id
          WHERE " . implode(' AND ', $where) . "
          ORDER BY {$startSql} ASC
          LIMIT ?",
@@ -2760,10 +2759,9 @@ function getRecentCases(int $limit = 5): array
     $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
 
     return Database::fetchAll(
-        "SELECT cs.*, cu.first_name, cu.last_name, cl.company_name
+        "SELECT cs.*, cl.first_name, cl.last_name, cl.company_name
          FROM cases cs
          JOIN clients cl ON cl.id = cs.client_id
-         JOIN users cu ON cu.id = cl.user_id
          {$whereSql}
          ORDER BY cs.updated_at DESC
          LIMIT ?",
@@ -2968,12 +2966,14 @@ function getDashboardTrends(array $stats): array
     }
 
     $revenueTrend = $lastMonthRevenue > 0
-        ? round((($stats['monthly_revenue'] - $lastMonthRevenue) / $lastMonthRevenue) * 100, 2)
-        : ($stats['monthly_revenue'] > 0 ? 100 : 0);
+        ? round((($stats['monthly_revenue'] - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1)
+        : ($stats['monthly_revenue'] > 0 ? 100.0 : 0.0);
+    $revenueTrend = max(-999.0, min(999.0, $revenueTrend));
 
     $casesTrend = $lastMonthCases > 0
-        ? round((($thisMonthCases - $lastMonthCases) / $lastMonthCases) * 100, 2)
-        : ($thisMonthCases > 0 ? 100 : 0);
+        ? round((($thisMonthCases - $lastMonthCases) / $lastMonthCases) * 100, 1)
+        : ($thisMonthCases > 0 ? 100.0 : 0.0);
+    $casesTrend = max(-999.0, min(999.0, $casesTrend));
 
     return [
         'clients'  => ['value' => 2.5, 'up' => true],
@@ -3109,6 +3109,7 @@ function kpiTrendBadge(array $trend, bool $inline = false): string
 {
     $value = (float) ($trend['value'] ?? 0);
     $up    = (bool) ($trend['up'] ?? true);
+    $capped = abs($value) >= 999.0;
 
     if ($value == 0.0) {
         $class = 'neutral';
@@ -3122,10 +3123,14 @@ function kpiTrendBadge(array $trend, bool $inline = false): string
     }
 
     $inlineClass = $inline ? ' kpi-trend-inline' : '';
-    $formatted   = number_format($value, fmod($value, 1.0) === 0.0 ? 0 : 1);
+    if ($capped) {
+        $formatted = '999+';
+    } else {
+        $formatted = number_format($value, fmod($value, 1.0) === 0.0 ? 0 : 1);
+    }
 
     return sprintf(
-        '<span class="kpi-trend %s%s">%s%% %s</span>',
+        '<span class="kpi-trend %s%s" title="Vs. previous month">%s%% %s</span>',
         $class,
         $inlineClass,
         $formatted,
