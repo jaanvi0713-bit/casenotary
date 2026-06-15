@@ -1727,8 +1727,12 @@ function renderCompanyFontStylesheet(?array $settings = null): string
         . '    <link href="https://fonts.googleapis.com/css2?family=' . $google . '&display=swap" rel="stylesheet">';
 }
 
-function companyLogoUrl(?array $settings = null): ?string
+function companyLogoUrl(?array $settings = null, ?int $companyId = null): ?string
 {
+    if ($settings === null && $companyId !== null && $companyId > 0) {
+        $settings = SettingsService::forCompany($companyId);
+    }
+
     $settings = $settings ?? getCompanySettings();
     $logo     = trim((string) ($settings['logo'] ?? ''));
 
@@ -1743,7 +1747,123 @@ function companyLogoUrl(?array $settings = null): ?string
         return null;
     }
 
-    return adminUrl('actions/company-logo.php?v=' . filemtime($path));
+    $resolvedCompanyId = $companyId ?? (int) ($settings['company_id'] ?? 0);
+    $query = $resolvedCompanyId > 0
+        ? 'company_id=' . $resolvedCompanyId . '&v=' . filemtime($path)
+        : 'v=' . filemtime($path);
+
+    return adminUrl('actions/company-logo.php?' . $query);
+}
+
+function documentBrandingCompanyId(): ?int
+{
+    static $resolvedId = null;
+    static $done       = false;
+
+    if ($done) {
+        return $resolvedId;
+    }
+
+    $done = true;
+    $config = require __DIR__ . '/../config/config.php';
+    $name   = trim((string) ($config['document_branding']['company_name'] ?? 'Wharf Notaries'));
+    $slug   = trim((string) ($config['document_branding']['company_slug'] ?? 'wharf-notaries'));
+
+    if ($name === '' && $slug === '') {
+        return null;
+    }
+
+    if (TenantService::isEnabled()) {
+        if ($slug !== '') {
+            $row = Database::fetch(
+                'SELECT id FROM companies WHERE slug = ? AND status = ? LIMIT 1',
+                [$slug, 'active']
+            );
+            if ($row) {
+                $resolvedId = (int) $row['id'];
+
+                return $resolvedId;
+            }
+        }
+
+        if ($name !== '') {
+            $like = '%' . $name . '%';
+            $row  = Database::fetch(
+                'SELECT company_id FROM company_settings WHERE company_name LIKE ? ORDER BY company_id ASC LIMIT 1',
+                [$like]
+            );
+            if ($row) {
+                $resolvedId = (int) $row['company_id'];
+
+                return $resolvedId;
+            }
+
+            $row = Database::fetch(
+                'SELECT id FROM companies WHERE name LIKE ? AND status = ? LIMIT 1',
+                [$like, 'active']
+            );
+            if ($row) {
+                $resolvedId = (int) $row['id'];
+
+                return $resolvedId;
+            }
+
+            $row = Database::fetch(
+                'SELECT company_id FROM company_settings WHERE company_name LIKE ? ORDER BY company_id ASC LIMIT 1',
+                ['%wharf%notar%']
+            );
+            if ($row) {
+                $resolvedId = (int) $row['company_id'];
+
+                return $resolvedId;
+            }
+
+            $row = Database::fetch(
+                'SELECT id FROM companies WHERE name LIKE ? AND status = ? LIMIT 1',
+                ['%wharf%notar%', 'active']
+            );
+            if ($row) {
+                $resolvedId = (int) $row['id'];
+
+                return $resolvedId;
+            }
+        }
+    }
+
+    return null;
+}
+
+function documentBrandingSettings(): array
+{
+    static $cache = null;
+
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $companyId = documentBrandingCompanyId();
+    if ($companyId !== null && $companyId > 0) {
+        $cache = SettingsService::forCompany($companyId);
+
+        return $cache;
+    }
+
+    $cache = getCompanySettings();
+
+    return $cache;
+}
+
+function companyDocumentLogoUrl(): ?string
+{
+    $branding  = documentBrandingSettings();
+    $companyId = documentBrandingCompanyId();
+    $logo      = trim((string) ($branding['logo'] ?? ''));
+
+    if ($logo === '') {
+        return companyLogoUrl();
+    }
+
+    return companyLogoUrl($branding, $companyId > 0 ? $companyId : null);
 }
 
 function companyFaviconUrl(?array $settings = null): ?string

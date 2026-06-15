@@ -348,7 +348,7 @@ class FinancialDocumentRenderer
         $primary     = (string) ($company['primary_color'] ?? '#3aafa9');
         $secondary   = (string) ($company['secondary_color'] ?? '#00182c');
         $companyName = e(companyBrandName($company));
-        $logoUrl     = companyLogoUrl($company);
+        $logoUrl     = companyDocumentLogoUrl();
         $addressHtml = companyAddressHtml($company);
         $case        = $config['case'];
         $clientName  = e(clientFullName($case));

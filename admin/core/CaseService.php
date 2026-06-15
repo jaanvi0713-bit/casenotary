@@ -671,6 +671,272 @@ class CaseService
         return sprintf('%s-%s-%04d', $prefix, $year, $count + 1);
     }
 
+    public static function generateInvoiceNumber(?int $companyId = null): string
+    {
+        $year = (int) date('Y');
+        if ($companyId === null || $companyId <= 0) {
+            $companyId = TenantService::isEnabled() ? TenantService::id() : 0;
+        }
+
+        $sequence = self::nextInvoiceSequence($companyId);
+
+        return self::invoiceNumberFromSequence($companyId, $sequence, $year);
+    }
+
+    public static function invoiceNumberFromSequence(int $companyId, int $sequence, int $year): string
+    {
+        $suffix = self::encodeInvoiceSuffix($companyId, $sequence);
+        $number = sprintf('INV-%d-%s', $year, $suffix);
+
+        for ($attempt = 1; $attempt < 20 && self::invoiceNumberExists($number, $companyId); $attempt++) {
+            $suffix = self::encodeInvoiceSuffix($companyId, $sequence + $attempt);
+            $number = sprintf('INV-%d-%s', $year, $suffix);
+        }
+
+        return $number;
+    }
+
+    public static function isLegacyInvoiceNumber(string $number): bool
+    {
+        return (bool) preg_match('/^INV-\d{4}-\d+$/', strtoupper(trim($number)));
+    }
+
+    /**
+     * @return array{updated: int, skipped: int, details: list<string>}
+     */
+    public static function migrateLegacyInvoiceNumbers(): array
+    {
+        $hasCompany = TenantService::isEnabled() && Database::columnExists('invoices', 'company_id');
+        $orderBy    = $hasCompany ? 'company_id ASC, id ASC' : 'id ASC';
+        $invoices   = Database::fetchAll(
+            "SELECT id, case_id, invoice_number, issue_date" . ($hasCompany ? ', company_id' : '') . "
+             FROM invoices
+             ORDER BY {$orderBy}"
+        );
+
+        $sequences = [];
+        $updated   = 0;
+        $skipped   = 0;
+        $details   = [];
+
+        foreach ($invoices as $invoice) {
+            $oldNumber = (string) ($invoice['invoice_number'] ?? '');
+            if (!self::isLegacyInvoiceNumber($oldNumber)) {
+                $skipped++;
+                continue;
+            }
+
+            $companyId = $hasCompany ? (int) ($invoice['company_id'] ?? 0) : 0;
+            $sequences[$companyId] = ($sequences[$companyId] ?? 0) + 1;
+            $sequence = $sequences[$companyId];
+
+            $year = (int) date('Y');
+            if (preg_match('/^INV-(\d{4})-/i', $oldNumber, $matches)) {
+                $year = (int) $matches[1];
+            } elseif (!empty($invoice['issue_date'])) {
+                $year = (int) date('Y', strtotime((string) $invoice['issue_date']));
+            }
+
+            $newNumber = self::invoiceNumberFromSequence($companyId, $sequence, $year);
+            Database::query('UPDATE invoices SET invoice_number = ? WHERE id = ?', [$newNumber, (int) $invoice['id']]);
+
+            $caseId = (int) ($invoice['case_id'] ?? 0);
+            if ($caseId > 0) {
+                try {
+                    self::regenerateInvoiceHtml($caseId, (int) $invoice['id']);
+                } catch (Throwable $e) {
+                    // HTML regeneration is best-effort during migration.
+                }
+            }
+
+            $details[] = "{$oldNumber} -> {$newNumber}";
+            $updated++;
+        }
+
+        return ['updated' => $updated, 'skipped' => $skipped, 'details' => $details];
+    }
+
+    private static function nextInvoiceSequence(int $companyId): int
+    {
+        $params = [];
+        $scope  = '';
+
+        if ($companyId > 0 && TenantService::isEnabled() && Database::columnExists('invoices', 'company_id')) {
+            $scope    = ' WHERE company_id = ?';
+            $params[] = $companyId;
+        }
+
+        $row = Database::fetch('SELECT COUNT(*) AS cnt FROM invoices' . $scope, $params);
+
+        return (int) ($row['cnt'] ?? 0) + 1;
+    }
+
+    private static function encodeInvoiceSuffix(int $companyId, int $sequence): string
+    {
+        $alphabet = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+        $base     = strlen($alphabet);
+        $state    = abs(crc32("cn-inv|{$companyId}|{$sequence}"));
+        $chars    = [];
+
+        for ($i = 0; $i < 5; $i++) {
+            $chars[] = $alphabet[$state % $base];
+            $state   = intdiv($state, $base) + ($companyId * 997 + $sequence * 1009 + $i * 7919);
+        }
+
+        return implode('', $chars);
+    }
+
+    private static function invoiceNumberExists(string $number, int $companyId): bool
+    {
+        $params = [$number];
+        $scope  = '';
+
+        if ($companyId > 0 && TenantService::isEnabled() && Database::columnExists('invoices', 'company_id')) {
+            $scope    = ' AND company_id = ?';
+            $params[] = $companyId;
+        }
+
+        return (bool) Database::fetch(
+            'SELECT 1 FROM invoices WHERE invoice_number = ?' . $scope . ' LIMIT 1',
+            $params
+        );
+    }
+
+    public static function generateReceiptNumber(?int $companyId = null): string
+    {
+        $year = (int) date('Y');
+        if ($companyId === null || $companyId <= 0) {
+            $companyId = TenantService::isEnabled() ? TenantService::id() : 0;
+        }
+
+        $sequence = self::nextReceiptSequence($companyId);
+
+        return self::receiptNumberFromSequence($companyId, $sequence, $year);
+    }
+
+    public static function receiptNumberFromSequence(int $companyId, int $sequence, int $year): string
+    {
+        $suffix = self::encodeReceiptSuffix($companyId, $sequence);
+        $number = sprintf('RCP-%d-%s', $year, $suffix);
+
+        for ($attempt = 1; $attempt < 20 && self::receiptNumberExists($number, $companyId); $attempt++) {
+            $suffix = self::encodeReceiptSuffix($companyId, $sequence + $attempt);
+            $number = sprintf('RCP-%d-%s', $year, $suffix);
+        }
+
+        return $number;
+    }
+
+    public static function isLegacyReceiptNumber(string $number): bool
+    {
+        return (bool) preg_match('/^RCP-\d{4}-\d+$/', strtoupper(trim($number)));
+    }
+
+    /**
+     * @return array{updated: int, skipped: int, details: list<string>}
+     */
+    public static function migrateLegacyReceiptNumbers(): array
+    {
+        $hasReceiptCompany = TenantService::isEnabled() && Database::columnExists('receipts', 'company_id');
+        $hasInvoiceCompany = Database::columnExists('invoices', 'company_id');
+        $companySelect     = $hasReceiptCompany
+            ? 'r.company_id'
+            : ($hasInvoiceCompany ? 'i.company_id' : '0 AS company_id');
+        $orderBy           = ($hasReceiptCompany || $hasInvoiceCompany) ? 'company_id ASC, r.id ASC' : 'r.id ASC';
+        $receipts          = Database::fetchAll(
+            "SELECT r.id, r.receipt_number,
+                    COALESCE(r.issued_at, r.created_at) AS issued_at,
+                    {$companySelect}
+             FROM receipts r
+             LEFT JOIN payments p ON p.id = r.payment_id
+             LEFT JOIN invoices i ON i.id = p.invoice_id
+             ORDER BY {$orderBy}"
+        );
+
+        $sequences = [];
+        $updated   = 0;
+        $skipped   = 0;
+        $details   = [];
+
+        foreach ($receipts as $receipt) {
+            $oldNumber = (string) ($receipt['receipt_number'] ?? '');
+            if (!self::isLegacyReceiptNumber($oldNumber)) {
+                $skipped++;
+                continue;
+            }
+
+            $companyId = (int) ($receipt['company_id'] ?? 0);
+            $sequences[$companyId] = ($sequences[$companyId] ?? 0) + 1;
+            $sequence = $sequences[$companyId];
+
+            $year = (int) date('Y');
+            if (preg_match('/^RCP-(\d{4})-/i', $oldNumber, $matches)) {
+                $year = (int) $matches[1];
+            } elseif (!empty($receipt['issued_at'])) {
+                $year = (int) date('Y', strtotime((string) $receipt['issued_at']));
+            }
+
+            $newNumber = self::receiptNumberFromSequence($companyId, $sequence, $year);
+            Database::query('UPDATE receipts SET receipt_number = ? WHERE id = ?', [$newNumber, (int) $receipt['id']]);
+
+            $details[] = "{$oldNumber} -> {$newNumber}";
+            $updated++;
+        }
+
+        return ['updated' => $updated, 'skipped' => $skipped, 'details' => $details];
+    }
+
+    private static function nextReceiptSequence(int $companyId): int
+    {
+        if ($companyId > 0 && TenantService::isEnabled() && Database::columnExists('receipts', 'company_id')) {
+            $row = Database::fetch('SELECT COUNT(*) AS cnt FROM receipts WHERE company_id = ?', [$companyId]);
+        } elseif ($companyId > 0 && Database::columnExists('invoices', 'company_id')) {
+            $row = Database::fetch(
+                'SELECT COUNT(*) AS cnt
+                 FROM receipts r
+                 JOIN payments p ON p.id = r.payment_id
+                 JOIN invoices i ON i.id = p.invoice_id
+                 WHERE i.company_id = ?',
+                [$companyId]
+            );
+        } else {
+            $row = Database::fetch('SELECT COUNT(*) AS cnt FROM receipts');
+        }
+
+        return (int) ($row['cnt'] ?? 0) + 1;
+    }
+
+    private static function encodeReceiptSuffix(int $companyId, int $sequence): string
+    {
+        $alphabet = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+        $base     = strlen($alphabet);
+        $state    = abs(crc32("cn-rcp|{$companyId}|{$sequence}"));
+        $chars    = [];
+
+        for ($i = 0; $i < 5; $i++) {
+            $chars[] = $alphabet[$state % $base];
+            $state   = intdiv($state, $base) + ($companyId * 997 + $sequence * 1009 + $i * 7919);
+        }
+
+        return implode('', $chars);
+    }
+
+    private static function receiptNumberExists(string $number, int $companyId): bool
+    {
+        $params = [$number];
+        $scope  = '';
+
+        if ($companyId > 0 && TenantService::isEnabled() && Database::columnExists('receipts', 'company_id')) {
+            $scope    = ' AND company_id = ?';
+            $params[] = $companyId;
+        }
+
+        return (bool) Database::fetch(
+            'SELECT 1 FROM receipts WHERE receipt_number = ?' . $scope . ' LIMIT 1',
+            $params
+        );
+    }
+
     public static function getCaseById(int $id): ?array
     {
         $postalSelect = self::clientPostalSelectSql();
@@ -1429,7 +1695,11 @@ class CaseService
     public static function generateInvoice(int $caseId, array $data): int
     {
         $case      = self::getCaseById($caseId);
-        $number    = self::generateNumber('INV');
+        $companyId = (int) ($case['company_id'] ?? 0);
+        if ($companyId <= 0 && TenantService::isEnabled()) {
+            $companyId = TenantService::id();
+        }
+        $number = self::generateInvoiceNumber($companyId > 0 ? $companyId : null);
         $lineItems = InvoiceService::parseLineItemsFromRequest($data, $case ?: []);
 
         if ($lineItems === []) {
@@ -1614,12 +1884,15 @@ class CaseService
             );
         }
 
-        $number = self::generateNumber('RCP');
+        $receiptCase = !empty($invoice['case_id']) ? self::getCaseById((int) $invoice['case_id']) : null;
+        $companyId   = (int) ($invoice['company_id'] ?? $receiptCase['company_id'] ?? 0);
+        if ($companyId <= 0 && TenantService::isEnabled()) {
+            $companyId = TenantService::id();
+        }
+        $number = self::generateReceiptNumber($companyId > 0 ? $companyId : null);
         $amount = (float) ($invoice['payment_amount'] ?? $invoice['total'] ?? 0);
 
         try {
-            $receiptCase = !empty($invoice['case_id']) ? self::getCaseById((int) $invoice['case_id']) : null;
-
             return insertTableRow('receipts', self::withCaseCompanyId([
                 'receipt_number' => $number,
                 'payment_id'     => $paymentId,

@@ -57,6 +57,16 @@ $headerCsrfName = (require __DIR__ . '/../config/config.php')['security']['csrf_
 
                 <div class="topbar-actions">
                     <?php require __DIR__ . '/theme-toggle.php'; ?>
+                    <?php if (Auth::can(RoleAccess::PERMISSION_COMPANIES)): ?>
+                        <?php $headerCurrentPage = basename($_SERVER['PHP_SELF'], '.php'); ?>
+                        <a href="<?= url('pages/companies.php') ?>"
+                           class="topbar-btn<?= $headerCurrentPage === 'companies' ? ' is-active' : '' ?>"
+                           title="Companies"
+                           aria-label="Companies"
+                           <?= $headerCurrentPage === 'companies' ? 'aria-current="page"' : '' ?>>
+                            <i class="bi bi-buildings" aria-hidden="true"></i>
+                        </a>
+                    <?php endif; ?>
                     <div
                         id="topbarNotifications"
                         class="dropdown topbar-dropdown"

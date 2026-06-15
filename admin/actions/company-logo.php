@@ -2,8 +2,14 @@
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
-$settings = getCompanySettings();
-$logo     = $settings['logo'] ?? null;
+$companyId = (int) ($_GET['company_id'] ?? 0);
+if ($companyId > 0 && TenantService::exists($companyId)) {
+    $settings = SettingsService::forCompany($companyId);
+} else {
+    $settings = getCompanySettings();
+}
+
+$logo = $settings['logo'] ?? null;
 
 if (!$logo) {
     http_response_code(404);

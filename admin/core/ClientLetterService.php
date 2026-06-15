@@ -616,7 +616,7 @@ HTML,
         $brandSans   = companyFontInlineStack($company);
         $companyName = e($context['company_name']);
         $legalName   = e($context['company_legal_name']);
-        $logoUrl     = companyLogoUrl($company);
+        $logoUrl     = companyDocumentLogoUrl();
 
         $logoBlock = $logoUrl
             ? '<img src="' . e($logoUrl) . '" alt="' . $companyName . '" class="cl-logo">'

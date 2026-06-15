@@ -261,16 +261,6 @@ class RoleAccess
             ];
         }
 
-        if (self::allows($role, self::PERMISSION_COMPANIES, $companyId)) {
-            $companies = [
-                'icon' => 'bi-buildings',
-                'label' => 'Companies',
-                'href' => 'pages/companies.php',
-                'page' => 'companies',
-            ];
-            array_splice($items, 1, 0, [$companies]);
-        }
-
         return $items;
     }
 

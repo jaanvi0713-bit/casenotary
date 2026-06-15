@@ -790,7 +790,7 @@ function chatbotPrepareRecordPaymentAction(string $message): ?string
 
     $invoice = chatbotResolveInvoiceFromMessage($message);
     if ($invoice === null) {
-        return 'Which invoice? Example: **record payment for INV-2026-0001** or **mark invoice INV-2026-0001 paid**.';
+        return 'Which invoice? Example: **record payment for INV-2026-4X7R2** or **mark invoice INV-2026-4X7R2 paid**.';
     }
 
     $remaining = CaseService::getInvoiceRemainingBalance($invoice);
@@ -1264,7 +1264,7 @@ function chatbotLooksLikeActionCommand(string $message): bool
 
 function chatbotResolveInvoiceFromMessage(string $message): ?array
 {
-    if (preg_match('/\b(INV[- ]?\d{4}[- ]?\d+)\b/i', $message, $matches)) {
+    if (preg_match('/\b(INV[- ]?\d{4}[- ][A-Z0-9]+)\b/i', $message, $matches)) {
         $search = strtoupper(preg_replace('/[^A-Z0-9-]/', '-', trim($matches[1])));
         $search = preg_replace('/-+/', '-', trim($search, '-'));
 

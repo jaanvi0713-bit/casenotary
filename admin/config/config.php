@@ -55,6 +55,12 @@ return [
         ],
     ],
 
+    // Logo used on client letters, invoices, and receipts for every workspace.
+    'document_branding' => [
+        'company_name' => 'Wharf Notaries',
+        'company_slug' => 'wharf-notaries',
+    ],
+
     // Optional external AI (OpenAI/Ollama). Built-in assistant works without this.
     'ai' => [
         'enabled'     => filter_var(getenv('CHATBOT_AI_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN),

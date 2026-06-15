@@ -936,6 +936,17 @@ body.sidebar-collapsed .main-content {
     transition: var(--transition);
 }
 
+a.topbar-btn {
+    text-decoration: none;
+}
+
+.topbar-btn.is-active,
+.topbar-btn.is-active:hover {
+    background: var(--primary-light);
+    border-color: transparent;
+    color: var(--primary);
+}
+
 .topbar-btn:hover {
     background: var(--primary-light);
     border-color: transparent;
