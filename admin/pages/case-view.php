@@ -23,6 +23,7 @@ $invoiceVatRate        = (float) ($caseBilling['vat_rate'] ?? CaseService::vatRa
 $companySettings       = getCompanySettings();
 $defaultBankAccount    = SettingsService::defaultBankAccountChoice($companySettings);
 $companyBankAccounts   = SettingsService::bankAccounts($companySettings);
+$stripeReady           = StripeService::isConfigured();
 $invoiceBankPreviews   = [];
 for ($bankPreviewNum = 1; $bankPreviewNum <= 3; $bankPreviewNum++) {
     $invoiceBankPreviews[$bankPreviewNum] = SettingsService::bankAccountDisplayHtml(
@@ -346,7 +347,7 @@ require __DIR__ . '/../includes/header.php';
                 <?php else: ?>
                     <div class="table-responsive">
                         <table class="table saas-table mb-0" id="invoicesTable">
-                            <thead><tr><th>Invoice #</th><th>Amount</th><th>Due Date</th><th>Status</th><th></th></tr></thead>
+                            <thead><tr><th>Invoice #</th><th>Amount</th><th>Due Date</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
                             <tbody>
                                 <?php foreach ($workspace['invoices'] as $inv): ?>
                                     <?php $invStatus = $inv['payment_status'] ?? $inv['status'] ?? 'pending'; ?>
@@ -355,19 +356,40 @@ require __DIR__ . '/../includes/header.php';
                                         <td><?= formatCurrency((float) $inv['total']) ?></td>
                                         <td><?= formatDate($inv['due_date']) ?></td>
                                         <td><?= statusBadge($invStatus) ?></td>
-                                        <td class="text-nowrap">
-                                            <?php if (!empty($inv['pdf_path'])): ?>
-                                                <a href="<?= url('actions/document-download.php?path=' . urlencode($inv['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener" title="View invoice"><i class="bi bi-receipt"></i></a>
-                                            <?php endif; ?>
-                                            <?php if ($canManagePayments): ?>
-                                                <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Email this invoice to the client?');">
-                                                    <?= CSRF::field() ?>
-                                                    <input type="hidden" name="action" value="send_invoice_email">
-                                                    <input type="hidden" name="case_id" value="<?= $caseId ?>">
-                                                    <input type="hidden" name="invoice_id" value="<?= (int) $inv['id'] ?>">
-                                                    <button type="submit" class="btn btn-soft btn-sm" title="Email to client"><i class="bi bi-envelope"></i></button>
-                                                </form>
-                                            <?php endif; ?>
+                                        <td class="text-end">
+                                            <div class="case-row-actions">
+                                                <?php if (!empty($inv['pdf_path'])): ?>
+                                                    <a href="<?= url('actions/document-download.php?path=' . urlencode($inv['pdf_path'])) ?>" class="btn btn-soft btn-sm case-action-btn" target="_blank" rel="noopener">
+                                                        <i class="bi bi-file-earmark-text"></i><span>View</span>
+                                                    </a>
+                                                <?php endif; ?>
+                                                <?php if (!empty($inv['payment_link'])): ?>
+                                                    <a href="<?= e($inv['payment_link']) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm case-action-btn" title="Open payment link">
+                                                        <i class="bi bi-link-45deg"></i><span>Pay link</span>
+                                                    </a>
+                                                <?php elseif ($canManagePayments && $stripeReady && in_array($invStatus, ['pending', 'partially_paid', 'overdue'], true)): ?>
+                                                    <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
+                                                        <?= CSRF::field() ?>
+                                                        <input type="hidden" name="action" value="create_invoice_payment_link">
+                                                        <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                        <input type="hidden" name="invoice_id" value="<?= (int) $inv['id'] ?>">
+                                                        <button type="submit" class="btn btn-soft btn-sm case-action-btn" title="Create Stripe payment link">
+                                                            <i class="bi bi-link-45deg"></i><span>Create link</span>
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <?php if ($canManagePayments): ?>
+                                                    <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Email invoice <?= e($inv['invoice_number']) ?> to the client?');">
+                                                        <?= CSRF::field() ?>
+                                                        <input type="hidden" name="action" value="send_invoice_email">
+                                                        <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                        <input type="hidden" name="invoice_id" value="<?= (int) $inv['id'] ?>">
+                                                        <button type="submit" class="btn btn-soft btn-sm case-action-btn">
+                                                            <i class="bi bi-envelope"></i><span>Email client</span>
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -422,15 +444,19 @@ require __DIR__ . '/../includes/header.php';
                                 <?php foreach ($workspace['receipts'] as $r): ?>
                                     <li>
                                         <div><strong><?= e($r['receipt_number']) ?></strong><small><?= formatCurrency((float) ($r['amount'] ?? $r['payment_amount'] ?? 0)) ?></small></div>
-                                        <div class="d-flex gap-1">
-                                            <a href="<?= url('actions/receipt-download.php?id=' . (int) $r['id']) ?>" class="btn btn-soft btn-sm" target="_blank" title="View receipt"><i class="bi bi-receipt"></i></a>
+                                        <div class="case-row-actions">
+                                            <a href="<?= url('actions/receipt-download.php?id=' . (int) $r['id']) ?>" class="btn btn-soft btn-sm case-action-btn" target="_blank" rel="noopener">
+                                                <i class="bi bi-file-earmark-text"></i><span>View</span>
+                                            </a>
                                             <?php if ($canManagePayments): ?>
-                                                <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Email this receipt to the client?');">
+                                                <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Email receipt <?= e($r['receipt_number']) ?> to the client?');">
                                                     <?= CSRF::field() ?>
                                                     <input type="hidden" name="action" value="send_receipt_email">
                                                     <input type="hidden" name="case_id" value="<?= $caseId ?>">
                                                     <input type="hidden" name="receipt_id" value="<?= (int) $r['id'] ?>">
-                                                    <button type="submit" class="btn btn-soft btn-sm" title="Email to client"><i class="bi bi-envelope"></i></button>
+                                                    <button type="submit" class="btn btn-soft btn-sm case-action-btn">
+                                                        <i class="bi bi-envelope"></i><span>Email client</span>
+                                                    </button>
                                                 </form>
                                             <?php endif; ?>
                                         </div>
@@ -602,31 +628,31 @@ require __DIR__ . '/../includes/header.php';
                     </div>
 
                     <div class="client-letter-actions d-flex flex-wrap gap-2 mb-3">
-                        <button type="button" class="btn btn-soft btn-sm" id="clientLetterPreviewBtn" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
-                            <i class="bi bi-eye"></i> Preview letter
+                        <button type="button" class="btn btn-soft btn-sm case-action-btn" id="clientLetterPreviewBtn" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
+                            <i class="bi bi-eye"></i><span>Preview letter</span>
                         </button>
                         <?php if ($hasGeneratedDraft): ?>
-                            <a href="<?= url('actions/document-download.php?path=' . urlencode($clientLetterPath ?? ('cases/' . $caseId . '/generated/client_letter.html'))) ?>" class="btn btn-soft btn-sm" target="_blank" rel="noopener">
-                                <i class="bi bi-<?= $letterIsPdf ? 'file-pdf' : 'file-earmark-text' ?>"></i> Download<?= $letterIsPdf ? ' PDF' : '' ?>
+                            <a href="<?= url('actions/document-download.php?path=' . urlencode($clientLetterPath ?? ('cases/' . $caseId . '/generated/client_letter.html'))) ?>" class="btn btn-soft btn-sm case-action-btn" target="_blank" rel="noopener">
+                                <i class="bi bi-<?= $letterIsPdf ? 'file-pdf' : 'file-earmark-arrow-down' ?>"></i><span>Download<?= $letterIsPdf ? ' PDF' : '' ?></span>
                             </a>
                         <?php endif; ?>
-                        <button type="submit" data-letter-action="generate_client_letter" class="btn btn-primary btn-sm">
-                            <i class="bi bi-file-earmark-plus"></i> <?= $hasGeneratedDraft ? 'Regenerate' : 'Generate letter' ?>
+                        <button type="submit" data-letter-action="generate_client_letter" class="btn btn-soft btn-sm case-action-btn">
+                            <i class="bi bi-file-earmark-plus"></i><span><?= $hasGeneratedDraft ? 'Regenerate' : 'Generate letter' ?></span>
                         </button>
-                        <button type="submit" data-letter-action="save_client_letter_record" class="btn btn-soft btn-sm" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
-                            <i class="bi bi-save"></i> Save to client record
+                        <button type="submit" data-letter-action="save_client_letter_record" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
+                            <i class="bi bi-save"></i><span>Save to client record</span>
                         </button>
                         <?php if ($currentLetterPublished): ?>
-                            <button type="submit" data-letter-action="unpublish_client_letter" class="btn btn-soft btn-sm">
-                                <i class="bi bi-eye-slash"></i> Unpublish from client portal
+                            <button type="submit" data-letter-action="unpublish_client_letter" class="btn btn-soft btn-sm case-action-btn">
+                                <i class="bi bi-eye-slash"></i><span>Unpublish from client portal</span>
                             </button>
                         <?php else: ?>
-                            <button type="submit" data-letter-action="publish_client_letter" class="btn btn-soft btn-sm" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
-                                <i class="bi bi-globe"></i> Publish to client portal
+                            <button type="submit" data-letter-action="publish_client_letter" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
+                                <i class="bi bi-globe"></i><span>Publish to client portal</span>
                             </button>
                         <?php endif; ?>
-                        <button type="submit" data-letter-action="send_client_letter" class="btn btn-primary btn-sm" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
-                            <i class="bi bi-envelope"></i> Email to client
+                        <button type="submit" data-letter-action="send_client_letter" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
+                            <i class="bi bi-envelope"></i><span>Email to client</span>
                         </button>
                     </div>
 
@@ -831,6 +857,21 @@ require __DIR__ . '/../includes/header.php';
                 <div class="mb-3"><label class="form-label">Payment Terms</label><input type="text" name="payment_terms" class="form-control" value="<?= e($defaultPayTerms !== '' ? $defaultPayTerms : 'Payment due within 14 days') ?>"></div>
                 <div class="mb-3"><label class="form-label">Payment Instructions</label><textarea name="payment_instructions" class="form-control" rows="2" placeholder="Optional override — replaces the selected bank account on this invoice"></textarea></div>
                 <div class="mb-0"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+                <div class="mb-0 mt-3" id="invoicePaymentLinkRow">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="generate_payment_link" id="invoiceGeneratePaymentLink" value="1"<?= $stripeReady ? '' : ' disabled' ?>>
+                        <label class="form-check-label" for="invoiceGeneratePaymentLink">
+                            <i class="bi bi-link-45deg me-1 text-primary"></i>
+                            Generate payment link
+                            <span class="text-muted small">(adds a Pay Now button to the invoice)</span>
+                        </label>
+                    </div>
+                    <?php if (!$stripeReady): ?>
+                        <div class="form-text text-warning mt-1">
+                            Stripe is not configured — add keys under <strong>Settings → Payments</strong> to enable this.
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Generate</button></div>
         </form>

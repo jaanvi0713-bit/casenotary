@@ -9,6 +9,7 @@ $navItems = [
     ['icon' => 'bi-calendar3', 'label' => 'Appointments', 'href' => 'pages/appointments.php', 'page' => 'appointments'],
     ['icon' => 'bi-envelope', 'label' => 'Contact', 'href' => 'pages/contact.php', 'page' => 'contact'],
     ['icon' => 'bi-bell', 'label' => 'Notifications', 'href' => 'pages/notifications.php', 'page' => 'notifications'],
+    ['icon' => 'bi-cloud-arrow-down', 'label' => 'My Data Backup', 'href' => 'pages/backup.php', 'page' => 'backup'],
     ['icon' => 'bi-robot', 'label' => 'AI Assistant', 'href' => 'pages/chatbot.php', 'page' => 'chatbot'],
 ];
 ?>

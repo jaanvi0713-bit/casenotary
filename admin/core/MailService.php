@@ -19,21 +19,22 @@ class MailService
 
         if (!empty($company['smtp_host'])) {
             try {
-                return self::sendViaSmtp($company, $to, $subject, $htmlBody, $from, $fromName);
+                return self::sendViaSmtp($company, $to, $subject, $htmlBody, $from, $fromName, $attachments);
             } catch (Throwable $e) {
                 self::logMail($to, 'SMTP ERROR: ' . $e->getMessage(), '', []);
             }
         }
 
+        $mime = self::buildMimeMessage($htmlBody, $attachments);
         $headers = [
             'MIME-Version: 1.0',
-            'Content-type: text/html; charset=UTF-8',
+            $mime['headers'],
             'From: ' . self::encodeAddress($fromName, $from),
             'Reply-To: ' . $from,
             'X-Mailer: PHP/' . PHP_VERSION,
         ];
 
-        $sent = @mail($to, self::encodeSubject($subject), $htmlBody, implode("\r\n", $headers));
+        $sent = @mail($to, self::encodeSubject($subject), $mime['body'], implode("\r\n", $headers));
 
         return $sent || self::isDebugMode();
     }
@@ -109,6 +110,14 @@ class MailService
             ? '<strong>Amount due:</strong> ' . formatCurrency($remaining) . '<br><strong>Invoice total:</strong> ' . formatCurrency($total) . '<br>'
             : '<strong>Amount:</strong> ' . formatCurrency($total) . '<br>';
 
+        $payNowBlock = '';
+        if (!empty($invoice['payment_link'])) {
+            $payNowBlock = '<p style="text-align:center;margin:20px 0">'
+                . '<a href="' . e((string) $invoice['payment_link']) . '" style="display:inline-block;padding:12px 28px;background:#3aafa9;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px">'
+                . '&#128179; Pay Now'
+                . '</a></p>';
+        }
+
         $body = self::wrapTemplate(
             'Invoice — ' . e($case['title'] ?? $case['case_number']),
             '<p>Dear ' . e($name) . ',</p>'
@@ -116,6 +125,7 @@ class MailService
             . '<strong>' . e($case['case_number']) . '</strong>.</p>'
             . '<p>' . $amountLine
             . '<strong>Due date:</strong> ' . e($dueDate) . '</p>'
+            . $payNowBlock
             . '<p>Log in to your client portal to view the invoice and pay online if available.</p>'
             . '<p><a href="' . e(clientUrl('pages/payments.php')) . '" style="color:#3aafa9;">View invoices &amp; pay</a></p>'
         );
@@ -146,6 +156,59 @@ class MailService
         $attachments = $documentPath && is_file($documentPath) ? [$documentPath] : [];
 
         return self::send($client['email'], 'Receipt ' . $receiptNumber . ' — ' . $case['case_number'], $body, $attachments);
+    }
+
+    public static function sendSystemBackupEmail(string $to, string $companyName, string $backupPath, string $triggerLabel): bool
+    {
+        if (!is_file($backupPath)) {
+            return false;
+        }
+
+        $sizeKb = number_format(filesize($backupPath) / 1024, 1);
+        $body   = self::wrapTemplate(
+            'System backup — ' . e($companyName),
+            '<p>A full system backup has been created for <strong>' . e($companyName) . '</strong>.</p>'
+            . '<p><strong>Trigger:</strong> ' . e($triggerLabel) . '<br>'
+            . '<strong>Created:</strong> ' . e(date('M d, Y g:i A')) . '<br>'
+            . '<strong>File size:</strong> ' . e($sizeKb) . ' KB</p>'
+            . '<p>The JSON file is attached. It is a full website data export: admin settings plus '
+            . 'clients, cases, invoices, payments, appointments, and related database records.</p>'
+            . '<p style="font-size:12px;color:#64748b;">This email is sent to administrators only. '
+            . 'Server copies are kept for ' . BackupService::RETENTION_DAYS . ' days.</p>'
+        );
+
+        return self::send($to, 'System backup — ' . $companyName, $body, [$backupPath]);
+    }
+
+    /**
+     * @param array<string, mixed> $client
+     */
+    public static function sendClientDataBackupEmail(array $client, string $companyName, string $backupPath): bool
+    {
+        if (!is_file($backupPath)) {
+            return false;
+        }
+
+        $to   = trim((string) ($client['email'] ?? ''));
+        $name = clientFullName($client) ?: 'Client';
+        if ($to === '') {
+            return false;
+        }
+
+        $sizeKb = number_format(filesize($backupPath) / 1024, 1);
+        $body   = self::wrapTemplate(
+            'Your data export — ' . e($companyName),
+            '<p>Dear ' . e($name) . ',</p>'
+            . '<p>As requested, here is a copy of your data held by <strong>' . e($companyName) . '</strong>.</p>'
+            . '<p><strong>Created:</strong> ' . e(date('M d, Y g:i A')) . '<br>'
+            . '<strong>File size:</strong> ' . e($sizeKb) . ' KB</p>'
+            . '<p>The attached JSON file includes your profile and website data visible in the client portal '
+            . '(cases, invoices, payments, appointments, and related records).</p>'
+            . '<p style="font-size:12px;color:#64748b;">This export is for your records only. '
+            . 'If you did not request this, please contact the office immediately.</p>'
+        );
+
+        return self::send($to, 'Your data export — ' . $companyName, $body, [$backupPath]);
     }
 
     public static function sendLoginEmail(array $client, string $instructions, ?string $plainPassword = null): bool
@@ -321,7 +384,7 @@ class MailService
         return '=?UTF-8?B?' . base64_encode($name) . '?= <' . $email . '>';
     }
 
-    private static function sendViaSmtp(array $company, string $to, string $subject, string $htmlBody, string $from, string $fromName): bool
+    private static function sendViaSmtp(array $company, string $to, string $subject, string $htmlBody, string $from, string $fromName, array $attachments = []): bool
     {
         $host = $company['smtp_host'];
         $port = (int) ($company['smtp_port'] ?? 587);
@@ -358,13 +421,14 @@ class MailService
         self::smtpCommand($socket, 'RCPT TO:<' . $to . '>', [250, 251]);
         self::smtpCommand($socket, 'DATA', [354]);
 
+        $mime = self::buildMimeMessage($htmlBody, $attachments);
         $message = 'From: ' . self::encodeAddress($fromName, $from) . "\r\n"
             . 'To: <' . $to . ">\r\n"
             . 'Subject: ' . self::encodeSubject($subject) . "\r\n"
             . "MIME-Version: 1.0\r\n"
-            . "Content-Type: text/html; charset=UTF-8\r\n"
+            . $mime['headers']
             . "\r\n"
-            . $htmlBody . "\r\n.";
+            . $mime['body'] . "\r\n.";
 
         self::smtpCommand($socket, $message, [250]);
         self::smtpCommand($socket, 'QUIT', [221]);
@@ -393,5 +457,49 @@ class MailService
         if (!in_array($code, $okCodes, true)) {
             throw new RuntimeException('SMTP error: ' . trim($response));
         }
+    }
+
+    /**
+     * @param list<string> $attachments
+     *
+     * @return array{headers: string, body: string}
+     */
+    private static function buildMimeMessage(string $htmlBody, array $attachments): array
+    {
+        if ($attachments === []) {
+            return [
+                'headers' => "Content-Type: text/html; charset=UTF-8\r\n",
+                'body'    => $htmlBody,
+            ];
+        }
+
+        $boundary = 'bnd_' . bin2hex(random_bytes(12));
+        $body     = '--' . $boundary . "\r\n"
+            . "Content-Type: text/html; charset=UTF-8\r\n"
+            . "Content-Transfer-Encoding: 8bit\r\n\r\n"
+            . $htmlBody . "\r\n";
+
+        foreach ($attachments as $path) {
+            if (!is_string($path) || !is_file($path)) {
+                continue;
+            }
+
+            $filename = basename($path);
+            $mimeType = mime_content_type($path) ?: 'application/octet-stream';
+            $encoded  = chunk_split(base64_encode((string) file_get_contents($path)));
+
+            $body .= '--' . $boundary . "\r\n"
+                . 'Content-Type: ' . $mimeType . '; name="' . $filename . "\"\r\n"
+                . "Content-Transfer-Encoding: base64\r\n"
+                . 'Content-Disposition: attachment; filename="' . $filename . "\"\r\n\r\n"
+                . $encoded . "\r\n";
+        }
+
+        $body .= '--' . $boundary . "--\r\n";
+
+        return [
+            'headers' => 'Content-Type: multipart/mixed; boundary="' . $boundary . "\"\r\n",
+            'body'    => $body,
+        ];
     }
 }

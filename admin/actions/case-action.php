@@ -245,8 +245,30 @@ try {
             if ($isClient || !Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
                 throw new RuntimeException('You do not have permission to manage invoices.');
             }
-            CaseService::generateInvoice($caseId, $_POST);
-            flash('success', 'Invoice generated.');
+            $invoiceId = CaseService::generateInvoice($caseId, $_POST);
+            if (!empty($_POST['generate_payment_link'])) {
+                $inv = Database::fetch('SELECT payment_link FROM invoices WHERE id = ?', [$invoiceId]);
+                if (empty($inv['payment_link'])) {
+                    flash('warning', 'Invoice created, but the Stripe payment link could not be generated. Use Create link on the invoice row or check Settings → Payments.');
+                } else {
+                    flash('success', 'Invoice generated with payment link.');
+                }
+            } else {
+                flash('success', 'Invoice generated.');
+            }
+            redirectCase($caseId, 'invoices');
+            break;
+
+        case 'create_invoice_payment_link':
+            if ($isClient || !Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+                throw new RuntimeException('You do not have permission to manage invoices.');
+            }
+            $invoiceId = (int) ($_POST['invoice_id'] ?? 0);
+            if ($invoiceId <= 0) {
+                throw new RuntimeException('Invalid invoice.');
+            }
+            CaseService::createInvoicePaymentLink($caseId, $invoiceId);
+            flash('success', 'Payment link created. Use Pay link on the invoice row to open it.');
             redirectCase($caseId, 'invoices');
             break;
 

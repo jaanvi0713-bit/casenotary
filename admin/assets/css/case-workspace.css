@@ -319,6 +319,29 @@
 
 .case-doc-list small { font-size: 0.6875rem; color: #334155; }
 
+.case-row-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+.case-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+}
+
+.case-action-btn i {
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
 .case-notes-scroll,
 .case-activity-scroll {
     max-height: 360px;
@@ -950,6 +973,15 @@ textarea.case-form-control {
 .client-letter-actions {
     padding-top: 0.5rem;
     border-top: 1px solid var(--gray-200);
+}
+
+.client-letter-actions .case-action-btn {
+    text-decoration: none;
+}
+
+.client-letter-actions .case-action-btn:disabled,
+.client-letter-actions .case-action-btn[disabled] {
+    pointer-events: none;
 }
 
 .client-letter-workspace {

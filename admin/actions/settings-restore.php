@@ -4,6 +4,11 @@ require_once __DIR__ . '/../core/bootstrap.php';
 
 Auth::guardAction();
 
+if (!Auth::isAdmin()) {
+    flash('error', 'You do not have permission to restore backups.');
+    redirect('pages/settings.php?tab=backup');
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !CSRF::verifyRequest()) {
     flash('error', 'Invalid request.');
     redirect('pages/settings.php?tab=backup');

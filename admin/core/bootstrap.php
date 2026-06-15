@@ -42,6 +42,7 @@ require_once __DIR__ . '/GoogleOAuthService.php';
 require_once __DIR__ . '/ReminderService.php';
 require_once __DIR__ . '/ProfileService.php';
 require_once __DIR__ . '/SettingsService.php';
+require_once __DIR__ . '/BackupService.php';
 require_once __DIR__ . '/TenantService.php';
 require_once __DIR__ . '/CompanyService.php';
 require_once __DIR__ . '/ChatbotConversation.php';

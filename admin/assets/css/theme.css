@@ -101,6 +101,9 @@
 [data-theme="dark"] .table-card,
 [data-theme="dark"] .chart-card,
     [data-theme="dark"] .dash-chart-card,
+    [data-theme="dark"] .biz-insights-panel,
+    [data-theme="dark"] .biz-mini-chart-card,
+    [data-theme="dark"] .biz-sparkline-card,
     [data-theme="dark"] .dashboard-chart-card,
     [data-theme="dark"] .settings-form-section,
     [data-theme="dark"] .settings-form-section__body,
@@ -1809,4 +1812,24 @@
 [data-theme="dark"] .bank-accounts-default {
     background: color-mix(in srgb, var(--primary) 12%, var(--surface));
     border-color: color-mix(in srgb, var(--primary) 30%, var(--border-default));
+}
+
+/* Backup settings */
+[data-theme="dark"] .backup-settings-page {
+    background: transparent;
+}
+
+[data-theme="dark"] .backup-schedule-info {
+    background: var(--surface-raised);
+    border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .backup-schedule-info__item,
+[data-theme="dark"] .backup-last-run,
+[data-theme="dark"] .backup-settings-card__hint {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .backup-last-run strong {
+    color: var(--text-body);
 }

@@ -66,6 +66,19 @@ class SettingsService
         'stripe_secret_key',
     ];
 
+    /** @var list<string> */
+    private const BACKUP_FIELDS = [
+        'backup_frequency',
+        'last_backup_at',
+    ];
+
+    /** @var list<string> */
+    private const RESTORE_EXCLUDED_COLUMNS = [
+        'id',
+        'company_id',
+        'updated_at',
+    ];
+
     public static function get(): array
     {
         if (self::$cache !== null) {
@@ -118,6 +131,99 @@ class SettingsService
     public static function clearCache(): void
     {
         self::$cache = null;
+    }
+
+    /** @return array{version: string, exported_at: string, company_id: int|null, settings: array<string, mixed>} */
+    public static function exportBackup(): array
+    {
+        return self::exportBackupForCompany(TenantService::id());
+    }
+
+    /** @return array{version: string, exported_at: string, company_id: int|null, settings: array<string, mixed>} */
+    public static function exportBackupForCompany(int $companyId): array
+    {
+        return BackupService::exportForCompany($companyId);
+    }
+
+    /** @param array<string, mixed> $data */
+    public static function restoreBackup(array $data): void
+    {
+        $current = self::get();
+        $id      = (int) ($current['id'] ?? 0);
+
+        if ($id <= 0) {
+            throw new RuntimeException('Company settings record not found.');
+        }
+
+        $incoming = $data['settings'] ?? [];
+        if (!is_array($incoming)) {
+            throw new RuntimeException('Backup file is missing settings data.');
+        }
+
+        $setParts = [];
+        $params   = [];
+
+        foreach ($incoming as $key => $value) {
+            if (!is_string($key) || in_array($key, self::RESTORE_EXCLUDED_COLUMNS, true)) {
+                continue;
+            }
+            if (!Database::columnExists('company_settings', $key)) {
+                continue;
+            }
+            $setParts[] = "`{$key}` = ?";
+            $params[]   = $value;
+        }
+
+        if ($setParts === []) {
+            throw new RuntimeException('No valid settings found in backup file.');
+        }
+
+        $params[] = $id;
+        Database::query(
+            'UPDATE company_settings SET ' . implode(', ', $setParts) . ' WHERE id = ?',
+            $params
+        );
+        self::clearCache();
+    }
+
+    public static function saveSetting(string $key, mixed $value, ?int $companyId = null): void
+    {
+        if (!Database::columnExists('company_settings', $key)) {
+            return;
+        }
+
+        $companyId = $companyId ?? TenantService::id();
+        $row       = TenantService::isEnabled()
+            ? Database::fetch('SELECT id FROM company_settings WHERE company_id = ? LIMIT 1', [$companyId])
+            : Database::fetch('SELECT id FROM company_settings LIMIT 1');
+
+        if (!$row) {
+            throw new RuntimeException('Company settings record not found.');
+        }
+
+        Database::query(
+            "UPDATE company_settings SET `{$key}` = ? WHERE id = ?",
+            [$value, (int) $row['id']]
+        );
+        self::clearCache();
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private static function exportableSettings(array $row): array
+    {
+        $settings = [];
+        foreach ($row as $column => $value) {
+            if (in_array($column, self::RESTORE_EXCLUDED_COLUMNS, true)) {
+                continue;
+            }
+            $settings[$column] = $value;
+        }
+
+        return $settings;
     }
 
     public static function update(array $data, ?array $logoFile = null, ?array $faviconFile = null, string $tab = 'branding'): void
@@ -330,6 +436,11 @@ class SettingsService
             'beneficiary'     => 'account_name',
             'account number'  => 'account_number',
             'account no'      => 'account_number',
+            'acc number'      => 'account_number',
+            'acc num'         => 'account_number',
+            'acc no'          => 'account_number',
+            'a/c no'          => 'account_number',
+            'a/c number'      => 'account_number',
             'sort code'       => 'sort_code',
             'iban'            => 'iban',
             'bic'             => 'bic',
@@ -346,7 +457,15 @@ class SettingsService
         $matched = false;
         foreach (preg_split('/\r\n|\r|\n/', $text) ?: [] as $line) {
             $line = trim((string) $line);
-            if ($line === '' || !str_contains($line, ':')) {
+            if ($line === '') {
+                continue;
+            }
+
+            if (!str_contains($line, ':')) {
+                if ($fields['account_name'] === '' && !preg_match('/^\d[\d\s\-]+$/', $line)) {
+                    $fields['account_name'] = $line;
+                    $matched = true;
+                }
                 continue;
             }
 
@@ -443,7 +562,9 @@ class SettingsService
                     . $icon
                     . '<div class="bank-detail-row__content">'
                     . '<span class="bank-detail-row__label fdoc-bank-label">' . e($label) . '</span>'
-                    . '<span class="bank-detail-row__value">' . e($value) . '</span>'
+                    . '<span class="bank-detail-row__value' . ($key === 'account_number' ? ' bank-detail-row__value--account' : '') . '">'
+                    . e(self::formatBankFieldDisplayValue($key, $value))
+                    . '</span>'
                     . '</div></div>';
             }
 
@@ -451,6 +572,23 @@ class SettingsService
         }
 
         return '<div class="bank-details-panel bank-details-panel--plain' . ($withIcons ? '' : ' bank-details-panel--document') . '">' . nl2br(e($text)) . '</div>';
+    }
+
+    public static function formatBankFieldDisplayValue(string $key, string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        if ($key === 'account_number') {
+            $digits = preg_replace('/\D+/', '', $value) ?? '';
+            if ($digits !== '' && strlen($digits) >= 6) {
+                return trim(chunk_split($digits, 4, ' '));
+            }
+        }
+
+        return $value;
     }
 
     public static function bankFieldIcon(string $key): string
@@ -615,6 +753,7 @@ class SettingsService
         $editable = match ($tab) {
             'email'    => self::EMAIL_FIELDS,
             'payments' => self::PAYMENTS_FIELDS,
+            'backup'   => self::BACKUP_FIELDS,
             default    => self::BRANDING_FIELDS,
         };
 
@@ -758,6 +897,8 @@ class SettingsService
             'smtp_encryption' => 'tls',
             'stripe_public_key' => null,
             'stripe_secret_key' => null,
+            'backup_frequency'  => 'never',
+            'last_backup_at'    => null,
         ];
     }
 

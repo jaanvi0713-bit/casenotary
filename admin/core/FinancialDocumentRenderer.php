@@ -245,6 +245,14 @@ class FinancialDocumentRenderer
 
         $footerHtml = self::paymentFooterHtml($company, $invoice, $payableName);
 
+        if (!empty($invoice['payment_link'])) {
+            $payBtn = '<div class="fdoc-pay-now no-print">'
+                . '<a href="' . e((string) $invoice['payment_link']) . '" target="_blank" rel="noopener" class="fdoc-pay-btn">'
+                . '&#128179; Pay Now'
+                . '</a></div>';
+            array_unshift($notes, $payBtn);
+        }
+
         return self::render([
             'type'        => 'invoice',
             'title'       => 'INVOICE',
@@ -633,6 +641,9 @@ class FinancialDocumentRenderer
             .fdoc-bank-label{font-weight:600;color:#1e293b}
             .fdoc-payee{margin:0 0 6px;font-size:16px;font-weight:700;line-height:1.4;color:' . $primary . '}
             .fdoc-vat-no{margin:16px 0 0;font-size:14px;color:#475569}
+            .fdoc-pay-now{margin:20px 0;text-align:center}
+            .fdoc-pay-btn{display:inline-block;padding:12px 32px;background:' . $primary . ';color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:16px;letter-spacing:.02em}
+            .fdoc-pay-btn:hover{background:color-mix(in srgb,' . $primary . ' 82%,#000)}
             .fdoc-footer{margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}
             @page{size:A4 portrait;margin:8mm 10mm}
             @media print{
@@ -658,6 +669,7 @@ class FinancialDocumentRenderer
                 .fdoc-summary-row--highlight:last-child{font-size:16px}
                 .fdoc-note{font-size:11px;line-height:1.45;margin-bottom:10px;padding:8px 10px}
                 .fdoc-payment{font-size:12px;break-inside:avoid;page-break-inside:avoid}
+                .fdoc-pay-now{display:none}
                 .fdoc-top,.fdoc-parties,.fdoc-table{break-inside:avoid;page-break-inside:avoid}
             }
         </style>';
