@@ -121,14 +121,6 @@ class CompanyRoleAccessService
             self::$cache[$companyId] = self::loadCompany($companyId);
         }
 
-        if (isset(self::$cache[$companyId][$role])) {
-            return self::$cache[$companyId][$role];
-        }
-
-        if (CompanyRoleService::tableExists() && CompanyRoleService::existsForCompany($companyId, $role)) {
-            return self::buildDefault($role);
-        }
-
         return self::$cache[$companyId][$role] ?? self::buildDefault($role);
     }
 
@@ -311,11 +303,12 @@ class CompanyRoleAccessService
     private static function buildDefault(string $role): array
     {
         $defaults = self::defaultRolePermissions();
+        $fallbackRole = isset($defaults[$role]) ? $role : 'staff';
 
         return [
-            'permissions' => $defaults[$role] ?? [RoleAccess::PERMISSION_DASHBOARD, RoleAccess::PERMISSION_PROFILE],
-            'assigned_cases_only' => self::defaultAssignedCasesOnly($role),
-            'read_only' => self::defaultReadOnly($role),
+            'permissions' => $defaults[$fallbackRole],
+            'assigned_cases_only' => self::defaultAssignedCasesOnly($fallbackRole),
+            'read_only' => self::defaultReadOnly($fallbackRole),
         ];
     }
 }

@@ -235,12 +235,16 @@ class TenantService
         }
 
         $col = ($alias !== '' ? rtrim($alias, '.') . '.' : '') . 'company_id';
-        $where[] = "{$col} = ?";
+        $where[] = "({$col} = ? OR {$col} IS NULL)";
         $params[] = self::id();
     }
 
-    /** @return list<int> */
-    public static function adminNotifierUserIds(int $companyId): array
+    /**
+     * Active staff in a company who should receive in-app alerts for workspace events.
+     *
+     * @return list<int>
+     */
+    public static function staffNotifierUserIds(int $companyId, string $permission = RoleAccess::PERMISSION_NOTIFICATIONS): array
     {
         if ($companyId <= 0) {
             return [];
@@ -249,19 +253,34 @@ class TenantService
         $ids = [];
 
         foreach (Database::fetchAll(
-            "SELECT id FROM users WHERE status = 'active' AND role = 'admin' AND company_id = ?",
-            [$companyId]
-        ) as $row) {
-            $ids[] = (int) $row['id'];
-        }
-
-        foreach (Database::fetchAll(
             "SELECT id FROM users WHERE status = 'active' AND role = 'super_admin'"
         ) as $row) {
             $ids[] = (int) $row['id'];
         }
 
+        $activeSql = "SELECT id, role FROM users WHERE status = 'active' AND company_id = ?";
+        if (Database::columnExists('users', 'is_active')) {
+            $activeSql .= ' AND (is_active IS NULL OR is_active = 1)';
+        }
+
+        foreach (Database::fetchAll($activeSql, [$companyId]) as $row) {
+            $role = (string) ($row['role'] ?? '');
+            if ($role === '' || $role === 'client') {
+                continue;
+            }
+
+            if (RoleAccess::allows($role, $permission, $companyId)) {
+                $ids[] = (int) $row['id'];
+            }
+        }
+
         return array_values(array_unique($ids));
+    }
+
+    /** @return list<int> */
+    public static function adminNotifierUserIds(int $companyId): array
+    {
+        return self::staffNotifierUserIds($companyId, RoleAccess::PERMISSION_NOTIFICATIONS);
     }
 
     /** @param list<mixed> $params */

@@ -164,10 +164,10 @@ require __DIR__ . '/../includes/header.php';
                             <?php renderPasswordRevealField('new_password_confirmation', 'new_password_confirmation', [
                                 'disabled' => !$canEditUsers,
                                 'autocomplete' => 'new-password',
-                                'minlength' => 8,
                             ]); ?>
                         </div>
                         <div class="col-12">
+                            <?php renderPasswordStrengthHint('form-text mb-0', true); ?>
                             <?php if ((int) $id === (int) Auth::id()): ?>
                                 <p class="form-text mb-0">Enter your current password when setting a new one on your own account. Leave new password blank to keep it unchanged.</p>
                             <?php else: ?>
@@ -191,13 +191,16 @@ require __DIR__ . '/../includes/header.php';
                                 'required' => true,
                                 'disabled' => !$canEditUsers,
                                 'autocomplete' => 'new-password',
-                                'minlength' => 8,
                             ]); ?>
                         </div>
+<<<<<<< Updated upstream
                         <div class="col-12">
                             <?php renderPasswordStrengthHint('form-text mt-1 mb-0', false); ?>
                         </div>
+=======
+>>>>>>> Stashed changes
                         <div class="col-12">
+                            <?php renderPasswordStrengthHint('form-text mb-0'); ?>
                             <p class="small text-muted mb-0"><?= e(RoleAccess::roleDescription('staff')) ?></p>
                         </div>
                     <?php endif; ?>

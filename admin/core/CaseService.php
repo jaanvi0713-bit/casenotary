@@ -2128,8 +2128,12 @@ class CaseService
             $userIds[] = (int) $case['client_user_id'];
         }
 
-        foreach (TenantService::adminNotifierUserIds($companyId) as $adminId) {
-            $userIds[] = $adminId;
+        if (!empty($case['assigned_admin_id'])) {
+            $userIds[] = (int) $case['assigned_admin_id'];
+        }
+
+        foreach (TenantService::staffNotifierUserIds($companyId, RoleAccess::PERMISSION_NOTIFICATIONS) as $staffId) {
+            $userIds[] = $staffId;
         }
 
         $userIds = array_unique($userIds);

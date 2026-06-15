@@ -2563,7 +2563,7 @@ function getRecentCases(int $limit = 5): array
 {
     $where = [];
     $params = [];
-    TenantService::appendScope($where, $params, 'cs');
+    appendCaseTenantScope($where, $params, 'cs', 'cl');
     appendAssignedCaseScope($where, $params, 'cs');
     $params[] = $limit;
     $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
@@ -3224,7 +3224,11 @@ function appendCaseTenantScope(array &$where, array &$params, string $caseAlias 
     $params[] = $companyId;
 }
 
+<<<<<<< Updated upstream
 function countCases(?string $search = null): int
+=======
+function countCases(?string $search = null, ?string $status = null, ?string $priority = null): int
+>>>>>>> Stashed changes
 {
     $search = normalizeSearchTerm($search);
     $where = [];
@@ -3235,7 +3239,7 @@ function countCases(?string $search = null): int
         $params[] = '%' . $search . '%';
     }
 
-    TenantService::appendScope($where, $params, 'cs');
+    appendCaseTenantScope($where, $params, 'cs', 'cl');
     appendAssignedCaseScope($where, $params, 'cs');
 
     $sql = 'SELECT COUNT(*) AS c FROM cases cs JOIN clients cl ON cl.id = cs.client_id';
@@ -3258,7 +3262,7 @@ function getCasesPaginated(int $page, int $perPage = 10, ?string $search = null)
         $params[] = '%' . $search . '%';
     }
 
-    TenantService::appendScope($where, $params, 'cs');
+    appendCaseTenantScope($where, $params, 'cs', 'cl');
     appendAssignedCaseScope($where, $params, 'cs');
 
     $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
