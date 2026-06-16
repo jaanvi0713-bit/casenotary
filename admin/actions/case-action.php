@@ -233,9 +233,13 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'send_client_letter':            if ($caseId <= 0) {
+        case 'send_client_letter':
+            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
+            $instructions = trim($_POST['client_instructions'] ?? '');
+            $sections     = ClientLetterService::sectionsFromPost($_POST);
+            ClientLetterService::ensureGeneratedDraft($caseId, $instructions, $sections);
             CaseService::sendClientLetterToClient($caseId);
             flash('success', 'Client letter emailed to client.');
             redirectCase($caseId, 'client-letter');

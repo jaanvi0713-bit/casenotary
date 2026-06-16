@@ -176,7 +176,7 @@ class FinancialDocumentRenderer
             $notes[] = '<p class="fdoc-note"><strong>Notes:</strong> ' . nl2br(e($quotationNotes)) . '</p>';
         }
 
-        $company = getCompanySettings();
+        $company = documentBrandingSettings();
 
         return self::render([
             'type'        => 'quotation',
@@ -220,7 +220,7 @@ class FinancialDocumentRenderer
             $summaryOpts
         );
 
-        $company = getCompanySettings();
+        $company = documentBrandingSettings();
         $paymentTerms = trim((string) ($invoice['payment_terms'] ?? ''));
         if ($paymentTerms === '') {
             $paymentTerms = trim((string) ($company['default_invoice_payment_terms'] ?? ''));
@@ -318,7 +318,7 @@ class FinancialDocumentRenderer
             $detailNote .= '<p class="fdoc-note"><strong>Notes:</strong> ' . nl2br(e($notes)) . '</p>';
         }
 
-        $company = getCompanySettings();
+        $company = documentBrandingSettings();
 
         return self::render([
             'type'        => 'receipt',
@@ -352,7 +352,7 @@ class FinancialDocumentRenderer
      */
     public static function render(array $config): string
     {
-        $company     = getCompanySettings();
+        $company     = documentBrandingSettings();
         $primary     = (string) ($company['primary_color'] ?? '#3aafa9');
         $secondary   = (string) ($company['secondary_color'] ?? '#00182c');
         $companyName = e(companyBrandName($company));

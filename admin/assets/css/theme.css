@@ -119,8 +119,14 @@
 [data-theme="dark"] .fc .fc-scrollgrid,
 [data-theme="dark"] .fc-theme-standard td,
 [data-theme="dark"] .fc-theme-standard th,
-[data-theme="dark"] .chatbot-panel,
-[data-theme="dark"] .chatbot-sidebar,
+[data-theme="dark"] .assistant-card,
+[data-theme="dark"] .assistant-messages,
+[data-theme="dark"] .assistant-input-area,
+[data-theme="dark"] .assistant-library-card,
+[data-theme="dark"] .assistant-library-shell,
+[data-theme="dark"] .assistant-library-sidebar,
+[data-theme="dark"] .assistant-library-drawer,
+[data-theme="dark"] .assistant-prompts-card,
 [data-theme="dark"] .chat-panel,
 [data-theme="dark"] .logo-branding-panel,
 [data-theme="dark"] .settings-nav-card,
@@ -557,91 +563,76 @@
     border-color: var(--border-default);
 }
 
-/* ── AI Chatbot (full workspace) ──────────────────────────── */
-[data-theme="dark"] .chatbot-panel-chat,
-[data-theme="dark"] .chatbot-workspace-grid .saas-card,
-[data-theme="dark"] .chatbot-sidebar,
-[data-theme="dark"] .chatbot-panel,
-[data-theme="dark"] .chatbot-panel .saas-card-header,
-[data-theme="dark"] .chatbot-input-area,
-[data-theme="dark"] .chat-bubble,
-[data-theme="dark"] .chat-prompt-btn,
-[data-theme="dark"] .chat-msg-action-btn,
-[data-theme="dark"] .chat-attach-chip {
-    background: var(--surface) !important;
-    border-color: var(--border-default);
-    color: var(--text-body);
-}
-
-[data-theme="dark"] .chatbot-messages {
-    background: var(--surface-sunken) !important;
-}
-
-[data-theme="dark"] .chatbot-sidebar-title,
-[data-theme="dark"] .chat-history-title {
-    color: var(--text-label);
-}
-
-[data-theme="dark"] .chat-history-meta,
-[data-theme="dark"] .chat-history-preview,
-[data-theme="dark"] .chat-capabilities li,
-[data-theme="dark"] .chatbot-input-hint {
-    color: var(--gray-500);
-}
-
-[data-theme="dark"] .chat-history-item:hover,
-[data-theme="dark"] .chat-history-item.is-active {
-    background: var(--primary-light) !important;
-}
-
-[data-theme="dark"] .chat-bubble {
-    border-color: var(--border-subtle);
-    box-shadow: var(--shadow);
-}
-
-[data-theme="dark"] .chat-message-user .chat-bubble {
-    background: var(--primary) !important;
-    border-color: transparent;
-    color: #fff;
-}
-
-[data-theme="dark"] .chat-message-bot .chat-bubble,
-[data-theme="dark"] .chat-welcome .chat-bubble {
+[data-theme="dark"] .assistant-message-bot .assistant-bubble {
     background: var(--surface-raised) !important;
-    color: var(--text-body);
-}
-
-[data-theme="dark"] .chat-prompt-btn:hover {
-    background: var(--primary-light) !important;
-    border-color: var(--primary);
-    color: var(--primary);
-}
-
-[data-theme="dark"] .chatbot-form .form-control {
-    background: var(--surface-sunken);
     border-color: var(--border-default);
     color: var(--text-body);
 }
 
-[data-theme="dark"] .chatbot-form .form-control:focus {
-    background: var(--surface);
-    border-color: var(--primary);
-    box-shadow: var(--focus-ring);
+[data-theme="dark"] .assistant-message-action {
+    color: var(--text-muted);
 }
 
-[data-theme="dark"] .chat-msg-action-btn:hover {
-    background: var(--primary-light);
-    border-color: var(--primary);
+[data-theme="dark"] .assistant-message-action:hover {
     color: var(--primary);
+    background: var(--surface-raised);
 }
 
-[data-theme="dark"] .chat-bubble .chat-link {
-    color: var(--primary);
-}
-
-[data-theme="dark"] body.page-chatbot .chatbot-sidebar-open {
-    background: var(--surface);
+[data-theme="dark"] .assistant-attach-bar {
+    background: var(--surface-raised);
     border-color: var(--border-default);
+}
+
+[data-theme="dark"] .assistant-attach-clear:hover {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="dark"] .assistant-draft-card {
+    background: var(--surface-raised) !important;
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .assistant-alert--critical {
+    color: #fecaca;
+}
+
+[data-theme="dark"] .assistant-alert--warning {
+    color: #fde68a;
+}
+
+[data-theme="dark"] .assistant-library-toggle.is-active {
+    background: rgba(58, 175, 169, 0.15);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .assistant-library-item:hover {
+    background: var(--surface-raised);
+}
+
+[data-theme="dark"] .assistant-library-item.is-active {
+    background: rgba(58, 175, 169, 0.12);
+}
+
+[data-theme="dark"] .assistant-library-item__title {
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .assistant-prompt-btn {
+    background: var(--surface-raised);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .assistant-prompt-btn:hover {
+    border-color: rgba(58, 175, 169, 0.5);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .assistant-library-sidebar__header {
+    border-bottom-color: var(--border-default);
+}
+
+[data-theme="dark"] .assistant-library-close:hover {
+    background: var(--surface-raised);
     color: var(--text-body);
 }
 
@@ -747,21 +738,6 @@
 .appointment-calendar-legend i.appointment-legend-dot {
     width: 0.625rem;
     height: 0.625rem;
-}
-
-/* Online status badge in chatbot — light mode matches Bootstrap success badge */
-:root:not([data-theme="dark"]) .chatbot-status-badge {
-    background: rgba(16, 185, 129, 0.12) !important;
-    color: #047857 !important;
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    font-weight: 600;
-}
-
-[data-theme="dark"] .chatbot-status-badge {
-    background: rgba(16, 185, 129, 0.14) !important;
-    color: #6ee7b7 !important;
-    border: 1px solid rgba(16, 185, 129, 0.35);
-    font-weight: 600;
 }
 
 /* intl-tel-input */
@@ -916,49 +892,6 @@
     background: var(--gray-100) !important;
 }
 
-/* AI chat — force dark surfaces (override any leftover white) */
-[data-theme="dark"] .chatbot-page .saas-card,
-[data-theme="dark"] .chatbot-page .saas-card-header,
-[data-theme="dark"] .chatbot-page .saas-card-body,
-[data-theme="dark"] .chatbot-panel-chat,
-[data-theme="dark"] .chatbot-panel-prompts,
-[data-theme="dark"] .chatbot-messages,
-[data-theme="dark"] .chatbot-input-area,
-[data-theme="dark"] .chatbot-sidebar,
-[data-theme="dark"] .chat-bubble:not(.chat-message-user .chat-bubble),
-[data-theme="dark"] .chat-prompt-btn,
-[data-theme="dark"] .chat-msg-action-btn {
-    background-color: var(--surface) !important;
-    border-color: var(--border-default);
-    color: var(--text-body);
-}
-
-[data-theme="dark"] .chatbot-messages {
-    background-color: var(--surface-sunken) !important;
-}
-
-[data-theme="dark"] .chatbot-page .saas-card-header {
-    background: var(--surface-sunken) !important;
-    border-bottom: 1px solid var(--border-default);
-}
-
-[data-theme="dark"] .chat-message-user .chat-bubble {
-    background: var(--primary) !important;
-    border-color: transparent !important;
-    color: #fff !important;
-}
-
-[data-theme="dark"] .chat-welcome .chat-bubble strong,
-[data-theme="dark"] .chat-bubble p,
-[data-theme="dark"] .chat-bubble em {
-    color: inherit;
-}
-
-[data-theme="dark"] .chat-prompt-btn:hover {
-    background: var(--primary-light) !important;
-    color: var(--primary);
-}
-
 /* Payment / metric summary strip */
 [data-theme="dark"] .metric-card .metric-value,
 [data-theme="dark"] .payments-metric-card .metric-value {
@@ -1048,11 +981,6 @@
 
 [data-theme="dark"] .chart-empty-state i {
     color: var(--gray-400);
-}
-
-/* Chatbot status icon */
-.chatbot-status-icon {
-    font-size: 0.5rem;
 }
 
 /* Dividers & subtle borders */
@@ -1660,39 +1588,6 @@
 [data-theme="dark"] .contact-info-card {
     background: var(--surface) !important;
     border-color: var(--border-default);
-}
-
-/* Full page chatbot layout */
-[data-theme="dark"] body.page-chatbot,
-[data-theme="dark"] body.page-chatbot .main-content,
-[data-theme="dark"] body.page-chatbot .page-content {
-    background: var(--layout-canvas) !important;
-}
-
-[data-theme="dark"] .chat-history-item {
-    color: var(--text-body);
-    border-color: var(--border-subtle);
-}
-
-[data-theme="dark"] .chat-typing-indicator {
-    color: var(--text-muted);
-}
-
-[data-theme="dark"] .chatbot-new-btn,
-[data-theme="dark"] .chatbot-new-chat-btn {
-    background: var(--primary-light);
-    color: var(--primary);
-    border-color: transparent;
-}
-
-[data-theme="dark"] .chatbot-new-btn:hover,
-[data-theme="dark"] .chatbot-new-chat-btn:hover {
-    background: var(--primary);
-    color: #fff;
-}
-
-[data-theme="dark"] .chatbot-sidebar-title {
-    color: var(--text-label);
 }
 
 /* Select2 / bootstrap overrides */

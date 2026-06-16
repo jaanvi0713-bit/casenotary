@@ -63,7 +63,7 @@ $permissionIcons = [
     RoleAccess::PERMISSION_PAYMENTS => 'bi-credit-card',
     RoleAccess::PERMISSION_APPOINTMENTS => 'bi-calendar3',
     RoleAccess::PERMISSION_NOTIFICATIONS => 'bi-bell',
-    RoleAccess::PERMISSION_CHATBOT => 'bi-robot',
+    RoleAccess::PERMISSION_ASSISTANT => 'bi-robot',
     RoleAccess::PERMISSION_SETTINGS => 'bi-gear',
     RoleAccess::PERMISSION_PROFILE => 'bi-person-circle',
 ];

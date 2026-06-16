@@ -48,13 +48,7 @@ class TenantService
         SettingsService::clearCache();
         CompanyRoleAccessService::clearCache();
         CompanyRoleService::clearCache();
-        unset(
-            $_SESSION['chatbot_last_topic'],
-            $_SESSION['chatbot_last_entity'],
-            $_SESSION['chatbot_appointment_pending'],
-            $_SESSION['chatbot_schedule_pending'],
-            $_SESSION['chatbot_pending_action']
-        );
+        AssistantService::startNewChat();
     }
 
     public static function resolveOnLogin(array $user): void
@@ -220,11 +214,6 @@ class TenantService
     public static function hasNotificationScope(): bool
     {
         return self::isEnabled() && Database::columnExists('notifications', 'company_id');
-    }
-
-    public static function hasChatScope(): bool
-    {
-        return self::isEnabled() && Database::columnExists('chatbot_conversations', 'company_id');
     }
 
     /** @param list<mixed> $params */

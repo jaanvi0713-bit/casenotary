@@ -45,30 +45,21 @@ return [
         'csrf_token_name' => '_csrf_token',
     ],
 
-    'chatbot' => [
-        'max_attachments' => 10,
-        'max_size'        => 10 * 1024 * 1024,
-        'allowed_types'   => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'doc', 'docx'],
-        'upload_path'     => __DIR__ . '/../uploads/chatbot/',
-        'wikipedia'       => [
-            'enabled' => true,
-        ],
-    ],
-
     // Logo used on client letters, invoices, and receipts for every workspace.
     'document_branding' => [
         'company_name' => 'Wharf Notaries',
         'company_slug' => 'wharf-notaries',
+        // Profile with full letterhead (address, colours). Omit to auto-pick the richest match.
+        'company_id'   => 1,
     ],
 
-    // Optional external AI (OpenAI/Ollama). Built-in assistant works without this.
-    'ai' => [
-        'enabled'     => filter_var(getenv('CHATBOT_AI_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN),
-        'provider'    => getenv('CHATBOT_AI_PROVIDER') ?: 'openai',
-        'api_key'     => getenv('OPENAI_API_KEY') ?: '',
-        'model'       => getenv('CHATBOT_AI_MODEL') ?: 'gpt-4o-mini',
-        'base_url'    => getenv('CHATBOT_AI_BASE_URL') ?: 'https://api.openai.com/v1',
-        'ollama_url'  => getenv('OLLAMA_URL') ?: 'http://127.0.0.1:11434',
-        'ollama_model'=> getenv('OLLAMA_MODEL') ?: 'llama3.2',
+    // Local AI assistant via Ollama.
+    'assistant' => [
+        'enabled'      => filter_var(getenv('ASSISTANT_ENABLED') ?: 'true', FILTER_VALIDATE_BOOLEAN),
+        'base_url'     => getenv('OLLAMA_URL') ?: 'http://127.0.0.1:11434',
+        'model'        => getenv('OLLAMA_MODEL') ?: 'qwen2.5:0.5b',
+        'vision_model' => getenv('OLLAMA_VISION_MODEL') ?: 'llava',
+        'timeout'      => (int) (getenv('OLLAMA_TIMEOUT') ?: 120),
     ],
+
 ];

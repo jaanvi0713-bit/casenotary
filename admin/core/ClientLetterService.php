@@ -418,7 +418,7 @@ HTML,
 
     public static function buildContext(array $case, array $client, ?array $company = null): array
     {
-        $company = $company ?? getCompanySettings();
+        $company = $company ?? documentBrandingSettings();
         $billing = CaseService::getCaseBilling($case);
         $serviceLines = [];
 
@@ -569,7 +569,7 @@ HTML,
             throw new RuntimeException('Client not found.');
         }
 
-        $company  = getCompanySettings();
+        $company  = documentBrandingSettings();
         $billing  = CaseService::getCaseBilling($case);
         $context  = self::buildContext($case, $client, $company);
         $sections = self::normalizeSections($sections);
@@ -740,7 +740,7 @@ HTML,
         return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
             . '<title>Client Letter — ' . e($case['case_number'] ?? '') . '</title>'
             . self::documentStyles($primary, $secondary, $brandSans, $embed)
-            . '</head><body>'
+            . '</head><body' . ($embed ? ' class="cl-embed-preview"' : '') . '>'
             . ($embed ? '' : '<div class="cl-toolbar no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>')
             . '<div class="cl-document">'
             . '<header class="cl-letterhead">'
@@ -778,6 +778,8 @@ HTML,
     public static function documentStyles(string $primary, string $secondary, string $brandSans, bool $embed = false): string
     {
         $bodyBg = $embed ? '#fff' : '#e5e7eb';
+        $docMin = $embed ? 'auto' : '297mm';
+        $docPad = $embed ? '10mm 12mm 18mm' : '12mm 14mm 32mm';
 
         return '<style>
             @page {
@@ -814,8 +816,8 @@ HTML,
                 max-width: 210mm;
                 margin: 0 auto;
                 background: #fff;
-                padding: 12mm 14mm 32mm;
-                min-height: 297mm;
+                padding: ' . $docPad . ';
+                min-height: ' . $docMin . ';
             }
             .cl-letterhead { margin-bottom: 5mm; }
             .cl-letterhead-top {

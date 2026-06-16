@@ -20,7 +20,7 @@ class CompanyRoleAccessService
         RoleAccess::PERMISSION_PAYMENTS,
         RoleAccess::PERMISSION_APPOINTMENTS,
         RoleAccess::PERMISSION_NOTIFICATIONS,
-        RoleAccess::PERMISSION_CHATBOT,
+        RoleAccess::PERMISSION_ASSISTANT,
         RoleAccess::PERMISSION_SETTINGS,
         RoleAccess::PERMISSION_PROFILE,
     ];
@@ -41,7 +41,7 @@ class CompanyRoleAccessService
                 RoleAccess::PERMISSION_PAYMENTS,
                 RoleAccess::PERMISSION_APPOINTMENTS,
                 RoleAccess::PERMISSION_NOTIFICATIONS,
-                RoleAccess::PERMISSION_CHATBOT,
+                RoleAccess::PERMISSION_ASSISTANT,
                 RoleAccess::PERMISSION_SETTINGS,
                 RoleAccess::PERMISSION_PROFILE,
             ],
@@ -53,7 +53,7 @@ class CompanyRoleAccessService
                 RoleAccess::PERMISSION_PAYMENTS,
                 RoleAccess::PERMISSION_APPOINTMENTS,
                 RoleAccess::PERMISSION_NOTIFICATIONS,
-                RoleAccess::PERMISSION_CHATBOT,
+                RoleAccess::PERMISSION_ASSISTANT,
                 RoleAccess::PERMISSION_PROFILE,
             ],
             'staff' => [
@@ -62,7 +62,7 @@ class CompanyRoleAccessService
                 RoleAccess::PERMISSION_CASES,
                 RoleAccess::PERMISSION_APPOINTMENTS,
                 RoleAccess::PERMISSION_NOTIFICATIONS,
-                RoleAccess::PERMISSION_CHATBOT,
+                RoleAccess::PERMISSION_ASSISTANT,
                 RoleAccess::PERMISSION_PROFILE,
             ],
             'viewer' => [
@@ -72,6 +72,7 @@ class CompanyRoleAccessService
                 RoleAccess::PERMISSION_PAYMENTS,
                 RoleAccess::PERMISSION_APPOINTMENTS,
                 RoleAccess::PERMISSION_NOTIFICATIONS,
+                RoleAccess::PERMISSION_ASSISTANT,
                 RoleAccess::PERMISSION_PROFILE,
             ],
         ];
@@ -245,7 +246,7 @@ class CompanyRoleAccessService
             RoleAccess::PERMISSION_PAYMENTS => 'Payments',
             RoleAccess::PERMISSION_APPOINTMENTS => 'Appointments',
             RoleAccess::PERMISSION_NOTIFICATIONS => 'Notifications',
-            RoleAccess::PERMISSION_CHATBOT => 'AI Assistant',
+            RoleAccess::PERMISSION_ASSISTANT => 'AI Assistant',
             RoleAccess::PERMISSION_SETTINGS => 'Company settings',
             RoleAccess::PERMISSION_PROFILE => 'My profile',
             default => ucwords(str_replace('_', ' ', $permission)),

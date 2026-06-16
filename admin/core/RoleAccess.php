@@ -16,7 +16,7 @@ class RoleAccess
     public const PERMISSION_PAYMENTS = 'payments';
     public const PERMISSION_APPOINTMENTS = 'appointments';
     public const PERMISSION_NOTIFICATIONS = 'notifications';
-    public const PERMISSION_CHATBOT = 'chatbot';
+    public const PERMISSION_ASSISTANT = 'assistant';
     public const PERMISSION_SETTINGS = 'settings';
     public const PERMISSION_PROFILE = 'profile';
 
@@ -41,7 +41,7 @@ class RoleAccess
             self::PERMISSION_PAYMENTS,
             self::PERMISSION_APPOINTMENTS,
             self::PERMISSION_NOTIFICATIONS,
-            self::PERMISSION_CHATBOT,
+            self::PERMISSION_ASSISTANT,
             self::PERMISSION_SETTINGS,
             self::PERMISSION_PROFILE,
         ],
@@ -53,7 +53,7 @@ class RoleAccess
             self::PERMISSION_PAYMENTS,
             self::PERMISSION_APPOINTMENTS,
             self::PERMISSION_NOTIFICATIONS,
-            self::PERMISSION_CHATBOT,
+            self::PERMISSION_ASSISTANT,
             self::PERMISSION_PROFILE,
         ],
         'staff' => [
@@ -62,7 +62,7 @@ class RoleAccess
             self::PERMISSION_CASES,
             self::PERMISSION_APPOINTMENTS,
             self::PERMISSION_NOTIFICATIONS,
-            self::PERMISSION_CHATBOT,
+            self::PERMISSION_ASSISTANT,
             self::PERMISSION_PROFILE,
         ],
         'viewer' => [
@@ -72,6 +72,7 @@ class RoleAccess
             self::PERMISSION_PAYMENTS,
             self::PERMISSION_APPOINTMENTS,
             self::PERMISSION_NOTIFICATIONS,
+            self::PERMISSION_ASSISTANT,
             self::PERMISSION_PROFILE,
         ],
     ];
@@ -90,7 +91,7 @@ class RoleAccess
         'payments' => self::PERMISSION_PAYMENTS,
         'appointments' => self::PERMISSION_APPOINTMENTS,
         'notifications' => self::PERMISSION_NOTIFICATIONS,
-        'chatbot' => self::PERMISSION_CHATBOT,
+        'assistant' => self::PERMISSION_ASSISTANT,
         'settings' => self::PERMISSION_SETTINGS,
     ];
 
@@ -167,12 +168,12 @@ class RoleAccess
             'page' => 'notifications',
             'permission' => self::PERMISSION_NOTIFICATIONS,
         ],
-        'chatbot' => [
+        'assistant' => [
             'icon' => 'bi-robot',
             'label' => 'AI Assistant',
-            'href' => 'pages/chatbot.php',
-            'page' => 'chatbot',
-            'permission' => self::PERMISSION_CHATBOT,
+            'href' => 'pages/assistant.php',
+            'page' => 'assistant',
+            'permission' => self::PERMISSION_ASSISTANT,
         ],
         'users' => [
             'icon' => 'bi-person-badge',

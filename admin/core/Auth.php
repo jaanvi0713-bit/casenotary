@@ -155,6 +155,16 @@ class Auth
         $_SESSION['login_time'] = time();
 
         TenantService::resolveOnLogin($user);
+
+        if (class_exists(AssistantService::class, false)) {
+            AssistantService::resetSessionForLogin();
+        } else {
+            unset(
+                $_SESSION['assistant_messages'],
+                $_SESSION['assistant_conversation_id'],
+                $_SESSION['assistant_session_user_id']
+            );
+        }
     }
 
     public static function logout(): void

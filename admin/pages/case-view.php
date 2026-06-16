@@ -44,6 +44,7 @@ $currentSavedLetter = ClientLetterService::getCurrentSavedLetter($caseId);
 $currentLetterId    = $currentSavedLetter ? (int) ($currentSavedLetter['id'] ?? 0) : 0;
 $currentLetterPublished = $currentSavedLetter && !empty($currentSavedLetter['published_to_portal']);
 $hasGeneratedDraft  = $clientLetterPaths['html'] !== null || $clientLetterPaths['pdf'] !== null;
+$letterDownloadPath = $clientLetterPath ?? ('cases/' . $caseId . '/generated/client_letter.html');
 $csrfToken          = CSRF::generateToken();
 $csrfFieldName      = (require __DIR__ . '/../config/config.php')['security']['csrf_token_name'];
 
@@ -628,18 +629,16 @@ require __DIR__ . '/../includes/header.php';
                     </div>
 
                     <div class="client-letter-actions d-flex flex-wrap gap-2 mb-3">
-                        <button type="button" class="btn btn-soft btn-sm case-action-btn" id="clientLetterPreviewBtn" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
+                        <button type="button" class="btn btn-soft btn-sm case-action-btn" id="clientLetterPreviewBtn">
                             <i class="bi bi-eye"></i><span>Preview letter</span>
                         </button>
-                        <?php if ($hasGeneratedDraft): ?>
-                            <a href="<?= url('actions/document-download.php?path=' . urlencode($clientLetterPath ?? ('cases/' . $caseId . '/generated/client_letter.html'))) ?>" class="btn btn-soft btn-sm case-action-btn" target="_blank" rel="noopener">
-                                <i class="bi bi-<?= $letterIsPdf ? 'file-pdf' : 'file-earmark-arrow-down' ?>"></i><span>Download<?= $letterIsPdf ? ' PDF' : '' ?></span>
-                            </a>
-                        <?php endif; ?>
+                        <a href="<?= url('actions/document-download.php?path=' . urlencode($letterDownloadPath)) ?>" class="btn btn-soft btn-sm case-action-btn" target="_blank" rel="noopener">
+                            <i class="bi bi-<?= $letterIsPdf && $hasGeneratedDraft ? 'file-pdf' : 'file-earmark-arrow-down' ?>"></i><span>Download<?= $letterIsPdf && $hasGeneratedDraft ? ' PDF' : '' ?></span>
+                        </a>
                         <button type="submit" data-letter-action="generate_client_letter" class="btn btn-soft btn-sm case-action-btn">
-                            <i class="bi bi-file-earmark-plus"></i><span><?= $hasGeneratedDraft ? 'Regenerate' : 'Generate letter' ?></span>
+                            <i class="bi bi-arrow-clockwise"></i><span><?= $hasGeneratedDraft ? 'Regenerate' : 'Generate letter' ?></span>
                         </button>
-                        <button type="submit" data-letter-action="save_client_letter_record" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
+                        <button type="submit" data-letter-action="save_client_letter_record" class="btn btn-soft btn-sm case-action-btn">
                             <i class="bi bi-save"></i><span>Save to client record</span>
                         </button>
                         <?php if ($currentLetterPublished): ?>
@@ -647,11 +646,11 @@ require __DIR__ . '/../includes/header.php';
                                 <i class="bi bi-eye-slash"></i><span>Unpublish from client portal</span>
                             </button>
                         <?php else: ?>
-                            <button type="submit" data-letter-action="publish_client_letter" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
+                            <button type="submit" data-letter-action="publish_client_letter" class="btn btn-soft btn-sm case-action-btn">
                                 <i class="bi bi-globe"></i><span>Publish to client portal</span>
                             </button>
                         <?php endif; ?>
-                        <button type="submit" data-letter-action="send_client_letter" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
+                        <button type="submit" data-letter-action="send_client_letter" class="btn btn-soft btn-sm case-action-btn">
                             <i class="bi bi-envelope"></i><span>Email to client</span>
                         </button>
                     </div>
@@ -664,7 +663,7 @@ require __DIR__ . '/../includes/header.php';
                         <div class="client-letter-preview-frame-wrap">
                             <iframe id="clientLetterPreviewFrame" title="Letter preview" class="client-letter-preview-frame"></iframe>
                             <div id="clientLetterPreviewPlaceholder" class="client-letter-preview-placeholder">
-                                <span class="text-muted small">Generate a letter, then click <strong>Preview letter</strong>.</span>
+                                <span class="text-muted small">Live preview loads when you open this tab.</span>
                             </div>
                         </div>
                     </div>
@@ -995,11 +994,36 @@ document.addEventListener("DOMContentLoaded", function() {
             return fd;
         }
 
+        function resizeLetterPreviewFrame(frame) {
+            if (!frame) return;
+            try {
+                var doc = frame.contentDocument || frame.contentWindow.document;
+                if (!doc || !doc.body) return;
+                var height = Math.max(
+                    doc.body.scrollHeight,
+                    doc.documentElement ? doc.documentElement.scrollHeight : 0
+                );
+                if (height > 0) {
+                    var wrap = frame.closest(".client-letter-preview-frame-wrap");
+                    var max = Math.min(window.innerHeight * 0.75, 720);
+                    frame.style.height = Math.min(Math.max(height + 12, 360), max) + "px";
+                    if (wrap) {
+                        wrap.style.height = frame.style.height;
+                    }
+                }
+            } catch (err) {
+                // ignore cross-origin issues
+            }
+        }
+
         function refreshLetterPreview() {
             var frame = document.getElementById("clientLetterPreviewFrame");
             var placeholder = document.getElementById("clientLetterPreviewPlaceholder");
             var newTab = document.getElementById("clientLetterPreviewNewTab");
             if (!frame) return;
+            frame.onload = function() {
+                resizeLetterPreviewFrame(frame);
+            };
             if (placeholder) {
                 placeholder.classList.remove("is-hidden");
                 placeholder.innerHTML = "<span class=\"loading-inline\"><span class=\"spinner-border spinner-border-sm\" role=\"presentation\" aria-hidden=\"true\"></span> Generating preview…</span>";
@@ -1016,6 +1040,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         newTab._blobUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
                         newTab.href = newTab._blobUrl;
                     }
+                    setTimeout(function() { resizeLetterPreviewFrame(frame); }, 60);
                 })
                 .catch(function() {
                     if (placeholder) {
@@ -1028,20 +1053,17 @@ document.addEventListener("DOMContentLoaded", function() {
         var previewBtn = document.getElementById("clientLetterPreviewBtn");
         if (previewBtn) previewBtn.addEventListener("click", refreshLetterPreview);
 
-        function maybeRefreshLetterPreview() {
-            if (document.querySelector("#client-letter.active, #client-letter.show")) {
-                refreshLetterPreview();
-            }
+        function scheduleLetterPreview() {
+            setTimeout(refreshLetterPreview, 300);
         }
 
         document.querySelectorAll("[data-bs-target=\"#client-letter\"]").forEach(function(tab) {
-            tab.addEventListener("shown.bs.tab", maybeRefreshLetterPreview);
+            tab.addEventListener("shown.bs.tab", scheduleLetterPreview);
         });
 
-        if (window.location.hash === "#client-letter" || letterForm.getAttribute("data-has-draft") === "1") {
-            var previewBtn = document.getElementById("clientLetterPreviewBtn");
-            if (previewBtn) previewBtn.disabled = false;
-            setTimeout(refreshLetterPreview, 400);
+        if (document.querySelector("#client-letter.active, #client-letter.show")
+            || window.location.hash === "#client-letter") {
+            scheduleLetterPreview();
         }
     }
 

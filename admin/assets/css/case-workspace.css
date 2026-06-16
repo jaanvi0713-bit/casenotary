@@ -1011,7 +1011,8 @@ textarea.case-form-control {
 
 .client-letter-preview-frame-wrap {
     position: relative;
-    height: min(70vh, 600px);
+    min-height: 360px;
+    height: auto;
     background: #e8ecef;
 }
 
@@ -1046,7 +1047,8 @@ textarea.case-form-control {
 }
 
 .client-letter-preview-wrap--full .client-letter-preview-frame-wrap {
-    height: min(75vh, 720px);
+    min-height: 360px;
+    max-height: min(75vh, 720px);
 }
 
 @media (max-width: 991.98px) {
