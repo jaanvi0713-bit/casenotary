@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/CaseChecklistService.php';
+
 class CaseService
 {
     public const STATUSES = [
@@ -1354,6 +1356,46 @@ class CaseService
         }
     }
 
+    /**
+     * @return array{success: bool, message: string}
+     */
+    private static function persistDocumentRecord(
+        int $caseId,
+        string $storedName,
+        string $originalName,
+        string $relativePath,
+        string $ext,
+        int $size,
+        string $mimeType,
+        int $userId,
+        string $source
+    ): array {
+        $row = [
+            'case_id'       => $caseId,
+            'uploaded_by'   => $userId,
+            'upload_source' => $source,
+            'file_name'     => $storedName,
+            'original_name' => $originalName,
+            'file_path'     => $relativePath,
+            'file_size'     => $size,
+            'mime_type'     => $mimeType,
+        ];
+        $row[documentExtensionColumn()] = $ext;
+
+        try {
+            insertTableRow('documents', $row);
+        } catch (Throwable $e) {
+            error_log('[CaseService] Document insert failed: ' . $e->getMessage());
+
+            return ['success' => false, 'message' => 'Could not save document record. Please contact support.'];
+        }
+
+        $label = $source === 'client' ? 'Client uploaded a document' : 'New document uploaded';
+        self::notifyCaseEvent($caseId, 'document', $label, $originalName, 'pages/case-view.php?id=' . $caseId . '#documents');
+
+        return ['success' => true, 'message' => 'Document uploaded successfully.'];
+    }
+
     public static function uploadDocument(int $caseId, array $file, int $userId, string $source = 'admin'): array
     {
         $config = require __DIR__ . '/../config/config.php';
@@ -1387,32 +1429,68 @@ class CaseService
         $relativePath = 'cases/' . $caseId . '/' . $storedName;
         $mimeType     = mime_content_type($destPath) ?: $file['type'] ?? 'application/octet-stream';
 
-        try {
-            Database::insert(
-                "INSERT INTO documents (case_id, uploaded_by, upload_source, file_name, original_name,
-                                        file_path, file_type, file_size, mime_type, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
-                [
-                    $caseId, $userId, $source, $storedName, $file['name'],
-                    $relativePath, $ext, (int) $file['size'], $mimeType,
-                ]
-            );
-        } catch (Throwable $e) {
-            Database::insert(
-                "INSERT INTO documents (case_id, uploaded_by, file_name, original_name,
-                                        file_path, file_type, file_size, mime_type, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
-                [
-                    $caseId, $userId, $storedName, $file['name'],
-                    $relativePath, $ext, (int) $file['size'], $mimeType,
-                ]
-            );
+        return self::persistDocumentRecord(
+            $caseId,
+            $storedName,
+            $file['name'],
+            $relativePath,
+            $ext,
+            (int) $file['size'],
+            $mimeType,
+            $userId,
+            $source
+        );
+    }
+
+    public static function saveDocumentFromPath(int $caseId, string $sourcePath, string $originalName, int $userId, string $source = 'admin'): array
+    {
+        $config = require __DIR__ . '/../config/config.php';
+        $upload = $config['upload'];
+
+        if (!is_readable($sourcePath)) {
+            return ['success' => false, 'message' => 'Staged file is missing. Please upload again.'];
         }
 
-        $label = $source === 'client' ? 'Client uploaded a document' : 'New document uploaded';
-        self::notifyCaseEvent($caseId, 'document', $label, $file['name'], 'pages/case-view.php?id=' . $caseId . '#documents');
+        $size = (int) (filesize($sourcePath) ?: 0);
+        if ($size <= 0) {
+            return ['success' => false, 'message' => 'Uploaded file is empty.'];
+        }
 
-        return ['success' => true, 'message' => 'Document uploaded successfully.'];
+        if ($size > $upload['max_size']) {
+            return ['success' => false, 'message' => 'File exceeds maximum size limit.'];
+        }
+
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if (!in_array($ext, $upload['allowed_types'], true)) {
+            return ['success' => false, 'message' => 'File type not allowed.'];
+        }
+
+        $caseDir = rtrim($upload['path'], '/\\') . '/cases/' . $caseId;
+        if (!is_dir($caseDir)) {
+            mkdir($caseDir, 0755, true);
+        }
+
+        $storedName = uniqid('doc_', true) . '.' . $ext;
+        $destPath = $caseDir . '/' . $storedName;
+
+        if (!copy($sourcePath, $destPath)) {
+            return ['success' => false, 'message' => 'Could not save uploaded file.'];
+        }
+
+        $relativePath = 'cases/' . $caseId . '/' . $storedName;
+        $mimeType = mime_content_type($destPath) ?: 'application/octet-stream';
+
+        return self::persistDocumentRecord(
+            $caseId,
+            $storedName,
+            $originalName,
+            $relativePath,
+            $ext,
+            $size,
+            $mimeType,
+            $userId,
+            $source
+        );
     }
 
     public static function getNotes(int $caseId, bool $internalOnly = false): array

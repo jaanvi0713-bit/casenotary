@@ -17,6 +17,8 @@ class RoleAccess
     public const PERMISSION_APPOINTMENTS = 'appointments';
     public const PERMISSION_NOTIFICATIONS = 'notifications';
     public const PERMISSION_CHATBOT = 'chatbot';
+    /** Same permission key as chatbot (legacy nav label). */
+    public const PERMISSION_ASSISTANT = 'chatbot';
     public const PERMISSION_SETTINGS = 'settings';
     public const PERMISSION_PROFILE = 'profile';
 
@@ -92,6 +94,7 @@ class RoleAccess
         'appointments' => self::PERMISSION_APPOINTMENTS,
         'notifications' => self::PERMISSION_NOTIFICATIONS,
         'message-view' => self::PERMISSION_NOTIFICATIONS,
+        'assistant' => self::PERMISSION_CHATBOT,
         'chatbot' => self::PERMISSION_CHATBOT,
         'settings' => self::PERMISSION_SETTINGS,
     ];
@@ -185,8 +188,8 @@ class RoleAccess
         'chatbot' => [
             'icon' => 'bi-robot',
             'label' => 'AI Assistant',
-            'href' => 'pages/chatbot.php',
-            'page' => 'chatbot',
+            'href' => 'pages/assistant.php',
+            'page' => 'assistant',
             'permission' => self::PERMISSION_CHATBOT,
         ],
         'users' => [

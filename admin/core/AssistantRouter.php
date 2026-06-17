@@ -9,11 +9,11 @@ class AssistantRouter
     public const INTENT_SEARCH = 'search';
     public const INTENT_DOCUMENT = 'document';
     public const INTENT_INTAKE = 'intake';
+    public const INTENT_CLIENT_CREATE = 'client_create';
     public const INTENT_COMPLIANCE = 'compliance';
     public const INTENT_KNOWLEDGE = 'knowledge';
     public const INTENT_GENERAL = 'general';
 
-    /** @return array{intent: string, topic: string, message: string} */
     public static function route(string $message): array
     {
         $message = assistantNormalizeUserMessage($message);
@@ -21,6 +21,22 @@ class AssistantRouter
 
         if ($normalized === '') {
             return ['intent' => self::INTENT_GENERAL, 'topic' => 'empty', 'message' => $message];
+        }
+
+        if (AssistantClientCreate::isActive()) {
+            if (preg_match('/\b(cancel|stop|exit|end|abort)\b.*\b(client|wizard)\b/', $normalized)
+                || preg_match('/\b(cancel client|stop client)\b/', $normalized)
+                || preg_match('/^(cancel|stop|never mind|nevermind)$/i', $normalized)) {
+                AssistantClientCreate::clear();
+
+                return [
+                    'intent' => self::INTENT_GENERAL,
+                    'topic' => 'client_create_cancelled',
+                    'message' => $message,
+                ];
+            }
+
+            return ['intent' => self::INTENT_CLIENT_CREATE, 'topic' => 'wizard', 'message' => $message];
         }
 
         if (AssistantIntake::isActive()) {
@@ -73,6 +89,18 @@ class AssistantRouter
             return ['intent' => self::INTENT_SEARCH, 'topic' => 'universal', 'message' => $message];
         }
 
+        if (AssistantKnowledge::looksLikeSystemQuery($normalized)) {
+            return ['intent' => self::INTENT_KNOWLEDGE, 'topic' => 'system_qa', 'message' => $message];
+        }
+
+        if (AssistantKnowledge::looksLikeCapabilitiesQuery($normalized)) {
+            return ['intent' => self::INTENT_KNOWLEDGE, 'topic' => 'capabilities', 'message' => $message];
+        }
+
+        if (AssistantPracticeFaq::matches($normalized)) {
+            return ['intent' => self::INTENT_KNOWLEDGE, 'topic' => 'practice_faq', 'message' => $message];
+        }
+
         if (AssistantKnowledge::looksLikeDefinitionQuery($normalized)) {
             return ['intent' => self::INTENT_KNOWLEDGE, 'topic' => 'definition', 'message' => $message];
         }
@@ -88,10 +116,34 @@ class AssistantRouter
         return ['intent' => self::INTENT_GENERAL, 'topic' => 'chat', 'message' => $message];
     }
 
+    public static function actionTopic(string $message): ?string
+    {
+        $message = assistantNormalizeUserMessage($message);
+
+        return self::matchActionTopic(strtolower($message));
+    }
+
+    public static function looksLikeCaseDocumentUpload(string $message): bool
+    {
+        return self::actionTopic($message) === 'upload_case_document';
+    }
+
     private static function looksLikeIntakeStart(string $message): bool
     {
         return (bool) preg_match(
             '/\b(start intake|client intake|onboard(?:ing)? (?:a )?client|new client interview|begin onboarding)\b/',
+            $message
+        );
+    }
+
+    private static function looksLikeClientCreateStart(string $message): bool
+    {
+        if (self::looksLikeIntakeStart($message)) {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/\b(create|add|register)\b.*\b(?:new\s+)?client\b|\bnew client\b|\bclient signup\b/',
             $message
         );
     }
@@ -110,6 +162,14 @@ class AssistantRouter
             return true;
         }
 
+        if (AssistantPracticeFaq::matches($message)) {
+            return true;
+        }
+
+        if (AssistantKnowledge::looksLikeSystemQuery($message)) {
+            return true;
+        }
+
         if (AssistantKnowledge::looksLikeDefinitionQuery($message)) {
             return true;
         }
@@ -121,12 +181,42 @@ class AssistantRouter
         return self::looksLikeSearch($message);
     }
 
-    private static function looksLikeDocumentScan(string $message): bool
+    public static function looksLikeDocumentScan(string $message): bool
     {
-        return (bool) preg_match(
-            '/\b(scan|ocr|read|extract|analyse|analyze).*\b(pdf|document|file|image|photo|pic|upload)\b/',
+        $message = strtolower(trim($message));
+
+        if ($message === '') {
+            return false;
+        }
+
+        if (preg_match('/\b(upload|attach|save|store)\b.*\b(case|matter)\b/', $message)
+            || preg_match('/\b(case|matter)\b.*\b(upload|attach|save|store)\b/', $message)) {
+            return false;
+        }
+
+        if ((bool) preg_match(
+            '/\b(scan|ocr|read|extract|analyse|analyze).*\b(pdf|document|file|image|photo|pic|upload|letter|invoice|attachment)\b/',
             $message
-        ) || (bool) preg_match('/\b(scan pdf|scan (?:this )?doc)/', $message);
+        )) {
+            return true;
+        }
+
+        if ((bool) preg_match('/\b(scan pdf|scan (?:this )?doc|extract details?|get details?|pull details?|summarize (?:this )?doc(?:ument)?)\b/', $message)) {
+            return true;
+        }
+
+        if ((bool) preg_match(
+            '/\b(summarize|summary of|sum up|give (?:me )?(?:an )?overview of|main points? (?:in|from|of))\b.*\b(it|this|upload|attachment|document|doc|file|letter|pdf|screenshot|image)\b/',
+            $message
+        )) {
+            return true;
+        }
+
+        if ((bool) preg_match('/\b(summarize it|summarize this|what(?:\'s| is) in (?:this|the) (?:doc|document|file|upload|attachment))\b/', $message)) {
+            return true;
+        }
+
+        return (bool) preg_match('/\b(what does (?:this|the) (?:doc|document|pdf|letter) say)\b/', $message);
     }
 
     private static function looksLikeSearch(string $message): bool
@@ -168,7 +258,21 @@ class AssistantRouter
 
     private static function matchActionTopic(string $message): ?string
     {
-        if (preg_match('/\b(create|open|start|add)\b.*\b(case|matter|file)\b/', $message)) {
+        if (preg_match('/\b(upload|attach|add|save|store|put)\b.*\b(document|file|pdf|letter)\b.*\b(case|matter)\b/', $message)
+            || preg_match('/\b(case|matter)\b.*\b(upload|attach|add|save|store)\b.*\b(document|file|pdf)\b/', $message)
+            || preg_match('/\bupload\b.*\bto\s+(?:the\s+)?case\b/', $message)
+            || preg_match('/\bsave\b.*\b(?:to|on)\s+(?:the\s+)?case\b/', $message)) {
+            return 'upload_case_document';
+        }
+        if (self::looksLikeClientCreateStart($message)) {
+            return 'create_client';
+        }
+        if (preg_match('/\b(create|open|start|make)\b.*\b(case|matter)\b/', $message)
+            && !preg_match('/\b(document|file|pdf)\b/', $message)) {
+            return 'create_case';
+        }
+        if (preg_match('/\b(?:new|another)\s+(?:case|matter)\b/', $message)
+            && preg_match('/\b(create|make|open|start|need|want|add)\b/', $message)) {
             return 'create_case';
         }
         if (preg_match('/\b(update|change|modify|edit)\b.*\b(case|matter|status|description)\b/', $message)) {
@@ -194,8 +298,9 @@ class AssistantRouter
             || preg_match('/\b(appointment|meeting)\b.*\bno[- ]?show\b/', $message)) {
             return 'mark_appointment_no_show';
         }
-        if (preg_match('/\b(schedule|book|set up|create)\b.*\b(appointment|meeting|slot)\b/', $message)
-            || preg_match('/\b(appointment|meeting)\b.*\b(schedule|book|set up|create)\b/', $message)) {
+        if (preg_match('/\b(schedule|book|set up|create|make)\b.*\b(appointment|meeting|slot)\b/', $message)
+            || preg_match('/\b(appointment|meeting)\b.*\b(schedule|book|set up|create|make)\b/', $message)
+            || preg_match('/\bbook\b.*\bfor\b.+\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}[:\/]|\d{1,2}\s*(?:am|pm))\b/i', $message)) {
             return 'schedule_appointment';
         }
         if (preg_match('/\b(mark|clear|dismiss)\b.*\b(notifications?|alerts?)\b.*\b(read|all)?\b/', $message)
@@ -213,7 +318,12 @@ class AssistantRouter
             return 'calculation';
         }
 
-        if (preg_match('/\b(where (?:is|are|do i)|how (?:do i|to)|navigate|find (?:the )?(?:settings|payments|cases|clients))\b/', $message)) {
+        if (preg_match('/\b(where (?:is|are|do i)|navigate|find (?:the )?(?:settings|payments|cases|clients))\b/', $message)) {
+            return 'system_qa';
+        }
+
+        if (preg_match('/\bhow (?:do i|to)\b/', $message)
+            && preg_match('/\b(settings|payments|cases|clients|dashboard|sidebar|portal|navigate)\b/', $message)) {
             return 'system_qa';
         }
 

@@ -168,6 +168,24 @@ class AssistantChatStore
 
             $text = trim((string) ($turn['content'] ?? ''));
             if ($text === '' || $text === '[Document upload]' || $text === 'Confirm action') {
+                $attachments = $turn['attachments'] ?? [];
+                if (is_array($attachments) && $attachments !== []) {
+                    $names = [];
+                    foreach ($attachments as $attachment) {
+                        if (!is_array($attachment)) {
+                            continue;
+                        }
+                        $name = trim((string) ($attachment['name'] ?? ''));
+                        if ($name !== '') {
+                            $names[] = $name;
+                        }
+                    }
+
+                    if ($names !== []) {
+                        return self::sanitizeTitle(mb_strimwidth(implode(', ', $names), 0, 60, '…'));
+                    }
+                }
+
                 continue;
             }
 
@@ -197,6 +215,26 @@ class AssistantChatStore
                     72,
                     '…'
                 );
+            }
+
+            $attachments = $messages[$i]['attachments'] ?? [];
+            if (is_array($attachments) && $attachments !== []) {
+                $names = [];
+                foreach ($attachments as $attachment) {
+                    if (!is_array($attachment)) {
+                        continue;
+                    }
+                    $name = trim((string) ($attachment['name'] ?? ''));
+                    if ($name !== '') {
+                        $names[] = $name;
+                    }
+                }
+
+                if ($names !== []) {
+                    $label = implode(', ', $names);
+
+                    return mb_strimwidth(assistantSanitizeUtf8($label), 0, 72, '…');
+                }
             }
         }
 

@@ -124,10 +124,15 @@ class AssistantIntake
             ];
         }
 
-        return [
-            'content' => implode("\n", $lines) . "\n\n_Create the client first, then ask me to **create a case** from this intake._",
-            'type' => 'onboarding',
-            'alerts' => $alerts,
-        ];
+        $response = AssistantClientCreate::begin([
+            'create_case'  => true,
+            'title'        => ucfirst((string) ($data['document_type'] ?? 'Notary matter')),
+            'service_type' => (string) ($data['document_type'] ?? 'Notarization'),
+            'description'  => 'Intake notes: ' . json_encode($data, JSON_UNESCAPED_UNICODE),
+        ], (string) ($data['full_name'] ?? ''));
+        $response['content'] = implode("\n", $lines) . "\n\n" . $response['content'];
+        $response['alerts'] = $alerts;
+
+        return $response;
     }
 }

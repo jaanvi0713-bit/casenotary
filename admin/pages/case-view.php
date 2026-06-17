@@ -897,7 +897,7 @@ require __DIR__ . '/../includes/header.php';
                 <div class="mb-0"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
                 <div class="mb-0 mt-3" id="invoicePaymentLinkRow">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="generate_payment_link" id="invoiceGeneratePaymentLink" value="1">
+                        <input class="form-check-input" type="checkbox" name="generate_payment_link" id="invoiceGeneratePaymentLink" value="1" checked>
                         <label class="form-check-label" for="invoiceGeneratePaymentLink">
                             <i class="bi bi-link-45deg me-1 text-primary"></i>
                             Generate Payment Link

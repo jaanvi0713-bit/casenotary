@@ -11,6 +11,14 @@ class AssistantCalculations
             return false;
         }
 
+        if (preg_match('/\bcase[- ]?#?\s*[a-z0-9-]+/i', $message)) {
+            return false;
+        }
+
+        if (AssistantDocuments::looksLikeCaseDocumentLoad($message)) {
+            return false;
+        }
+
         if (preg_match('/\b(calculate|calculation|compute|work out|math)\b/i', $message)) {
             return true;
         }

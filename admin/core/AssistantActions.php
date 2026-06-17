@@ -7,7 +7,7 @@ class AssistantActions
     private const DRAFT_SESSION_KEY = 'assistant_drafts';
 
     /** @return array{content: string, type: string, draft?: array<string, mixed>} */
-    public static function handle(string $topic, string $message): array
+    public static function handle(string $topic, string $message, array $uploads = []): array
     {
         return match ($topic) {
             'create_case' => self::draftCreateCase($message),
@@ -19,8 +19,10 @@ class AssistantActions
             'complete_appointment' => self::draftUpdateAppointmentStatus($message, 'completed'),
             'mark_appointment_no_show' => self::draftUpdateAppointmentStatus($message, 'no_show'),
             'mark_notifications_read' => self::draftMarkNotificationsRead(),
+            'upload_case_document' => self::draftUploadCaseDocument($message, $uploads),
+            'create_client' => self::draftCreateClient($message),
             default => [
-                'content' => 'I could not determine which system action you want. Try **create a case**, **update case status**, **schedule appointment**, **confirm/cancel/reschedule appointment**, or **mark notifications read**.',
+                'content' => 'I could not determine which system action you want. Try **create a case**, **create new client**, **update case status**, **schedule appointment**, **upload document to case**, **confirm/cancel/reschedule appointment**, or **mark notifications read**.',
                 'type' => 'text',
             ],
         };
@@ -49,6 +51,9 @@ class AssistantActions
             'schedule_appointment' => self::executeScheduleAppointment($draft['payload'], $adminId),
             'update_appointment' => self::executeUpdateAppointment($draft['payload']),
             'mark_notifications_read' => self::executeMarkNotificationsRead($adminId),
+            'upload_case_document' => self::executeUploadCaseDocument($draft['payload'], $adminId),
+            'create_client' => self::executeCreateClient($draft['payload']),
+            'create_client_and_case' => self::executeCreateClientAndCase($draft['payload'], $adminId),
             default => throw new RuntimeException('Unknown draft action.'),
         };
 
@@ -72,15 +77,25 @@ class AssistantActions
 
         $clientName = trim((string) ($extracted['client_name'] ?? ''));
         if ($clientName === '') {
-            $clientName = assistantExtractClientNameFromActionMessage($message);
+            $clientName = assistantExtractClientNameForCreateCase($message);
         }
-        if ($clientName === '' && preg_match('/\bfor\s+([A-Z][\w\s\'-]{2,60})/i', $message, $m)) {
-            $clientName = trim($m[1]);
-        }
+        $clientName = assistantSanitizeExtractedClientName($clientName);
 
         $title = trim((string) ($extracted['title'] ?? ''));
         $serviceType = trim((string) ($extracted['service_type'] ?? ''));
         $description = trim((string) ($extracted['description'] ?? ''));
+
+        if (preg_match('/\bfor\s+.+?\s*[—\-]\s*(.+)$/iu', $message, $dashMatch)) {
+            $afterDash = trim($dashMatch[1]);
+            if ($afterDash !== '') {
+                if ($serviceType === '') {
+                    $serviceType = $afterDash;
+                }
+                if ($description === '') {
+                    $description = $afterDash;
+                }
+            }
+        }
 
         if ($title === '' && $serviceType !== '') {
             $title = ucfirst($serviceType) . ' — ' . ($clientName !== '' ? $clientName : 'New matter');
@@ -91,8 +106,19 @@ class AssistantActions
 
         $clientId = $clientName !== '' ? assistantResolveClientId($clientName) : null;
         if ($clientId === null) {
+            $caseContext = [
+                'create_case'  => true,
+                'title'        => $title,
+                'service_type' => $serviceType,
+                'description'  => $description,
+            ];
+
+            if ($clientName !== '' || preg_match('/\b(for me|new case|new matter)\b/i', $message)) {
+                return AssistantClientCreate::begin($caseContext, $clientName);
+            }
+
             return [
-                'content' => 'I need an existing **client name** to draft a new case. Example: _Create a case for Jean Dupont — deed of sale._',
+                'content' => assistantCreateCaseMissingClientMessage($clientName !== '' ? $clientName : null),
                 'type' => 'text',
             ];
         }
@@ -420,6 +446,45 @@ class AssistantActions
         );
     }
 
+    /** @return array{content: string, type: string, draft: array<string, mixed>} */
+    private static function draftCreateClient(string $message): array
+    {
+        $name = assistantSanitizeExtractedClientName(assistantExtractClientNameForCreateCase($message));
+        if ($name === '') {
+            $name = assistantSanitizeExtractedClientName(assistantExtractClientNameFromActionMessage($message));
+        }
+
+        if (preg_match('/\bclient\s+(?:named|called)\s+["\']?([^"\']+)["\']?/i', $message, $matches)) {
+            $name = assistantSanitizeExtractedClientName(trim($matches[1]));
+        }
+
+        $caseContext = [];
+        if (preg_match('/\b(case|matter)\b/i', $message)) {
+            $caseContext['create_case'] = true;
+            $extracted = self::extractActionFieldsHeuristic($message, [
+                'service_type' => 'document or deed type',
+                'description' => 'case details or notes',
+            ]);
+            $serviceType = trim((string) ($extracted['service_type'] ?? ''));
+            if ($serviceType !== '') {
+                $caseContext['service_type'] = $serviceType;
+                $caseContext['title'] = ucfirst($serviceType) . ($name !== '' ? ' — ' . $name : '');
+            }
+        }
+
+        return AssistantClientCreate::begin($caseContext, $name);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, string> $preview
+     * @return array{content: string, type: string, draft: array<string, mixed>}
+     */
+    public static function createDraft(string $action, array $payload, array $preview, string $intro): array
+    {
+        return self::buildDraftResponse($action, $payload, $preview, $intro);
+    }
+
     /**
      * @param array<string, mixed> $payload
      * @param array<string, string> $preview
@@ -448,34 +513,6 @@ class AssistantActions
     /** @param array<string, string> $fields */
     private static function extractActionFields(string $message, array $fields): array
     {
-        if (OllamaService::isEnabled() && OllamaService::isReachable()) {
-            try {
-                $fieldList = [];
-                foreach ($fields as $key => $label) {
-                    $fieldList[] = $key . ' (' . $label . ')';
-                }
-
-                $prompt = "Extract these fields from the user message as JSON only. Use empty string if unknown.\n"
-                    . 'Fields: ' . implode(', ', $fieldList) . "\n"
-                    . "Message: {$message}\n"
-                    . 'Respond with JSON object only, no markdown.';
-
-                $raw = OllamaService::chat([
-                    ['role' => 'system', 'content' => 'You extract structured data. Reply with valid JSON only.'],
-                    ['role' => 'user', 'content' => $prompt],
-                ]);
-
-                $raw = trim(preg_replace('/^```json\s*|\s*```$/', '', $raw) ?? $raw);
-                $decoded = json_decode($raw, true);
-
-                if (is_array($decoded) && $decoded !== []) {
-                    return $decoded;
-                }
-            } catch (Throwable) {
-                // Fall back to rule-based extraction.
-            }
-        }
-
         return self::extractActionFieldsHeuristic($message, $fields);
     }
 
@@ -492,10 +529,7 @@ class AssistantActions
         }
 
         if (isset($fields['client_name'])) {
-            $clientName = assistantExtractClientNameFromActionMessage($message);
-            if ($clientName === '' && preg_match('/\bfor\s+([A-Z][\w\s\'-]{2,60})/i', $message, $matches)) {
-                $clientName = trim($matches[1]);
-            }
+            $clientName = assistantSanitizeExtractedClientName(assistantExtractClientNameFromActionMessage($message));
             if ($clientName !== '') {
                 $result['client_name'] = $clientName;
             }
@@ -554,6 +588,52 @@ class AssistantActions
 
         return '**Case created:** ' . ($case['case_number'] ?? '#' . $caseId) . ' — '
             . ($case['title'] ?? '') . "\n\n"
+            . assistantAdminLink('pages/case-view.php?id=' . $caseId, 'Open case');
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeCreateClient(array $payload): string
+    {
+        if (!Auth::can(RoleAccess::PERMISSION_CLIENTS)) {
+            throw new RuntimeException('You do not have permission to create clients.');
+        }
+
+        $clientData = is_array($payload['client'] ?? null) ? $payload['client'] : $payload;
+        $result = ClientService::create($clientData, false);
+        $client = ClientService::getById((int) $result['client_id']);
+
+        return '**Client created:** ' . clientFullName($client ?? []) . "\n\n"
+            . assistantAdminLink('pages/client-form.php?id=' . (int) $result['client_id'], 'View client');
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeCreateClientAndCase(array $payload, int $adminId): string
+    {
+        if (!Auth::can(RoleAccess::PERMISSION_CLIENTS)) {
+            throw new RuntimeException('You do not have permission to create clients.');
+        }
+        if (!Auth::can(RoleAccess::PERMISSION_CASES)) {
+            throw new RuntimeException('You do not have permission to create cases.');
+        }
+
+        $clientData = is_array($payload['client'] ?? null) ? $payload['client'] : [];
+        $caseData = is_array($payload['case'] ?? null) ? $payload['case'] : [];
+
+        $result = ClientService::create($clientData, false);
+        $clientId = (int) $result['client_id'];
+        $client = ClientService::getById($clientId);
+
+        $caseId = CaseService::createCase([
+            'title'        => (string) ($caseData['title'] ?? 'New notary matter'),
+            'description'  => (string) ($caseData['description'] ?? ''),
+            'client_id'    => $clientId,
+            'service_type' => (string) ($caseData['service_type'] ?? 'Notarization'),
+            'service_fee'  => (float) ($caseData['service_fee'] ?? 0),
+        ], $adminId);
+        $case = CaseService::getCaseById($caseId);
+
+        return '**Client created:** ' . clientFullName($client ?? []) . "\n"
+            . '**Case created:** ' . ($case['case_number'] ?? '#' . $caseId) . ' — ' . ($case['title'] ?? '') . "\n\n"
             . assistantAdminLink('pages/case-view.php?id=' . $caseId, 'Open case');
     }
 
@@ -628,6 +708,196 @@ class AssistantActions
 
         return '**All notifications marked as read.** '
             . assistantAdminLink('pages/notifications.php', 'Open notifications');
+    }
+
+    /**
+     * @param list<array<string, mixed>> $uploads
+     * @return array{content: string, type: string, draft?: array<string, mixed>}
+     */
+    private static function draftUploadCaseDocument(string $message, array $uploads): array
+    {
+        $validUploads = array_values(array_filter($uploads, static function (array $upload): bool {
+            return ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+        }));
+
+        if ($validUploads === []) {
+            return [
+                'content' => 'Attach the **document** with the paperclip, then say e.g. _Upload this to case CASE-2026-0001_.',
+                'type' => 'text',
+            ];
+        }
+
+        $extracted = self::extractActionFields($message, [
+            'case_reference' => 'case number or id',
+            'client_name' => 'client name if case not specified',
+        ]);
+
+        $caseRef = trim((string) ($extracted['case_reference'] ?? ''));
+        if ($caseRef === '' && preg_match('/case[- ]?#?\s*([A-Z0-9-]+)/i', $message, $matches)) {
+            $caseRef = $matches[1];
+        }
+
+        $case = $caseRef !== '' ? assistantFindCaseByReference($caseRef) : null;
+        if ($case === null) {
+            $clientName = trim((string) ($extracted['client_name'] ?? ''));
+            if ($clientName === '') {
+                $clientName = assistantExtractClientNameFromActionMessage($message);
+            }
+
+            $clientId = $clientName !== '' ? assistantResolveClientId($clientName) : null;
+            if ($clientId !== null) {
+                $cases = Database::fetchAll(
+                    "SELECT cs.*, cl.first_name, cl.last_name, cl.company_name
+                     FROM cases cs
+                     JOIN clients cl ON cl.id = cs.client_id
+                     WHERE cs.client_id = ?
+                       AND cs.status IN ('pending', 'in_progress', 'waiting_for_client')
+                     ORDER BY cs.updated_at DESC
+                     LIMIT 1",
+                    [$clientId]
+                );
+                $case = $cases[0] ?? null;
+            }
+        }
+
+        if ($case === null) {
+            return [
+                'content' => 'Which **case** should receive this file? Example: _Upload to case CASE-2026-0001_ or _Save document on Louis Macwell\'s case._',
+                'type' => 'text',
+            ];
+        }
+
+        $stagedFiles = self::stageUploadFiles($validUploads);
+        if ($stagedFiles === []) {
+            return [
+                'content' => 'Could not stage the uploaded file. Please try again.',
+                'type' => 'text',
+            ];
+        }
+
+        $fileNames = array_map(static fn (array $file): string => (string) ($file['original_name'] ?? 'file'), $stagedFiles);
+        $preview = [
+            'Case' => (string) ($case['case_number'] ?? ''),
+            'Client' => clientFullName($case),
+            'Files' => implode(', ', $fileNames),
+            'Count' => (string) count($stagedFiles),
+        ];
+
+        $payload = [
+            'case_id' => (int) $case['id'],
+            'case_number' => (string) ($case['case_number'] ?? ''),
+            'files' => $stagedFiles,
+        ];
+
+        return self::buildDraftResponse(
+            'upload_case_document',
+            $payload,
+            $preview,
+            'Document upload draft ready. Click **Confirm** to save ' . count($stagedFiles) . ' file(s) to the case.'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeUploadCaseDocument(array $payload, int $adminId): string
+    {
+        $caseId = (int) ($payload['case_id'] ?? 0);
+        $case = CaseService::getCaseById($caseId);
+        if (!$case) {
+            throw new RuntimeException('Case not found.');
+        }
+
+        $files = $payload['files'] ?? [];
+        if (!is_array($files) || $files === []) {
+            throw new RuntimeException('No staged files found. Please upload again.');
+        }
+
+        $saved = [];
+        $errors = [];
+
+        foreach ($files as $file) {
+            if (!is_array($file)) {
+                continue;
+            }
+
+            $path = (string) ($file['staged_path'] ?? '');
+            $name = (string) ($file['original_name'] ?? 'document');
+            if ($path === '' || !is_readable($path)) {
+                $errors[] = $name;
+                continue;
+            }
+
+            $result = CaseService::saveDocumentFromPath($caseId, $path, $name, $adminId);
+            if (!empty($result['success'])) {
+                $saved[] = $name;
+                @unlink($path);
+            } else {
+                $errors[] = $name . ': ' . (string) ($result['message'] ?? 'failed');
+            }
+        }
+
+        if ($saved === []) {
+            throw new RuntimeException('Could not save any files. ' . implode('; ', $errors));
+        }
+
+        $lines = [
+            '**Document(s) saved to case ' . ($case['case_number'] ?? '#' . $caseId) . ':**',
+            '',
+        ];
+
+        foreach ($saved as $name) {
+            $lines[] = '• ' . $name;
+        }
+
+        if ($errors !== []) {
+            $lines[] = '';
+            $lines[] = '_Some files could not be saved:_ ' . implode('; ', $errors);
+        }
+
+        $lines[] = '';
+        $lines[] = assistantAdminLink('pages/case-view.php?id=' . $caseId . '#documents', 'Open case documents');
+
+        return implode("\n", $lines);
+    }
+
+    /** @param list<array<string, mixed>> $uploads
+     * @return list<array{staged_path: string, original_name: string}>
+     */
+    private static function stageUploadFiles(array $uploads): array
+    {
+        $dir = self::stagingDir();
+        $staged = [];
+
+        foreach ($uploads as $upload) {
+            if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                continue;
+            }
+
+            $originalName = (string) ($upload['name'] ?? 'document');
+            $ext = pathinfo($originalName, PATHINFO_EXTENSION);
+            $stagedName = bin2hex(random_bytes(8)) . ($ext !== '' ? '.' . $ext : '');
+            $dest = $dir . '/' . $stagedName;
+
+            if (!move_uploaded_file((string) ($upload['tmp_name'] ?? ''), $dest)) {
+                continue;
+            }
+
+            $staged[] = [
+                'staged_path' => $dest,
+                'original_name' => $originalName,
+            ];
+        }
+
+        return $staged;
+    }
+
+    private static function stagingDir(): string
+    {
+        $dir = dirname(__DIR__) . '/storage/assistant-staging';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        return $dir;
     }
 
     /** @return array<string, mixed>|null */

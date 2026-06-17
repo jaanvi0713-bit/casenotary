@@ -193,14 +193,8 @@ require __DIR__ . '/../includes/header.php';
                                 'autocomplete' => 'new-password',
                             ]); ?>
                         </div>
-<<<<<<< Updated upstream
                         <div class="col-12">
                             <?php renderPasswordStrengthHint('form-text mt-1 mb-0', false); ?>
-                        </div>
-=======
->>>>>>> Stashed changes
-                        <div class="col-12">
-                            <?php renderPasswordStrengthHint('form-text mb-0'); ?>
                             <p class="small text-muted mb-0"><?= e(RoleAccess::roleDescription('staff')) ?></p>
                         </div>
                     <?php endif; ?>

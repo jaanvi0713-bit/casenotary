@@ -67,20 +67,22 @@ class AssistantCompliance
 
     private static function detectMinor(string $text): ?string
     {
-        if (!preg_match('/\b(?:dob|date of birth|born(?: on)?)\b[:\s]*([^\n,.;]{4,40})/i', $text, $matches)) {
-            if (!preg_match('/\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\b/', $text, $matches)) {
-                return null;
-            }
+        if (!preg_match('/\b(?:dob|date of birth|born(?:\s+on)?|birth\s*date)\b/i', $text)) {
+            return null;
         }
 
-        $candidate = trim($matches[1] ?? $matches[0] ?? '');
+        if (!preg_match('/\b(?:dob|date of birth|born(?:\s+on)?|birth\s*date)\b[:\s]*([^\n,.;]{4,40})/i', $text, $matches)) {
+            return null;
+        }
+
+        $candidate = trim($matches[1] ?? '');
         $parsed = parseFlexibleDateTime($candidate, false);
         if ($parsed === '') {
             return null;
         }
 
         $age = (int) floor((time() - strtotime($parsed)) / (365.25 * 86400));
-        if ($age < 18) {
+        if ($age >= 0 && $age < 18) {
             return "A birth date suggests the signer may be **{$age} years old**. Verify age and ID before notarization.";
         }
 

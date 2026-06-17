@@ -498,8 +498,6 @@ class AssistantKnowledge
 
         'acknowledgement' => 'acknowledgment',
 
-        'notary' => 'notary public',
-
         'notaris' => 'notary public',
 
         'notarisation' => 'authentication',
@@ -570,7 +568,9 @@ class AssistantKnowledge
 
         }
 
-
+        if (self::looksLikeSystemQuery($message)) {
+            return false;
+        }
 
         if (AssistantCalculations::looksLikeCalculationQuery($message)) {
             return false;
@@ -596,7 +596,7 @@ class AssistantKnowledge
 
         $hasNotaryContext = (bool) preg_match(
 
-            '/\b(jurat|acknowledg|affidavit|apostille|deed|notary|notaris|poa|power of attorney|attestation|oath|affirmation|witness|seal|certificate|authentication|legalis|certified copy|copy certif|protest|statutory declaration|sworn|conveyance|mortgage|testament|probate|executor|mandate|procuration|signing agent|ron|e-notari|notarial|commissioner for oaths|indemnity|promissory|bill of exchange|letters of administration|grant of probate|corporate resolution|capacity|venue|bond)\b/i',
+            '/\b(jurat|acknowledg|affidavit|apostille|deed|notary public|notaris|poa|power of attorney|attestation|oath|affirmation|witness|seal|certificate|authentication|legalis|certified copy|copy certif|protest|statutory declaration|sworn|conveyance|mortgage|testament|probate|executor|mandate|procuration|signing agent|ron|e-notari|notarial|commissioner for oaths|indemnity|promissory|bill of exchange|letters of administration|grant of probate|corporate resolution|capacity|venue|bond)\b/i',
 
             $message
 
@@ -612,7 +612,7 @@ class AssistantKnowledge
 
 
 
-        if (preg_match('/\b(poa|jurat|apostille|affidavit|notary)\b.*\b(meaning|definition|mean)\b/i', $message)) {
+        if (preg_match('/\b(poa|jurat|apostille|affidavit)\b.*\b(meaning|definition|mean)\b/i', $message)) {
 
             return true;
 
@@ -620,16 +620,220 @@ class AssistantKnowledge
 
 
 
-        if (preg_match('/\b(meaning|definition|mean)\b.*\b(poa|jurat|apostille|affidavit|notary|power of attorney)\b/i', $message)) {
+        if (preg_match('/\b(meaning|definition|mean)\b.*\b(poa|jurat|apostille|affidavit|power of attorney)\b/i', $message)) {
 
             return true;
 
         }
 
+        if (preg_match('/\b(?:what is|define|explain)\b.*\bnotary\s+public\b/i', $message)) {
+            return true;
+        }
 
 
-        return (bool) preg_match('/^(what is|what are|define|explain)\s+.+/i', $lower);
 
+        if (AssistantDocuments::referencesUploadedDocument($message)) {
+
+            return false;
+
+        }
+
+        if (AssistantPracticeFaq::matches($message)) {
+            return false;
+        }
+
+        if (preg_match('/\b(revenue|clients?|cases?|appointments?|notifications?|dashboard|payments?)\b/i', $lower)) {
+            return false;
+        }
+
+        return false;
+
+    }
+
+    public static function looksLikeSystemQuery(string $message): bool
+    {
+        $lower = assistantNormalizeCasualText($message);
+        if ($lower === '') {
+            return false;
+        }
+
+        if (preg_match('/\bnotary\b.*\bsystem\b|\bsystem\b.*\bnotary\b/', $lower)) {
+            return true;
+        }
+
+        if (in_array($lower, [
+            'system',
+            'the system',
+            'this system',
+            'portal',
+            'the portal',
+            'this portal',
+            'notary system',
+            'the notary system',
+            'this notary system',
+            'admin portal',
+            'practice management',
+        ], true)) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\b(?:this|the|our|your)\s+(?:notary\s+)?(?:system|software|portal|platform|app|application)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match('/\b(?:notary\s+system|case\s?notary|admin\s+portal|client\s+portal|practice\s+management)\b/', $lower)) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\bhow\s+(?:does|do)\s+(?:this|the)\s+(?:system|portal|app|software|assistant)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\bwhat\s+(?:is|does)\s+(?:this|the|a)?\s*(?:notary\s+)?(?:system|portal|assistant|software|platform)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match('/\b(?:system|portal|assistant)\s+(?:work|help|features?|capabilities)\b/', $lower)) {
+            return true;
+        }
+
+        if (preg_match('/\bwhere (?:is|are|do i)|navigate|find (?:the )?(?:settings|payments|cases|clients)\b/', $lower)) {
+            return true;
+        }
+
+        if (preg_match('/\bhow (?:do i|to)\b/', $lower)
+            && preg_match('/\b(settings|payments|cases|clients|dashboard|sidebar|portal|navigate|system|assistant)\b/', $lower)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function looksLikeCapabilitiesQuery(string $message): bool
+    {
+        $lower = assistantNormalizeCasualText($message);
+
+        if ($lower === '') {
+            return false;
+        }
+
+        if (in_array($lower, ['help', 'capabilities', 'features', 'what can you do', 'what do you do'], true)) {
+            return true;
+        }
+
+        return (bool) preg_match(
+            '/\b(?:what can you do|what do you do|what are you able to do|what are your capabilities|how can you help)\b/',
+            $lower
+        );
+    }
+
+    public static function looksLikeOutOfScope(string $message): bool
+    {
+        $lower = strtolower(trim($message));
+        if ($lower === '') {
+            return true;
+        }
+
+        if (self::looksLikeSystemQuery($message)
+            || self::looksLikeCapabilitiesQuery($message)
+            || AssistantPracticeFaq::matches($message)
+            || self::looksLikeDefinitionQuery($message)
+            || AssistantCalculations::looksLikeCalculationQuery($message)) {
+            return false;
+        }
+
+        if (preg_match(
+            '/\b(client|case|invoice|receipt|payment|appointment|dashboard|notary|jurat|apostille|affidavit|document|upload|intake|portal|deed|poa|witness|compliance)\b/',
+            $lower
+        )) {
+            return false;
+        }
+
+        if (preg_match('/\b(hello|hi|hey|thanks|thank you|good morning|good afternoon)\b/', $lower)) {
+            return false;
+        }
+
+        if (preg_match(
+            '/\b(weather|forecast|recipe|football|soccer|movie|bitcoin|crypto|stock price|celebrity|joke|riddle|song lyrics|capital of)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match('/\b(what is|who is|tell me about|explain)\b/', $lower)
+            && !preg_match(
+                '/\b(notary|jurat|apostille|affidavit|deed|acknowledg|attestation|oath|affirmation|probate|conveyance|mortgage|statutory|sworn|certified copy|signing agent|ron|apostille)\b/',
+                $lower
+            )) {
+            return true;
+        }
+
+        return (bool) preg_match('/\b(write (?:me )?(?:an )?essay|homework|solve this math|translate to)\b/', $lower);
+    }
+
+    public static function outOfScopeMessage(): string
+    {
+        return '**I do not have this kind of information.** '
+            . 'I can help with this **admin portal** (clients, cases, appointments, payments), '
+            . '**uploaded documents**, **notarial term definitions**, and **notary practice FAQs**. '
+            . 'Try _what can you do?_ for a full list.';
+    }
+
+    public static function capabilitiesMessage(): string
+    {
+        $company = companyBrandName();
+
+        return '**What I can help with in ' . $company . '**' . "\n\n"
+            . "• **Portal & system** — navigation, where to find settings, cases, payments, and appointments\n"
+            . "• **Live data** — _How many clients do we have?_, overdue invoices, upcoming appointments\n"
+            . "• **Actions** — schedule appointments, create/update cases, upload documents to cases, start intake (confirm to apply)\n"
+            . "• **Documents** — attach PDFs/images and ask about amounts, dates, VAT; or ask about files already on a case (e.g. _summarize invoice on case CASE-2026-0001_)\n"
+            . "• **Notary terms** — definitions for jurat, acknowledgment, apostille, POA, certified copy, and many more\n"
+            . "• **Practice FAQs** — ID requirements, witnesses, mobile visits, fees, document preparation\n"
+            . "• **Calculations** — percentages and simple fee math\n\n"
+            . 'For **this software**, ask _how does this system work?_ — for **legal terms**, ask _what is a jurat?_';
+    }
+
+
+
+    /** @return array{content: string}|null */
+    public static function tryAnswer(string $message): ?array
+    {
+        $message = assistantNormalizeUserMessage($message);
+        if ($message === '') {
+            return null;
+        }
+
+        if (AssistantPracticeFaq::matches($message)) {
+            return AssistantPracticeFaq::handle($message);
+        }
+
+        if (self::looksLikeSystemQuery($message)) {
+            return self::systemQa($message);
+        }
+
+        if (self::looksLikeCapabilitiesQuery($message)) {
+            return ['content' => self::capabilitiesMessage()];
+        }
+
+        if (AssistantCalculations::looksLikeCalculationQuery($message)) {
+            return AssistantCalculations::handle($message);
+        }
+
+        if (self::looksLikeDefinitionQuery($message)) {
+            return self::definition($message);
+        }
+
+        return null;
     }
 
 
@@ -644,9 +848,13 @@ class AssistantKnowledge
 
             'calculation' => AssistantCalculations::handle($message),
 
+            'practice_faq' => AssistantPracticeFaq::handle($message),
+
             'definition' => self::definition($message),
 
             'system_qa' => self::systemQa($message),
+
+            'capabilities' => ['content' => self::capabilitiesMessage()],
 
             default => self::definition($message),
 
@@ -661,6 +869,10 @@ class AssistantKnowledge
     private static function definition(string $message): array
 
     {
+
+        if (self::looksLikeSystemQuery($message)) {
+            return self::systemQa($message);
+        }
 
         $term = self::matchDefinitionTerm($message);
 
@@ -684,46 +896,6 @@ class AssistantKnowledge
 
         }
 
-
-
-        if (OllamaService::isEnabled() && OllamaService::isReachable()) {
-
-            try {
-
-                $style = $wantsLong ? 'a comprehensive legal explanation for practicing notaries' : 'one concise sentence for a notary professional';
-
-                $answer = OllamaService::chat([
-
-                    [
-
-                        'role' => 'system',
-
-                        'content' => 'You are a notary practice expert. Define notarial, legal, and conveyancing terms clearly and accurately. Focus on what a notary public needs to know. If the term is not notary-related, say so briefly.',
-
-                    ],
-
-                    ['role' => 'user', 'content' => "Give {$style}: {$message}"],
-
-                ]);
-
-
-
-                if (trim($answer) !== '') {
-
-                    return ['content' => trim($answer)];
-
-                }
-
-            } catch (Throwable) {
-
-                // Fall through to built-in glossary hint.
-
-            }
-
-        }
-
-
-
         return ['content' => self::unknownTermMessage($message)];
 
     }
@@ -735,6 +907,10 @@ class AssistantKnowledge
     private static function systemQa(string $message): array
 
     {
+
+        if (self::looksLikeSystemOverviewQuery($message)) {
+            return ['content' => self::systemOverviewAnswer()];
+        }
 
         $guides = [
 
@@ -810,12 +986,19 @@ class AssistantKnowledge
 
     {
 
-        $lower = strtolower($message);
+        $lower = strtolower(assistantNormalizeUserMessage($message));
+
+        if (self::looksLikeSystemQuery($message)) {
+            return null;
+        }
+
+        if (preg_match('/\bnotary\b.*\bsystem\b|\bsystem\b.*\bnotary\b/', $lower)) {
+            return null;
+        }
 
 
 
         foreach (self::ALIASES as $alias => $canonical) {
-
             if (preg_match('/\b' . preg_quote($alias, '/') . '\b/i', $lower)) {
 
                 return $canonical;
@@ -844,6 +1027,12 @@ class AssistantKnowledge
 
             return 'acknowledgment';
 
+        }
+
+        if (preg_match('/\bnotary\s+public\b/', $lower)
+            || preg_match('/^(?:what is|define|explain|meaning of)\s+(?:a\s+)?notary\??$/', $lower)
+            || preg_match('/^notary\??$/', $lower)) {
+            return 'notary public';
         }
 
 
@@ -884,14 +1073,41 @@ class AssistantKnowledge
 
     {
 
-        $samples = ['jurat', 'acknowledgment', 'affidavit', 'apostille', 'power of attorney', 'certified copy', 'probate', 'statutory declaration'];
+        $samples = ['jurat', 'acknowledgment', 'affidavit', 'apostille', 'power of attorney', 'certified copy', 'probate', 'statutory declaration', 'notarial act'];
 
 
 
-        return 'I do not have a built-in definition for that term yet. Try asking _what is a jurat?_ or _poa meaning_.'
+        return '**I do not have this kind of information** for that term in my built-in glossary. '
+            . 'Try a specific notarial term, e.g. _what is a jurat?_ or _define apostille_.'
 
-            . "\n\n**Terms I know include:** " . implode(', ', $samples) . ', and many other notarial concepts.';
+            . "\n\n**Sample terms I know:** " . implode(', ', $samples) . ', and many others.';
 
+    }
+
+    private static function looksLikeSystemOverviewQuery(string $message): bool
+    {
+        $lower = strtolower(trim($message));
+
+        return (bool) preg_match(
+            '/\b(?:what is|how does|about|explain)\b.*\b(?:this|the|our)?\s*(?:notary\s+)?(?:system|portal|software|platform|assistant)\b/',
+            $lower
+        ) || (bool) preg_match('/\bnotary\s+system\b/', $lower);
+    }
+
+    private static function systemOverviewAnswer(): string
+    {
+        $company = companyBrandName();
+
+        return '**About this system (' . $company . ' admin portal)**' . "\n\n"
+            . 'This is your **notary practice management software** — the portal where your firm runs day-to-day work. '
+            . 'It is **not** a general definition of “notary public” as a legal officer.' . "\n\n"
+            . "**You can use it to:**\n"
+            . '• Manage **clients**, **cases**, **appointments**, and **payments**' . "\n"
+            . '• **Upload documents** and ask about amounts, VAT, dates, and summaries' . "\n"
+            . '• View **dashboard** metrics and **search** records' . "\n"
+            . '• Run **client intake** and draft actions (with your confirmation)' . "\n"
+            . '• Look up **notarial terms** (jurat, apostille, POA, etc.)' . "\n\n"
+            . 'Ask _what is a jurat?_ for a **practice definition**, or _how many clients do we have?_ for **live data**.';
     }
 
 

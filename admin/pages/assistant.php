@@ -126,48 +126,47 @@ require __DIR__ . '/../includes/header.php';
 
             <div class="assistant-input-area">
 
-                <form id="assistantForm" class="assistant-form" enctype="multipart/form-data" data-no-global-loading data-read-only="<?= Auth::isReadOnly() ? '1' : '0' ?>">
+                <form id="assistantForm" class="assistant-form" enctype="multipart/form-data" data-no-global-loading data-read-only="<?= Auth::isReadOnly() ? '1' : '0' ?>" data-enabled="<?= !empty($status['enabled']) ? '1' : '0' ?>" data-ollama-online="<?= !empty($status['ollama_online']) ? '1' : '0' ?>">
 
                     <?= CSRF::field() ?>
 
-                    <input type="file" id="assistantAttachment" name="attachment" class="d-none"
+                    <input type="file" id="assistantAttachment" name="attachments[]" class="d-none" multiple
 
-                           accept=".pdf,.txt,.jpg,.jpeg,.png,.gif,.webp,image/*,application/pdf">
+                           accept=".pdf,.html,.htm,.txt,.jpg,.jpeg,.png,.gif,.webp,image/*,application/pdf,text/html">
 
-                    <button type="button" class="btn btn-soft assistant-attach-btn" id="assistantAttachBtn" title="Attach PDF or image">
+                    <div id="assistantAttachBar" class="assistant-attach-preview d-none" aria-live="polite">
+                        <div id="assistantAttachList" class="assistant-attach-preview__list"></div>
+                    </div>
 
-                        <i class="bi bi-paperclip"></i>
+                    <div class="assistant-form__row">
+                        <button type="button" class="btn btn-soft assistant-attach-btn" id="assistantAttachBtn" title="Attach PDFs or images (up to 5)">
 
-                    </button>
+                            <i class="bi bi-paperclip"></i>
 
-                    <textarea
+                        </button>
 
-                        id="assistantInput"
+                        <textarea
 
-                        class="form-control"
+                            id="assistantInput"
 
-                        rows="1"
+                            class="form-control"
 
-                        placeholder="Ask about clients, cases, fees, or say ‘create a case for…’"
+                            rows="1"
 
-                    ></textarea>
+                            placeholder="Ask about clients, cases, fees, or say ‘create a case for…’"
 
-                    <button type="submit" class="btn btn-primary" id="assistantSendBtn">
+                        ></textarea>
 
-                        <i class="bi bi-send-fill"></i>
+                        <button type="submit" class="btn btn-primary" id="assistantSendBtn">
 
-                        <span class="visually-hidden">Send</span>
+                            <i class="bi bi-send-fill"></i>
 
-                    </button>
+                            <span class="visually-hidden">Send</span>
+
+                        </button>
+                    </div>
 
                 </form>
-
-                <div id="assistantAttachBar" class="assistant-attach-bar d-none" aria-live="polite">
-                    <span id="assistantAttachLabel" class="assistant-input-hint mb-0"></span>
-                    <button type="button" class="assistant-attach-clear" id="assistantAttachClearBtn" title="Remove attachment" aria-label="Remove attachment">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                </div>
 
                 <?php if (!$status['enabled']): ?>
 
@@ -187,7 +186,9 @@ require __DIR__ . '/../includes/header.php';
 
                 <?php else: ?>
 
-                    <p class="assistant-input-hint mb-0 mt-2">Tip: attach a PDF or photo, then ask to scan or extract details.</p>
+                    <p class="assistant-input-tip mb-0 mt-2">
+                        <span><strong>Tip:</strong> Attach one or more PDFs, screenshots, or photos — text is read in your browser, then analyzed.</span>
+                    </p>
 
                 <?php endif; ?>
 
@@ -237,7 +238,14 @@ require __DIR__ . '/../includes/header.php';
 
 <?php
 
-$pageScripts = '<script src="' . adminAsset('js/assistant-page.js') . '"></script>';
+$pageScripts = '<script src="' . adminAsset('vendor/pdfjs/pdf.min.js') . '"></script>'
+    . '<script>window.ASSISTANT_PDF_WORKER=' . json_encode(adminAsset('vendor/pdfjs/pdf.worker.min.js'), JSON_THROW_ON_ERROR) . ';</script>'
+    . '<script src="' . adminAsset('vendor/tesseract/tesseract.min.js') . '"></script>'
+    . '<script>window.ASSISTANT_TESSERACT_WORKER=' . json_encode(adminAsset('vendor/tesseract/worker.min.js'), JSON_THROW_ON_ERROR) . ';'
+    . 'window.ASSISTANT_TESSERACT_CORE=' . json_encode(adminAsset('vendor/tesseract/tesseract-core.wasm.js'), JSON_THROW_ON_ERROR) . ';</script>'
+    . '<script src="' . adminAsset('js/assistant-pdf-client.js') . '"></script>'
+    . '<script src="' . adminAsset('js/assistant-image-ocr.js') . '"></script>'
+    . '<script src="' . adminAsset('js/assistant-page.js') . '"></script>';
 
 require __DIR__ . '/../includes/footer.php';
 

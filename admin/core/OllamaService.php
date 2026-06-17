@@ -9,7 +9,11 @@ class OllamaService
     /** @var list<string>|null */
     private static ?array $availableModels = null;
 
-    /** @return array{base_url: string, model: string, vision_model: string, timeout: int, enabled: bool} */
+    private static ?bool $reachableCache = null;
+
+    private static ?int $reachableCheckedAt = null;
+
+    /** @return array{base_url: string, model: string, vision_model: string, timeout: int, chat_timeout: int, ping_timeout: int, keep_alive: string, num_predict: int, enabled: bool} */
     private static function config(): array
     {
         $config = require __DIR__ . '/../config/config.php';
@@ -20,8 +24,19 @@ class OllamaService
             'base_url'     => rtrim((string) ($assistant['base_url'] ?? 'http://127.0.0.1:11434'), '/'),
             'model'        => (string) ($assistant['model'] ?? 'qwen2.5:0.5b'),
             'vision_model' => (string) ($assistant['vision_model'] ?? 'llava'),
-            'timeout'      => max(30, (int) ($assistant['timeout'] ?? 120)),
+            'timeout'      => max(15, (int) ($assistant['timeout'] ?? 60)),
+            'chat_timeout' => max(15, (int) ($assistant['chat_timeout'] ?? 60)),
+            'ping_timeout' => max(2, (int) ($assistant['ping_timeout'] ?? 3)),
+            'keep_alive'   => (string) ($assistant['keep_alive'] ?? '15m'),
+            'num_predict'  => max(64, (int) ($assistant['num_predict'] ?? 384)),
+            'document_use_ai' => (bool) ($assistant['document_use_ai'] ?? false),
+            'document_chat_timeout' => max(8, (int) ($assistant['document_chat_timeout'] ?? 20)),
         ];
+    }
+
+    public static function useAiForDocuments(): bool
+    {
+        return self::config()['document_use_ai'];
     }
 
     public static function isEnabled(): bool
@@ -52,41 +67,30 @@ class OllamaService
             throw new InvalidArgumentException('At least one message is required.');
         }
 
-        $tried = [];
-        $lastError = null;
-
-        while (count($tried) < max(1, count(self::availableModels()))) {
-            $model = self::resolveModel();
-            if (in_array($model, $tried, true)) {
-                break;
-            }
-            $tried[] = $model;
-
-            try {
-                return self::chatWithModel($model, $messages);
-            } catch (RuntimeException $e) {
-                $lastError = $e;
-                if (!self::isRecoverableModelError($e) || !self::advanceToNextModel($model)) {
-                    throw $e;
-                }
-            }
-        }
-
-        throw $lastError ?? new RuntimeException('Ollama request failed.');
+        return self::chatWithModel(self::resolveModel(), $messages);
     }
 
     /**
      * @param list<array{role: string, content: string, images?: list<string>}> $messages
+     * @param array<string, mixed> $optionOverrides
      */
-    private static function chatWithModel(string $model, array $messages): string
+    private static function chatWithModel(string $model, array $messages, ?int $timeout = null, array $optionOverrides = []): string
     {
+        $config = self::config();
+        $options = array_merge([
+            'num_predict' => $config['num_predict'],
+            'temperature' => 0.5,
+        ], $optionOverrides);
+
         $payload = [
-            'model'    => $model,
-            'messages' => $messages,
-            'stream'   => false,
+            'model'      => $model,
+            'messages'   => $messages,
+            'stream'     => false,
+            'keep_alive' => $config['keep_alive'],
+            'options'    => $options,
         ];
 
-        $response = self::request('POST', '/api/chat', $payload);
+        $response = self::request('POST', '/api/chat', $payload, $timeout ?? $config['chat_timeout']);
         $content = trim((string) ($response['message']['content'] ?? ''));
 
         if ($content === '') {
@@ -109,37 +113,6 @@ class OllamaService
             || str_contains($message, 'multimodal');
     }
 
-    private static function advanceToNextModel(string $failedModel): bool
-    {
-        $available = self::availableModels();
-        if ($available === []) {
-            return false;
-        }
-
-        usort($available, static fn (string $a, string $b): int => self::modelPreferenceScore($a) <=> self::modelPreferenceScore($b));
-
-        $index = array_search($failedModel, $available, true);
-        if ($index === false) {
-            self::$resolvedModel = $available[0];
-
-            return $available[0] !== $failedModel;
-        }
-
-        for ($i = (int) $index - 1; $i >= 0; $i--) {
-            self::$resolvedModel = $available[$i];
-
-            return true;
-        }
-
-        for ($i = (int) $index + 1; $i < count($available); $i++) {
-            self::$resolvedModel = $available[$i];
-
-            return true;
-        }
-
-        return false;
-    }
-
     public static function summarizeDocument(string $text, string $question, array $file): string
     {
         $path = (string) ($file['tmp_name'] ?? '');
@@ -156,7 +129,9 @@ class OllamaService
             return self::chatWithVision([
                 [
                     'role' => 'system',
-                    'content' => 'You extract structured facts from document images for a notary office: names, dates, IDs, clauses, amounts.',
+                    'content' => 'You summarize notary office document images for staff. '
+                        . 'Return 4–10 concise bullet points: document type, parties, dates, reference numbers, amounts, and key clauses. '
+                        . 'Only state facts visible in the image.',
                 ],
                 [
                     'role'    => 'user',
@@ -171,9 +146,75 @@ class OllamaService
             throw new RuntimeException('No text could be extracted from this document.');
         }
 
-        return self::chat([
-            ['role' => 'system', 'content' => 'You analyze legal/notary documents and return clear bullet points.'],
-            ['role' => 'user', 'content' => $question . "\n\nDocument text:\n" . $snippet],
+        return self::summarizeTextContent($snippet, $question);
+    }
+
+    public static function summarizeTextContent(string $text, string $question): string
+    {
+        if (!self::isEnabled()) {
+            throw new RuntimeException('The AI assistant is disabled.');
+        }
+
+        $snippet = mb_substr(assistantSanitizeUtf8($text), 0, 12000);
+        if (trim($snippet) === '') {
+            throw new RuntimeException('No text could be extracted from this document.');
+        }
+
+        $instruction = trim($question) !== ''
+            ? $question
+            : 'Summarize this document in clear bullet points.';
+
+        $config = self::config();
+        $predict = min(256, max(128, $config['num_predict']));
+
+        return self::chatWithModel(self::resolveModel(), [
+            [
+                'role' => 'system',
+                'content' => 'You summarize notary and legal office documents for staff. '
+                    . 'Reply with 4–10 concise bullet points covering: document type, parties and names, dates, '
+                    . 'reference or invoice numbers, monetary amounts, and important clauses or next steps. '
+                    . 'Use markdown bullets (- or •). Only state facts present in the text; do not invent details.',
+            ],
+            [
+                'role' => 'user',
+                'content' => $instruction . "\n\n---\n" . $snippet,
+            ],
+        ], $config['document_chat_timeout'], [
+            'num_predict' => $predict,
+            'temperature' => 0.3,
+        ]);
+    }
+
+    public static function answerAboutDocument(string $text, string $question): string
+    {
+        if (!self::isEnabled()) {
+            throw new RuntimeException('The AI assistant is disabled.');
+        }
+
+        $snippet = mb_substr(assistantSanitizeUtf8($text), 0, 12000);
+        if (trim($snippet) === '') {
+            throw new RuntimeException('No document text is available.');
+        }
+
+        $instruction = trim($question) !== '' ? trim($question) : 'Answer the question using the document.';
+        $config = self::config();
+
+        return self::chatWithModel(self::resolveModel(), [
+            [
+                'role' => 'system',
+                'content' => 'You answer questions about an uploaded notary-office document. '
+                    . 'Use ONLY facts from the document text below. Be brief and direct. '
+                    . 'For amount or total questions, quote the payment received or grand total figure exactly. '
+                    . 'Do not confuse case references, invoice numbers, or receipt numbers with monetary amounts. '
+                    . 'If the answer is not in the document, say you cannot find it in the uploaded file.',
+            ],
+            [
+                'role' => 'user',
+                'content' => "Question: {$instruction}\n\n---\nDocument text:\n{$snippet}",
+            ],
+        ], min($config['document_chat_timeout'], 25), [
+            'num_predict' => 192,
+            'temperature' => 0.2,
         ]);
     }
 
@@ -296,13 +337,21 @@ class OllamaService
             return false;
         }
 
-        try {
-            self::request('GET', '/api/tags');
-
-            return true;
-        } catch (Throwable) {
-            return false;
+        if (self::$reachableCache !== null && self::$reachableCheckedAt !== null
+            && (time() - self::$reachableCheckedAt) < 45) {
+            return self::$reachableCache;
         }
+
+        try {
+            self::request('GET', '/api/tags', null, self::config()['ping_timeout']);
+            self::$reachableCache = true;
+        } catch (Throwable) {
+            self::$reachableCache = false;
+        }
+
+        self::$reachableCheckedAt = time();
+
+        return self::$reachableCache;
     }
 
     /** @return list<string> */
@@ -313,7 +362,7 @@ class OllamaService
         }
 
         try {
-            $data = self::request('GET', '/api/tags');
+            $data = self::request('GET', '/api/tags', null, self::config()['ping_timeout']);
             $names = [];
             foreach ($data['models'] ?? [] as $model) {
                 $name = trim((string) ($model['name'] ?? ''));
@@ -335,7 +384,10 @@ class OllamaService
             return self::$resolvedModel;
         }
 
-        $wanted = self::config()['model'];
+        $wanted = trim(self::config()['model']);
+        if ($wanted === '') {
+            throw new RuntimeException('No Ollama model is configured for the AI assistant.');
+        }
         $available = self::availableModels();
 
         if ($available === []) {
@@ -346,74 +398,42 @@ class OllamaService
             return self::$resolvedModel = $wanted;
         }
 
-        foreach ($available as $name) {
-            if (str_starts_with($name, $wanted . ':')) {
-                return self::$resolvedModel = self::preferLargerVariant($name, $available, $wanted);
-            }
-        }
-
-        $familyMatches = array_values(array_filter(
-            $available,
-            static fn (string $name): bool => str_starts_with($name, explode(':', $wanted)[0])
-        ));
-        if ($familyMatches !== []) {
-            usort($familyMatches, [self::class, 'compareModelPreference']);
-
-            return self::$resolvedModel = $familyMatches[0];
-        }
-
-        return self::$resolvedModel = $available[0];
-    }
-
-    /** @param list<string> $available */
-    private static function preferLargerVariant(string $firstMatch, array $available, string $prefix): string
-    {
-        $matches = array_values(array_filter(
-            $available,
-            static fn (string $name): bool => str_starts_with($name, $prefix . ':') || $name === $prefix
-        ));
-        if ($matches === []) {
-            return $firstMatch;
-        }
-
-        usort($matches, [self::class, 'compareModelPreference']);
-
-        return $matches[0];
-    }
-
-    private static function compareModelPreference(string $a, string $b): int
-    {
-        return self::modelPreferenceScore($a) <=> self::modelPreferenceScore($b);
-    }
-
-    private static function modelPreferenceScore(string $name): int
-    {
-        if (preg_match('/:(\d+)b$/i', $name, $matches)) {
-            return (int) $matches[1];
-        }
-
-        return str_contains($name, 'latest') ? 1 : 0;
+        throw new RuntimeException(
+            'Configured Ollama model "' . $wanted . '" is not installed. '
+            . 'Installed models: ' . implode(', ', $available)
+        );
     }
 
     /**
      * @param array<string, mixed>|null $payload
      * @return array<string, mixed>
      */
-    private static function request(string $method, string $path, ?array $payload = null): array
+    private static function request(string $method, string $path, ?array $payload = null, ?int $timeout = null): array
     {
         if (!function_exists('curl_init')) {
             throw new RuntimeException('PHP cURL extension is required for the AI assistant.');
         }
 
         $config = self::config();
+        $timeout = $timeout ?? $config['timeout'];
+        // Hard cap so PHP max_execution_time (often 120s) never gets hit.
+        // This prevents fatal errors that break the JSON response.
+        $timeout = max(5, min((int) $timeout, 45));
+        @set_time_limit((int) $timeout + 2);
         $url = $config['base_url'] . $path;
         $ch = curl_init($url);
 
         $options = [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => $config['timeout'],
+            CURLOPT_CONNECTTIMEOUT => min(5, $timeout),
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_NOSIGNAL       => true,
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'Accept: application/json'],
         ];
+
+        if (defined('CURLOPT_TIMEOUT_MS')) {
+            $options[CURLOPT_TIMEOUT_MS] = $timeout * 1000;
+        }
 
         if ($method === 'POST') {
             $options[CURLOPT_POST] = true;

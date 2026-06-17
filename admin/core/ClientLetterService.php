@@ -136,7 +136,7 @@ SQL);
             '{{matter_reference}}'    => 'Same as case_number',
             '{{date}}'                => 'Letter date (DD/MM/YYYY)',
             '{{fee_amount}}'          => 'Total fee for this case',
-            '{{vat_disclaimer}}'      => 'VAT status line (based on case billing)',
+            '{{vat_disclaimer}}'      => 'VAT status line',
             '{{service_description}}' => 'Primary service description',
             '{{services_list}}'       => 'Itemised services and fees (optional)',
             '{{additional_notes}}'    => 'Case notes or client instructions',
@@ -532,11 +532,9 @@ HTML,
             || (float) ($totals['vat_gross_subtotal'] ?? 0) > 0.001;
     }
 
-    public static function vatDisclaimerHtml(bool $hasVat): string
+    public static function vatDisclaimerHtml(?bool $hasVat = null): string
     {
-        return $hasVat
-            ? '<p>My fees are subject to VAT.</p>'
-            : '<p>My fees are not subject to VAT.</p>';
+        return '<p>My fees are subject to VAT.</p>';
     }
 
     public static function applyPriceFeeVatDisclaimer(string $content, array $billing): string

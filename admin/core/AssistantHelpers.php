@@ -2,6 +2,19 @@
 
 declare(strict_types=1);
 
+function assistantJsonEncode(mixed $data): string
+{
+    $json = json_encode($data, JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE);
+    if ($json !== false) {
+        return $json;
+    }
+
+    return json_encode(
+        ['success' => false, 'message' => 'Could not encode response.'],
+        JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE
+    ) ?: '{"success":false,"message":"Could not encode response."}';
+}
+
 function assistantSanitizeUtf8(string $text): string
 {
     if ($text === '') {
@@ -12,7 +25,7 @@ function assistantSanitizeUtf8(string $text): string
         return $text;
     }
 
-    $clean = iconv('UTF-8', 'UTF-8//IGNORE', $text);
+    $clean = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
 
     return is_string($clean) ? $clean : '';
 }
@@ -65,6 +78,197 @@ function assistantResolveClientId(string $name): ?int
     return (int) ($clients[0]['id'] ?? 0) ?: null;
 }
 
+function assistantIsPlaceholderClientName(string $name): bool
+{
+    $normalized = strtolower(trim(preg_replace('/\s+/', ' ', $name)));
+    if ($normalized === '') {
+        return true;
+    }
+
+    static $placeholders = [
+        'me', 'myself', 'us', 'them', 'him', 'her', 'you',
+        'a client', 'new client', 'the client', 'my client', 'someone', 'anyone',
+        'a new client', 'new case', 'a case', 'the case', 'a matter', 'new matter',
+    ];
+
+    if (in_array($normalized, $placeholders, true)) {
+        return true;
+    }
+
+    return (bool) preg_match('/^(a|the|new|my)\s+(client|case|matter)s?$/', $normalized);
+}
+
+function assistantSanitizeExtractedClientName(string $name): string
+{
+    $name = trim(preg_replace('/\s+/', ' ', $name));
+
+    return assistantIsPlaceholderClientName($name) ? '' : $name;
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function assistantRecentClients(int $limit = 8): array
+{
+    $where = ['1=1'];
+    $params = [];
+    TenantService::appendClientScope($where, $params, 'c');
+    $params[] = $limit;
+
+    return Database::fetchAll(
+        'SELECT c.* FROM clients c WHERE ' . implode(' AND ', $where) . ' ORDER BY c.updated_at DESC LIMIT ?',
+        $params
+    );
+}
+
+function assistantCreateCaseMissingClientMessage(?string $attemptedName = null): string
+{
+    $lines = [];
+
+    if ($attemptedName !== null && $attemptedName !== '') {
+        $lines[] = 'I could not find a client named **' . $attemptedName . '**.';
+        $lines[] = '';
+    } else {
+        $lines[] = 'I can **create a case** — I just need which **client** it is for.';
+        $lines[] = '';
+    }
+
+    $lines[] = '**Example:** _Create a case for Louis Macwell — deed of sale._';
+
+    $clients = assistantRecentClients(6);
+    if ($clients !== []) {
+        $lines[] = '';
+        $lines[] = '**Recent clients:**';
+        foreach ($clients as $client) {
+            $lines[] = '- ' . clientFullName($client);
+        }
+    } else {
+        $lines[] = '';
+        $lines[] = '_No clients yet — say **create new client** or **create a new case for me** and I’ll collect their details._';
+    }
+
+    $lines[] = '';
+    $lines[] = 'Or say **create new client** to add someone who is not in the list yet.';
+
+    return implode("\n", $lines);
+}
+
+/** @return array{first_name: string, last_name: string} */
+function assistantSplitPersonName(string $fullName): array
+{
+    $fullName = trim(preg_replace('/\s+/', ' ', $fullName));
+    if ($fullName === '') {
+        return ['first_name' => '', 'last_name' => ''];
+    }
+
+    $parts = preg_split('/\s+/', $fullName) ?: [];
+    if (count($parts) === 1) {
+        return ['first_name' => $parts[0], 'last_name' => 'Client'];
+    }
+
+    $lastName = (string) array_pop($parts);
+
+    return [
+        'first_name' => implode(' ', $parts),
+        'last_name'  => $lastName,
+    ];
+}
+
+function assistantExtractEmailFromText(string $text): string
+{
+    if (preg_match('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $text, $matches)) {
+        return strtolower(trim($matches[0]));
+    }
+
+    return '';
+}
+
+function assistantExtractPhoneFromText(string $text): string
+{
+    if (preg_match('/\+?\d[\d\s().\-]{7,}\d/', $text, $matches)) {
+        return trim(preg_replace('/\s+/', ' ', $matches[0]));
+    }
+
+    return '';
+}
+
+function assistantDefaultClientCountry(): string
+{
+    $company = getCompanySettings();
+
+    return trim((string) ($company['country'] ?? 'Mauritius')) ?: 'Mauritius';
+}
+
+/**
+ * @return array{address: string, city: string, state: string, zip_code: string, country: string}|null
+ */
+function assistantParsePostalAddress(string $input): ?array
+{
+    $input = trim(preg_replace('/\s+/', ' ', $input));
+    if ($input === '') {
+        return null;
+    }
+
+    $parts = array_values(array_filter(array_map('trim', preg_split('/\s*,\s*/', $input) ?: []), static fn (string $p): bool => $p !== ''));
+    $defaultCountry = assistantDefaultClientCountry();
+
+    if (count($parts) >= 5) {
+        return [
+            'address'  => $parts[0],
+            'city'     => $parts[1],
+            'state'    => $parts[2],
+            'zip_code' => $parts[3],
+            'country'  => $parts[4],
+        ];
+    }
+
+    if (count($parts) === 4) {
+        return [
+            'address'  => $parts[0],
+            'city'     => $parts[1],
+            'state'    => $parts[2],
+            'zip_code' => $parts[3],
+            'country'  => $defaultCountry,
+        ];
+    }
+
+    if (count($parts) === 3) {
+        return [
+            'address'  => $parts[0],
+            'city'     => $parts[1],
+            'state'    => $parts[2],
+            'zip_code' => '00000',
+            'country'  => $defaultCountry,
+        ];
+    }
+
+    return null;
+}
+
+function assistantExtractClientNameForCreateCase(string $message): string
+{
+    $patterns = [
+        '/\b(?:create|open|start|make)(?:\s+\w+){0,6}\s+(?:case|matter)\s+for\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+){0,4})/iu',
+        '/\bnew\s+(?:case|matter)\s+for\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+){0,4})/iu',
+        '/\bfor\s+client\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+){0,4})/iu',
+        '/\bfor\s+([A-Z][a-z]+(?:\s+[A-Z][a-z\']+)+)\s*(?:[—\-]|$)/u',
+        '/\bfor\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+){0,4})\s*[—\-]\s*/iu',
+    ];
+
+    foreach ($patterns as $pattern) {
+        if (!preg_match($pattern, $message, $matches)) {
+            continue;
+        }
+
+        $name = assistantSanitizeExtractedClientName(trim($matches[1]));
+        if ($name !== '') {
+            return $name;
+        }
+    }
+
+    return assistantSanitizeExtractedClientName(assistantExtractClientNameFromActionMessage($message));
+}
+
 function assistantExtractClientNameFromActionMessage(string $message): string
 {
     $message = trim($message);
@@ -87,7 +291,10 @@ function assistantExtractClientNameFromActionMessage(string $message): string
 
         $name = trim(preg_replace('/\s+/', ' ', $matches[1]) ?? $matches[1]);
         if ($name !== '') {
-            return $name;
+            $name = assistantSanitizeExtractedClientName($name);
+            if ($name !== '') {
+                return $name;
+            }
         }
     }
 
@@ -100,15 +307,29 @@ function assistantExtractScheduleTimes(string $message): array
     $startPart = trim($message);
     $endTimeRaw = '';
 
-    if (preg_match('/\bto\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i', $message, $endMatch, PREG_OFFSET_CAPTURE)) {
+    if (preg_match(
+        '/\b(?:from\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*[-–—]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i',
+        $message,
+        $rangeMatch
+    )) {
+        $startPart = trim($rangeMatch[1]);
+        $endTimeRaw = trim($rangeMatch[2]);
+    } elseif (preg_match('/\bto\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i', $message, $endMatch, PREG_OFFSET_CAPTURE)) {
         $endTimeRaw = trim($endMatch[1][0]);
         $startPart = trim(substr($message, 0, (int) $endMatch[0][1]));
+    } elseif (preg_match('/\bfrom\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i', $message, $fromMatch)) {
+        $startPart = trim($fromMatch[1]);
+    }
+
+    if (preg_match('/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b/i', $startPart, $timeOnly)) {
+        $day = preg_match('/\b(tomorrow|today)\b/i', $message, $dayMatch) ? strtolower($dayMatch[1]) : 'today';
+        $startPart = $day . ' ' . trim($timeOnly[1]);
     }
 
     $startsAt = parseFlexibleDateTime($startPart);
     if ($startsAt === '' && preg_match('/\b(tomorrow|today)\b/i', $message, $dayMatch)) {
         $timeSuffix = '';
-        if (preg_match('/(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i', $startPart, $timeMatch)) {
+        if (preg_match('/(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i', $message, $timeMatch)) {
             $timeSuffix = $timeMatch[1];
             if (!empty($timeMatch[2])) {
                 $timeSuffix .= ':' . $timeMatch[2];
@@ -332,4 +553,14 @@ function assistantNormalizeUserMessage(string $message): string
     $message = preg_replace('/\s+/u', ' ', $message) ?? $message;
 
     return trim($message);
+}
+
+function assistantNormalizeCasualText(string $message): string
+{
+    $lower = strtolower(assistantNormalizeUserMessage($message));
+    $lower = preg_replace('/\bu\b/', 'you', $lower) ?? $lower;
+    $lower = preg_replace('/\bur\b/', 'your', $lower) ?? $lower;
+    $lower = preg_replace('/\s+/u', ' ', $lower) ?? $lower;
+
+    return trim($lower, " \t\n\r\0\x0B?.!");
 }

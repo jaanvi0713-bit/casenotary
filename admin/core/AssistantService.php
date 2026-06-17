@@ -69,8 +69,8 @@ class AssistantService
 
         return 'You are the AI assistant for the '
             . $company
-            . ' notary admin portal. You help with dashboard metrics, searches, legal definitions, general calculations, client intake, and document review. '
-            . 'Be concise. For data changes, tell the user you will prepare a draft that requires confirmation.';
+            . ' notary admin portal. Answer only about this portal, notary practice, uploaded documents, and built-in glossary terms. '
+            . 'If a question is unrelated, say you do not have that information. Be brief. Drafts need user confirmation.';
     }
 
     /** @return list<array<string, mixed>> */
@@ -93,6 +93,7 @@ class AssistantService
     public static function startNewChat(): void
     {
         unset($_SESSION[self::SESSION_KEY], $_SESSION[self::CONVERSATION_KEY], $_SESSION[self::SESSION_OWNER_KEY]);
+        AssistantDocuments::clearCachedDocumentText();
         AssistantActions::clearDrafts();
         AssistantIntake::clear();
     }
@@ -201,12 +202,130 @@ class AssistantService
     /**
      * @return array{content: string, type: string, draft?: array<string, mixed>, alerts?: list<array<string, string>>}
      */
-    public static function handle(string $message, ?array $upload = null): array
+    public static function handle(
+        string $message,
+        ?array $upload = null,
+        string $clientDocumentText = '',
+        string $documentSource = '',
+        array $uploads = [],
+        array $clientDocumentItems = []
+    ): array
     {
         $message = assistantNormalizeUserMessage($message);
+        $clientDocumentText = assistantSanitizeUtf8(trim($clientDocumentText));
+        $documentSource = trim($documentSource);
 
-        if ($upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-            $result = AssistantDocuments::handleUpload($upload, $message);
+        if ($uploads === [] && $upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            $uploads = [$upload];
+        }
+
+        if ($clientDocumentItems === [] && $clientDocumentText !== '') {
+            $clientDocumentItems = [[
+                'name'   => 'Uploaded document',
+                'text'   => $clientDocumentText,
+                'source' => $documentSource,
+            ]];
+        }
+
+        $hasUpload = $uploads !== [];
+        $hasClientItems = $clientDocumentItems !== [];
+        $isMultiDocumentRequest = count($uploads) > 1 || count($clientDocumentItems) > 1;
+
+        $caseDocAnswer = AssistantDocuments::tryIngestCaseDocument($message);
+        if ($caseDocAnswer !== null) {
+            $caseDocAnswer['type'] = 'text';
+
+            return $caseDocAnswer;
+        }
+
+        $directAnswer = AssistantKnowledge::tryAnswer($message);
+        if ($directAnswer !== null) {
+            $directAnswer['type'] = 'text';
+
+            return $directAnswer;
+        }
+
+        if ($hasUpload && AssistantRouter::looksLikeCaseDocumentUpload($message)) {
+            $result = AssistantActions::handle('upload_case_document', $message, $uploads);
+            $result['type'] = $result['type'] ?? 'text';
+
+            return $result;
+        }
+
+        if (!$hasUpload && trim($message) !== '') {
+            $cachedItems = AssistantDocuments::cachedDocumentItems();
+            $docText = $hasClientItems
+                ? AssistantDocuments::cachedDocumentText()
+                : ($clientDocumentText !== '' ? $clientDocumentText : AssistantDocuments::cachedDocumentText());
+
+            if ($docText !== '' && AssistantDocuments::shouldAnswerFromDocument($message)) {
+                if ($hasClientItems) {
+                    AssistantDocuments::addDocumentItems($clientDocumentItems);
+                    $cachedItems = AssistantDocuments::cachedDocumentItems();
+                } elseif ($clientDocumentText !== '') {
+                    AssistantDocuments::cacheDocumentText($clientDocumentText);
+                    $cachedItems = AssistantDocuments::cachedDocumentItems();
+                }
+
+                if (AssistantDocuments::looksLikeSummarizeRequest($message)) {
+                    $result = count($cachedItems) > 1
+                        ? AssistantDocuments::summarizeMultipleDocuments($message, $cachedItems)
+                        : AssistantDocuments::handleDocument($message, null, $docText, $documentSource);
+                } elseif (count($cachedItems) > 1) {
+                    $result = AssistantDocuments::answerMultiDocumentQuestion($message, $cachedItems);
+                } else {
+                    $result = AssistantDocuments::answerDocumentQuestion(
+                        $message,
+                        $cachedItems[0]['text'] ?? $docText
+                    );
+                }
+                $result['type'] = 'text';
+
+                return $result;
+            }
+        }
+
+        if ($hasUpload || $hasClientItems) {
+            if (!$isMultiDocumentRequest
+                && count($uploads) + count($clientDocumentItems) === 1
+                && trim($message) !== ''
+                && !AssistantDocuments::shouldAnswerFromDocument($message)
+                && !AssistantDocuments::looksLikeSummarizeRequest($message)
+                && AssistantRouter::actionTopic($message) !== null) {
+                $actionTopic = AssistantRouter::actionTopic($message);
+                if ($actionTopic !== null && $actionTopic !== 'upload_case_document') {
+                    $result = AssistantActions::handle($actionTopic, $message, $uploads);
+                    $result['type'] = $result['type'] ?? 'text';
+
+                    return $result;
+                }
+            }
+
+            if ($isMultiDocumentRequest || count($uploads) + count($clientDocumentItems) > 1) {
+                $result = AssistantDocuments::handleDocuments($message, $uploads, $clientDocumentItems);
+            } elseif ($hasUpload) {
+                $result = AssistantDocuments::handleDocument(
+                    $message,
+                    $uploads[0],
+                    (string) ($clientDocumentItems[0]['text'] ?? ''),
+                    (string) ($clientDocumentItems[0]['source'] ?? $documentSource)
+                );
+            } else {
+                $item = $clientDocumentItems[0];
+                $result = AssistantDocuments::handleDocument(
+                    $message,
+                    null,
+                    (string) ($item['text'] ?? ''),
+                    (string) ($item['source'] ?? $documentSource)
+                );
+            }
+            $result['type'] = 'text';
+
+            return $result;
+        }
+
+        if (self::shouldHandleAsDocument($message, false, $clientDocumentText)) {
+            $result = AssistantDocuments::handleDocument($message, null, $clientDocumentText, $documentSource);
             $result['type'] = 'text';
 
             return $result;
@@ -220,22 +339,20 @@ class AssistantService
 
         $result = match ($route['intent']) {
             AssistantRouter::INTENT_DASHBOARD => AssistantDashboard::handle($route['topic']),
-            AssistantRouter::INTENT_ACTION => AssistantActions::handle($route['topic'], $message),
+            AssistantRouter::INTENT_ACTION => AssistantActions::handle($route['topic'], $message, $uploads),
             AssistantRouter::INTENT_SEARCH => AssistantSearch::handle($message),
             AssistantRouter::INTENT_DOCUMENT => [
-                'content' => 'Attach a **PDF or image** using the paperclip, then ask me to scan or extract information.',
+                'content' => 'Attach a **PDF, HTML letter, or image** using the paperclip in the **same message**, then ask me to scan or extract details.',
             ],
             AssistantRouter::INTENT_INTAKE => AssistantIntake::handle($message),
+            AssistantRouter::INTENT_CLIENT_CREATE => AssistantClientCreate::handle($message),
             AssistantRouter::INTENT_COMPLIANCE => AssistantCompliance::handle($message),
             AssistantRouter::INTENT_KNOWLEDGE => AssistantKnowledge::handle($route['topic'], $message),
             default => $route['topic'] === 'intake_cancelled'
                 ? ['content' => 'Client intake cancelled. You can say **start intake** again anytime, or ask for dashboard metrics, searches, or system actions.']
-                : (OllamaService::isReachable()
-                    ? self::generalChat($message)
-                    : [
-                        'content' => 'The AI chat model is offline right now. You can still use **dashboard**, **search**, **calculations**, **appointments**, and **case actions** — try prompts like _How many clients do we have?_ or _List active cases._',
-                        'type' => 'text',
-                    ]),
+                : ($route['topic'] === 'client_create_cancelled'
+                    ? ['content' => 'New client setup cancelled. Say **create new client** or **create a new case for me** to try again.']
+                    : self::tryGeneralChat($message)),
         };
 
         $result['type'] = $result['type'] ?? 'text';
@@ -279,11 +396,38 @@ class AssistantService
 
     /**
      * @param array{content: string, type?: string, draft?: array<string, mixed>, alerts?: list<array<string, string>>} $result
+     * @param list<array{name?: string, kind?: string}> $attachments
      */
-    public static function rememberExchange(string $userMessage, array $result): void
+    public static function rememberExchange(string $userMessage, array $result, array $attachments = []): void
     {
         $history = self::history();
-        $history[] = ['role' => 'user', 'content' => assistantSanitizeUtf8($userMessage)];
+        $userTurn = [
+            'role' => 'user',
+            'content' => assistantSanitizeUtf8($userMessage),
+        ];
+
+        $normalizedAttachments = [];
+        foreach ($attachments as $attachment) {
+            if (!is_array($attachment)) {
+                continue;
+            }
+
+            $name = trim((string) ($attachment['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $kind = trim((string) ($attachment['kind'] ?? ''));
+            $normalizedAttachments[] = $kind !== ''
+                ? ['name' => $name, 'kind' => $kind]
+                : ['name' => $name];
+        }
+
+        if ($normalizedAttachments !== []) {
+            $userTurn['attachments'] = $normalizedAttachments;
+        }
+
+        $history[] = $userTurn;
 
         $assistantTurn = [
             'role' => 'assistant',
@@ -356,14 +500,33 @@ class AssistantService
     /** @return array{enabled: bool, model: string, online: bool, ollama_online: bool} */
     public static function status(): array
     {
-        $ollamaOnline = OllamaService::isReachable();
+        $ollamaEnabled = OllamaService::isEnabled();
 
         return [
-            'enabled'        => OllamaService::isEnabled(),
-            'model'          => OllamaService::modelName(),
+            'enabled'        => $ollamaEnabled,
+            'portal_enabled' => true,
+            'model'          => OllamaService::configuredModelName(),
             'online'         => true,
-            'ollama_online'  => $ollamaOnline,
+            'ollama_online'  => $ollamaEnabled ? OllamaService::isReachable() : false,
         ];
+    }
+
+    private static function shouldHandleAsDocument(string $message, bool $hasUpload, string $clientDocumentText): bool
+    {
+        if ($clientDocumentText !== '') {
+            return AssistantDocuments::shouldAnswerFromDocument($message)
+                || AssistantDocuments::looksLikeSummarizeRequest($message);
+        }
+
+        if (!$hasUpload) {
+            return false;
+        }
+
+        if (trim($message) === '') {
+            return true;
+        }
+
+        return AssistantRouter::looksLikeDocumentScan($message);
     }
 
     /** @return list<array{label: string, prompt: string, icon: string}> */
@@ -379,20 +542,66 @@ class AssistantService
             ['icon' => 'bi-bell', 'label' => 'Notifications', 'prompt' => 'How many unread notifications?'],
             ['icon' => 'bi-bar-chart-line', 'label' => 'Revenue by month', 'prompt' => 'Revenue by month'],
             ['icon' => 'bi-person-plus', 'label' => 'Start intake', 'prompt' => 'Start client intake'],
+            ['icon' => 'bi-calendar-plus', 'label' => 'Schedule visit', 'prompt' => 'Schedule appointment for Louis Macwell tomorrow at 2pm'],
             ['icon' => 'bi-book', 'label' => 'What is a jurat?', 'prompt' => 'What is a jurat?'],
+            ['icon' => 'bi-file-earmark-check', 'label' => 'Docs to notarize', 'prompt' => 'Which documents require notarization?'],
+            ['icon' => 'bi-person-badge', 'label' => 'Accepted ID', 'prompt' => 'What forms of identification are legally accepted?'],
+            ['icon' => 'bi-truck', 'label' => 'Mobile notary', 'prompt' => 'How do I book a Mobile Notary in my area?'],
+            ['icon' => 'bi-currency-pound', 'label' => 'Notary fees', 'prompt' => 'What are the standard State Notary Fees?'],
+            ['icon' => 'bi-clipboard-check', 'label' => 'Prepare document', 'prompt' => 'How do I prepare my document before the appointment?'],
+        ];
+    }
+
+    /** @return array{content: string, type: string} */
+    private static function tryGeneralChat(string $message): array
+    {
+        if (AssistantKnowledge::looksLikeCapabilitiesQuery($message)) {
+            return [
+                'content' => AssistantKnowledge::capabilitiesMessage(),
+                'type' => 'text',
+            ];
+        }
+
+        $lower = assistantNormalizeCasualText($message);
+        if (preg_match('/^(?:hi|hello|hey|thanks|thank you|good morning|good afternoon)\b/', $lower)) {
+            return [
+                'content' => 'Hello! Ask _what can you do?_ for help with this portal, uploaded documents, or notary term definitions.',
+                'type' => 'text',
+            ];
+        }
+
+        return [
+            'content' => AssistantKnowledge::outOfScopeMessage(),
+            'type' => 'text',
         ];
     }
 
     /** @return array{content: string, type: string} */
     private static function generalChat(string $message): array
     {
-        $history = self::history();
+        $history = array_slice(self::history(), -6);
+        $chatHistory = [];
+        foreach ($history as $turn) {
+            $role = (string) ($turn['role'] ?? 'user');
+            if ($role !== 'user' && $role !== 'assistant') {
+                continue;
+            }
+
+            $content = trim((string) ($turn['content'] ?? ''));
+            if ($content === '') {
+                continue;
+            }
+
+            if (mb_strlen($content) > 600) {
+                $content = mb_substr($content, 0, 600) . '…';
+            }
+
+            $chatHistory[] = ['role' => $role, 'content' => $content];
+        }
+
         $messages = array_merge(
             [['role' => 'system', 'content' => self::systemPrompt()]],
-            array_map(static fn (array $turn): array => [
-                'role' => (string) ($turn['role'] ?? 'user'),
-                'content' => (string) ($turn['content'] ?? ''),
-            ], $history),
+            $chatHistory,
             [['role' => 'user', 'content' => $message]]
         );
 

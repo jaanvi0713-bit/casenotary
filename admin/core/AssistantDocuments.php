@@ -1,559 +1,1751 @@
 <?php
 
-
-
 declare(strict_types=1);
 
-
-
 class AssistantDocuments
-
 {
+    private const MAX_CLIENT_TEXT = 50000;
+    private const SESSION_DOC_KEY = 'assistant_last_document_text';
+    private const SESSION_DOCS_KEY = 'assistant_document_library';
+    private const MAX_STORED_DOCS = 8;
+    private const MAX_DOCS_PER_UPLOAD = 5;
 
-    private const VISION_PAGE_LIMIT = 3;
-
-
-
-    /** @return array{content: string, alerts?: list<array<string, string>>} */
-
-    public static function handleUpload(array $file, string $message): array
-
+    /** @return list<array{id: string, name: string, text: string, source: string}> */
+    public static function cachedDocumentItems(): array
     {
+        $cached = $_SESSION[self::SESSION_DOCS_KEY] ?? null;
+        if (is_array($cached)) {
+            if (time() - (int) ($cached['at'] ?? 0) > 3600) {
+                return [];
+            }
 
-        self::validateUpload($file);
+            $items = $cached['items'] ?? [];
 
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-
-            throw new RuntimeException('File upload failed.');
-
+            return is_array($items) ? self::normalizeDocumentItems($items) : [];
         }
 
+        $legacy = $_SESSION[self::SESSION_DOC_KEY] ?? null;
+        if (!is_array($legacy)) {
+            return [];
+        }
 
+        if (time() - (int) ($legacy['at'] ?? 0) > 3600) {
+            return [];
+        }
+
+        $text = assistantSanitizeUtf8(trim((string) ($legacy['text'] ?? '')));
+        if ($text === '') {
+            return [];
+        }
+
+        return [[
+            'id'     => 'doc-legacy',
+            'name'   => 'Uploaded document',
+            'text'   => $text,
+            'source' => 'upload',
+        ]];
+    }
+
+    public static function cachedDocumentText(): string
+    {
+        $items = self::cachedDocumentItems();
+        if ($items === []) {
+            return '';
+        }
+
+        if (count($items) === 1) {
+            return $items[0]['text'];
+        }
+
+        $parts = [];
+        foreach ($items as $index => $item) {
+            $parts[] = '--- Document ' . ($index + 1) . ': ' . $item['name'] . " ---\n" . $item['text'];
+        }
+
+        return implode("\n\n", $parts);
+    }
+
+    public static function cacheDocumentText(string $text): void
+    {
+        self::addDocumentItems([[
+            'name'   => 'Uploaded document',
+            'text'   => $text,
+            'source' => 'upload',
+        ]]);
+    }
+
+    /**
+     * @param list<array{id?: string, name?: string, text: string, source?: string}> $items
+     */
+    public static function addDocumentItems(array $items, bool $replace = false): void
+    {
+        $normalized = self::normalizeDocumentItems($items);
+        if ($normalized === []) {
+            return;
+        }
+
+        $existing = $replace ? [] : self::cachedDocumentItems();
+        $merged = array_merge($existing, $normalized);
+
+        if (count($merged) > self::MAX_STORED_DOCS) {
+            $merged = array_slice($merged, -self::MAX_STORED_DOCS);
+        }
+
+        $_SESSION[self::SESSION_DOCS_KEY] = [
+            'at'    => time(),
+            'items' => $merged,
+        ];
+        unset($_SESSION[self::SESSION_DOC_KEY]);
+    }
+
+    public static function clearCachedDocumentText(): void
+    {
+        unset($_SESSION[self::SESSION_DOCS_KEY], $_SESSION[self::SESSION_DOC_KEY]);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $items
+     * @return list<array{id: string, name: string, text: string, source: string}>
+     */
+    private static function normalizeDocumentItems(array $items): array
+    {
+        $out = [];
+
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $text = self::normalizeText((string) ($item['text'] ?? ''));
+            if (!self::hasMeaningfulText($text)) {
+                continue;
+            }
+
+            $name = trim((string) ($item['name'] ?? ''));
+            if ($name === '') {
+                $name = 'Document ' . (count($out) + 1);
+            }
+
+            $out[] = [
+                'id'     => trim((string) ($item['id'] ?? '')) !== '' ? (string) $item['id'] : uniqid('doc-', true),
+                'name'   => $name,
+                'text'   => mb_substr($text, 0, self::MAX_CLIENT_TEXT),
+                'source' => trim((string) ($item['source'] ?? 'upload')),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array{content: string, alerts?: list<array<string, string>>}
+     */
+    public static function handleDocument(string $message, ?array $upload, string $clientDocumentText = '', string $documentSource = ''): array
+    {
+        @set_time_limit(90);
 
         $question = trim($message) !== ''
-
             ? trim($message)
+            : 'Summarize this document: document type, parties, dates, reference numbers, amounts, and important clauses or action items.';
 
-            : 'Extract key names, dates, identity details, and important clauses from this document.';
-
-
-
-        $usedVision = false;
-
-        $text = self::extractText($file);
-
-        $text = assistantSanitizeUtf8($text);
-
-        $summary = '';
-
-        if (self::isPdfFile($file) && trim($text) === '') {
-
-            $pageImages = self::renderPdfPages((string) ($file['tmp_name'] ?? ''), self::VISION_PAGE_LIMIT);
-
-            if ($pageImages === []) {
-
-                throw new RuntimeException(
-
-                    'Could not read this PDF. Try uploading a photo of the document instead.'
-
-                );
-
-            }
-
-            try {
-
-                $summary = self::summarizeWithFallback('', $question, $file, true, $pageImages);
-
-                $usedVision = !str_starts_with($summary, '**Extracted text**');
-
-            } finally {
-
-                self::cleanupTempFiles($pageImages);
-
-            }
-
-        } else {
-
-            $summary = self::summarizeWithFallback($text, $question, $file, false);
-
+        $clientDocumentText = self::normalizeText($clientDocumentText);
+        if (mb_strlen($clientDocumentText) > self::MAX_CLIENT_TEXT) {
+            $clientDocumentText = mb_substr($clientDocumentText, 0, self::MAX_CLIENT_TEXT);
         }
 
+        $hasUpload = $upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+        if ($hasUpload) {
+            self::validateUpload($upload);
+        }
 
+        if (!$hasUpload && $clientDocumentText === '') {
+            throw new InvalidArgumentException('No document content was provided.');
+        }
 
-        $alerts = AssistantCompliance::screenText(($text !== '' ? $text : $summary) . "\n" . $summary);
+        $text = $clientDocumentText;
+        $usedBrowserExtraction = $clientDocumentText !== '' && self::hasMeaningfulText($clientDocumentText);
 
+        if ($hasUpload) {
+            $fileText = self::readPlainUploadText($upload);
+            $text = self::pickBestText($text, $fileText);
 
+            $skipServerPdf = self::hasMeaningfulText($clientDocumentText)
+                && mb_strlen($clientDocumentText) >= 120;
 
-        $content = $usedVision
+            if (self::isPdfUpload($upload) && !$skipServerPdf) {
+                $serverPdfText = self::extractPdfText((string) ($upload['tmp_name'] ?? ''));
+                $text = self::pickBestText($text, $serverPdfText);
+            }
+        }
 
-            ? "**Document analysis** _(scanned PDF — read with vision)_\n\n" . $summary
+        $isImage = $hasUpload && self::isImageUpload($upload);
+        if ($isImage && !self::hasMeaningfulText($text)) {
+            $summary = self::summarizeImageUpload($upload, $question);
+            $alerts = AssistantCompliance::screenText($summary);
 
-            : "**Document analysis**\n\n" . $summary;
+            $summaryBlock = str_starts_with($summary, '**Summary**')
+                ? $summary
+                : "**Summary**\n\n" . $summary;
 
+            return [
+                'content' => "**Document analysis** _(image)_\n\n" . $summaryBlock,
+                'alerts' => $alerts,
+            ];
+        }
 
+        if (!self::hasMeaningfulText($text)) {
+            throw new RuntimeException(
+                'Could not read text from this file. Try a text-based PDF or HTML letter, re-save the PDF as flattened, or upload a clear photo of the page.'
+            );
+        }
 
+        self::addDocumentItems([[
+            'name'   => self::guessDocumentName($upload, $documentSource),
+            'text'   => $text,
+            'source' => $documentSource !== '' ? $documentSource : 'upload',
+        ]]);
+
+        if (trim($message) !== '' && self::shouldAnswerFromDocument($message) && !self::looksLikeSummarizeRequest($message)) {
+            return self::answerDocumentQuestion($message, $text);
+        }
+
+        $summary = self::summarizeText($text, $question);
+        $alerts = AssistantCompliance::screenText($text . "\n" . $summary);
+
+        $fromScreenshot = strtolower($documentSource) === 'screenshot';
+        $header = $fromScreenshot
+            ? "**Document analysis** _(from screenshot)_\n\n"
+            : ($usedBrowserExtraction
+                ? "**Document analysis** _(extracted in browser)_\n\n"
+                : "**Document analysis**\n\n");
+
+        $content = $header . $summary;
         if ($alerts !== []) {
-
             $content .= "\n\n**Compliance flags detected** — review the alerts below.";
-
         }
-
-
 
         return [
-
             'content' => $content,
-
             'alerts' => $alerts,
-
         ];
-
     }
 
-
-
-    public static function extractText(array $file): string
-
+    /**
+     * @param list<array<string, mixed>> $uploads
+     * @param list<array{id?: string, name?: string, text?: string, source?: string}> $clientItems
+     * @return array{content: string, alerts?: list<array<string, string>>}
+     */
+    public static function handleDocuments(string $message, array $uploads = [], array $clientItems = []): array
     {
+        @set_time_limit(120);
 
-        $path = (string) ($file['tmp_name'] ?? '');
+        if (count($uploads) > self::MAX_DOCS_PER_UPLOAD) {
+            throw new InvalidArgumentException('You can upload up to ' . self::MAX_DOCS_PER_UPLOAD . ' files at once.');
+        }
 
+        $processed = [];
+        $count = max(count($uploads), count($clientItems));
+
+        for ($i = 0; $i < $count; $i++) {
+            $upload = $uploads[$i] ?? null;
+            $clientItem = is_array($clientItems[$i] ?? null) ? $clientItems[$i] : [];
+            $item = self::buildDocumentItemFromSources($upload, $clientItem);
+            if ($item !== null) {
+                $processed[] = $item;
+            }
+        }
+
+        if ($processed === []) {
+            throw new InvalidArgumentException('No document content could be read from the uploaded files.');
+        }
+
+        self::addDocumentItems($processed);
+        $library = self::cachedDocumentItems();
+        $question = trim($message);
+
+        if ($question !== '' && self::shouldAnswerFromDocument($question) && !self::looksLikeSummarizeRequest($question)) {
+            return self::answerMultiDocumentQuestion($question, $library);
+        }
+
+        if (count($processed) === 1) {
+            $only = $processed[0];
+
+            return self::handleDocument(
+                $message,
+                null,
+                $only['text'],
+                (string) ($only['source'] ?? '')
+            );
+        }
+
+        return self::summarizeMultipleDocuments($message, $processed);
+    }
+
+    /**
+     * @param list<array{id: string, name: string, text: string, source: string}> $items
+     * @return array{content: string, alerts?: list<array<string, string>>}
+     */
+    public static function answerMultiDocumentQuestion(string $message, array $items): array
+    {
+        $targets = self::resolveTargetDocuments($message, $items);
+        if ($targets === []) {
+            throw new RuntimeException('No document text is available to answer from.');
+        }
+
+        if (count($targets) === 1) {
+            $item = $targets[0];
+            $result = self::answerDocumentQuestion($message, $item['text']);
+            $body = preg_replace('/^\*\*From your document:\*\*\s*/', '', (string) ($result['content'] ?? '')) ?? (string) ($result['content'] ?? '');
+
+            return [
+                'content' => '**From ' . $item['name'] . ':** ' . $body,
+                'alerts'  => $result['alerts'] ?? [],
+            ];
+        }
+
+        $parts = [];
+        $alerts = [];
+        foreach ($targets as $item) {
+            $result = self::answerDocumentQuestion($message, $item['text']);
+            $body = preg_replace('/^\*\*From your document:\*\*\s*/', '', (string) ($result['content'] ?? '')) ?? (string) ($result['content'] ?? '');
+            $parts[] = '• **' . $item['name'] . ':** ' . $body;
+            foreach ($result['alerts'] ?? [] as $alert) {
+                $alerts[] = $alert;
+            }
+        }
+
+        return [
+            'content' => "**From your documents:**\n\n" . implode("\n\n", $parts),
+            'alerts'  => $alerts,
+        ];
+    }
+
+    /**
+     * @param list<array{id: string, name: string, text: string, source: string}> $items
+     * @return list<array{id: string, name: string, text: string, source: string}>
+     */
+    private static function resolveTargetDocuments(string $question, array $items): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        if (count($items) === 1) {
+            return $items;
+        }
+
+        $lower = strtolower(trim($question));
+
+        if (preg_match('/\b(all documents|all files|each document|every document|both documents|compare|across all)\b/', $lower)) {
+            return $items;
+        }
+
+        foreach ($items as $item) {
+            $stem = strtolower(pathinfo($item['name'], PATHINFO_FILENAME));
+            if ($stem !== '' && str_contains($lower, $stem)) {
+                return [$item];
+            }
+        }
+
+        $typeRules = [
+            'quotation' => '/\b(quotation|quo-)/i',
+            'receipt'   => '/\b(receipt|rcp-)/i',
+            'invoice'   => '/\b(invoice|inv-)/i',
+        ];
+
+        foreach ($typeRules as $pattern) {
+            if (!preg_match($pattern, $lower)) {
+                continue;
+            }
+
+            $matched = [];
+            foreach ($items as $item) {
+                $haystack = $item['name'] . "\n" . mb_substr($item['text'], 0, 1200);
+                if (preg_match($pattern, $haystack)) {
+                    $matched[] = $item;
+                }
+            }
+
+            if (count($matched) === 1) {
+                return $matched;
+            }
+        }
+
+        if (preg_match('/\b(first|1st|document 1|doc 1)\b/', $lower)) {
+            return [$items[0]];
+        }
+
+        if (preg_match('/\b(second|2nd|document 2|doc 2)\b/', $lower) && isset($items[1])) {
+            return [$items[1]];
+        }
+
+        if (preg_match('/\b(third|3rd|document 3|doc 3)\b/', $lower) && isset($items[2])) {
+            return [$items[2]];
+        }
+
+        if (preg_match('/\b(amount|vat|total|fee|subtotal|grand total|reference|quotation|receipt|invoice)\b/', $lower)) {
+            return $items;
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param list<array{name: string, text: string, source?: string}> $items
+     * @return array{content: string, alerts?: list<array<string, string>>}
+     */
+    public static function summarizeMultipleDocuments(string $message, array $items): array
+    {
+        $question = trim($message) !== ''
+            ? trim($message)
+            : 'Summarize each document: type, parties, dates, reference numbers, amounts, and key details.';
+
+        $sections = ['**Document analysis** (' . count($items) . ' files)', ''];
+        $alerts = [];
+
+        foreach ($items as $index => $item) {
+            $summary = self::summarizeText($item['text'], $question);
+            $sections[] = '### ' . ($index + 1) . '. ' . $item['name'];
+            $sections[] = '';
+            $sections[] = $summary;
+            $sections[] = '';
+            $alerts = array_merge($alerts, AssistantCompliance::screenText($item['text'] . "\n" . $summary));
+        }
+
+        $content = implode("\n", $sections);
+        if ($alerts !== []) {
+            $content .= "\n\n**Compliance flags detected** — review the alerts below.";
+        }
+
+        return [
+            'content' => trim($content),
+            'alerts'  => $alerts,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed>|null $upload
+     * @param array<string, mixed> $clientItem
+     * @return array{name: string, text: string, source: string}|null
+     */
+    private static function buildDocumentItemFromSources(?array $upload, array $clientItem): ?array
+    {
+        $hasUpload = $upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+        if ($hasUpload) {
+            self::validateUpload($upload);
+        }
+
+        $clientText = self::normalizeText((string) ($clientItem['text'] ?? ''));
+        if (mb_strlen($clientText) > self::MAX_CLIENT_TEXT) {
+            $clientText = mb_substr($clientText, 0, self::MAX_CLIENT_TEXT);
+        }
+
+        $text = $clientText;
+        if ($hasUpload) {
+            $fileText = self::readPlainUploadText($upload);
+            $text = self::pickBestText($text, $fileText);
+
+            $skipServerPdf = self::hasMeaningfulText($clientText) && mb_strlen($clientText) >= 120;
+            if (self::isPdfUpload($upload) && !$skipServerPdf) {
+                $serverPdfText = self::extractPdfText((string) ($upload['tmp_name'] ?? ''));
+                $text = self::pickBestText($text, $serverPdfText);
+            }
+        }
+
+        $source = trim((string) ($clientItem['source'] ?? ''));
+        if ($hasUpload && self::isImageUpload($upload) && !self::hasMeaningfulText($text)) {
+            throw new RuntimeException(
+                'Could not read text from image "' . ($upload['name'] ?? 'image') . '". Wait for browser OCR or use a text-based PDF.'
+            );
+        }
+
+        if (!self::hasMeaningfulText($text)) {
+            return null;
+        }
+
+        $name = trim((string) ($clientItem['name'] ?? ''));
+        if ($name === '' && $hasUpload) {
+            $name = (string) ($upload['name'] ?? 'Document');
+        }
+        if ($name === '') {
+            $name = 'Document';
+        }
+
+        return [
+            'name'   => $name,
+            'text'   => $text,
+            'source' => $source !== '' ? $source : ($hasUpload && self::isImageUpload($upload) ? 'screenshot' : 'upload'),
+        ];
+    }
+
+    private static function guessDocumentName(?array $upload, string $documentSource): string
+    {
+        if ($upload !== null && trim((string) ($upload['name'] ?? '')) !== '') {
+            return (string) $upload['name'];
+        }
+
+        return strtolower($documentSource) === 'screenshot' ? 'Screenshot' : 'Uploaded document';
+    }
+
+    public static function referencesUploadedDocument(string $message): bool
+    {
+        $lower = strtolower(trim($message));
+        if ($lower === '') {
+            return false;
+        }
+
+        if (AssistantRouter::looksLikeDocumentScan($message)) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\b(this|that|the|uploaded|attached|provided|same)\b.*\b(document|doc|file|pdf|letter|invoice|receipt|screenshot|image|attachment|upload)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\b(document|doc|file|pdf|letter|invoice|receipt|screenshot|image|attachment|upload)\b.*\b(provided|attached|uploaded|above|here|say|show|list|contain|mention)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match('/\b(on|in|from)\s+(the\s+)?(document|doc|file|pdf|letter|invoice|receipt|screenshot|upload|attachment)\b/', $lower)) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\b(amount|total|date|due date|invoice number|reference|bill to|paid|balance|fee|price|cost|name|address|email|phone)\b.*\b(on|in|from|for)\b.*\b(receipt|invoice|document|letter|file|upload)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        return (bool) preg_match(
+            '/\b(what|how much|who|when|where|which)\b.*\b(receipt|invoice|document|letter|file|upload|attachment)\b/',
+            $lower
+        );
+    }
+
+    public static function looksLikeCaseDocumentLoad(string $message): bool
+    {
+        $lower = strtolower(trim($message));
+        if ($lower === '') {
+            return false;
+        }
+
+        if (!preg_match('/\bcase[- ]?#?\s*[a-z0-9-]+/i', $message)) {
+            return false;
+        }
+
+        if (AssistantRouter::looksLikeCaseDocumentUpload($message)) {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/\b(document|file|invoice|receipt|quotation|pdf|letter|upload|attachment|scan|read|summarize|summary|amount|total)\b/i',
+            $lower
+        );
+    }
+
+    /**
+     * Load a document already stored on a case and answer or summarize it.
+     *
+     * @return array{content: string, alerts?: list<array<string, string>>}|null
+     */
+    public static function tryIngestCaseDocument(string $message): ?array
+    {
+        if (!self::looksLikeCaseDocumentLoad($message)) {
+            return null;
+        }
+
+        if (!preg_match('/case[- ]?#?\s*([A-Z0-9-]+)/i', $message, $caseMatch)) {
+            return null;
+        }
+
+        $case = assistantFindCaseByReference($caseMatch[1]);
+        if ($case === null) {
+            return [
+                'content' => 'I could not find case **' . $caseMatch[1] . '**. Check the case number and try again.',
+            ];
+        }
+
+        $caseId = (int) ($case['id'] ?? 0);
+        $documents = CaseService::getDocuments($caseId);
+        if ($documents === []) {
+            return [
+                'content' => 'Case **' . ($case['case_number'] ?? $caseMatch[1]) . '** has no uploaded documents yet.',
+            ];
+        }
+
+        $document = self::pickCaseDocument($message, $documents);
+        if ($document === null) {
+            $names = array_map(static fn (array $row): string => (string) ($row['original_name'] ?? 'file'), array_slice($documents, 0, 8));
+            return [
+                'content' => 'Which file on **' . ($case['case_number'] ?? '') . '** should I read? Available: '
+                    . implode(', ', $names) . '.',
+            ];
+        }
+
+        $config = require dirname(__DIR__) . '/config/config.php';
+        $uploadRoot = rtrim((string) ($config['upload']['path'] ?? ''), '/\\');
+        $relativePath = (string) ($document['file_path'] ?? '');
+        $fullPath = $uploadRoot . '/' . ltrim(str_replace('\\', '/', $relativePath), '/');
+
+        if (!is_readable($fullPath)) {
+            return [
+                'content' => 'I found **' . ($document['original_name'] ?? 'the file') . '** on that case but could not read it from disk.',
+            ];
+        }
+
+        $text = self::extractTextFromFilePath($fullPath, (string) ($document['original_name'] ?? 'document'));
+        if (!self::hasMeaningfulText($text)) {
+            return [
+                'content' => '**' . ($document['original_name'] ?? 'Document') . '** on case **'
+                    . ($case['case_number'] ?? '') . '** has no readable text (it may be a scanned image). '
+                    . 'Download it from '
+                    . assistantAdminLink('pages/case-view.php?id=' . $caseId . '#documents', 'the case')
+                    . ' and attach it here for browser OCR.',
+            ];
+        }
+
+        self::addDocumentItems([[
+            'name' => (string) ($document['original_name'] ?? 'Case document'),
+            'text' => $text,
+            'source' => 'case',
+        ]]);
+
+        if (trim($message) !== '' && self::shouldAnswerFromDocument($message) && !self::looksLikeSummarizeRequest($message)) {
+            return self::answerDocumentQuestion($message, $text);
+        }
+
+        $summary = self::summarizeText($text, $message !== '' ? $message : 'Summarize this case document.');
+        $alerts = AssistantCompliance::screenText($text . "\n" . $summary);
+
+        return [
+            'content' => "**Case document** — " . ($document['original_name'] ?? 'file')
+                . ' (' . ($case['case_number'] ?? '') . ")\n\n" . $summary,
+            'alerts' => $alerts,
+        ];
+    }
+
+    /** @param list<array<string, mixed>> $documents */
+    private static function pickCaseDocument(string $message, array $documents): ?array
+    {
+        $lower = strtolower($message);
+        $hints = ['invoice', 'receipt', 'quotation', 'contract', 'deed', 'letter', 'pdf', 'passport', 'id'];
+
+        foreach ($hints as $hint) {
+            if (!str_contains($lower, $hint)) {
+                continue;
+            }
+
+            foreach ($documents as $document) {
+                $name = strtolower((string) ($document['original_name'] ?? ''));
+                if (str_contains($name, $hint)) {
+                    return $document;
+                }
+            }
+        }
+
+        return $documents[0] ?? null;
+    }
+
+    public static function extractTextFromFilePath(string $path, string $originalName): string
+    {
+        $file = [
+            'tmp_name' => $path,
+            'name' => $originalName,
+            'type' => mime_content_type($path) ?: '',
+            'error' => UPLOAD_ERR_OK,
+        ];
+
+        $text = self::readPlainUploadText($file);
+        if (self::isPdfUpload($file)) {
+            $text = self::pickBestText($text, self::extractPdfText($path));
+        }
+
+        return self::normalizeText($text);
+    }
+
+    public static function shouldAnswerFromDocument(string $message): bool
+    {
+        $message = trim($message);
+        if ($message === '') {
+            return false;
+        }
+
+        if (AssistantCalculations::looksLikeCalculationQuery($message)) {
+            return false;
+        }
+
+        if (AssistantPracticeFaq::matches($message)) {
+            return false;
+        }
+
+        if (self::isClearNonDocumentIntent($message)) {
+            return false;
+        }
+
+        if (self::referencesUploadedDocument($message)) {
+            return true;
+        }
+
+        return self::looksLikeDocumentFieldQuestion($message);
+    }
+
+    public static function looksLikeDocumentFieldQuestion(string $message): bool
+    {
+        $lower = strtolower(trim($message));
+        if ($lower === '') {
+            return false;
+        }
+
+        if (preg_match('/\b(revenue|clients?|cases?|appointments?|notifications?|dashboard)\b/', $lower)) {
+            return false;
+        }
+
+        if (self::isClearNonDocumentIntent($message)) {
+            return false;
+        }
+
+        if (AssistantPracticeFaq::matches($message)) {
+            return false;
+        }
+
+        if (AssistantCalculations::looksLikeCalculationQuery($message)) {
+            return false;
+        }
+
+        if (preg_match(
+            '/\b(what is|what\'s|how much is|how much was|tell me|show me)\b.*\b(the )?(amount|total|fee|fees|balance|price|cost|payment|paid|vat|subtotal|grand total)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\b(the )?(amount|total fee|grand total|payment received|balance due|receipt number|invoice number|quotation number|case reference|matter reference|due date|bill to|billed to|vat amount|subtotal)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match('/\b(vat|subtotal|grand total|amount due|amount paid|financial|breakdown)\b/', $lower)) {
+            return true;
+        }
+
+        return (bool) preg_match(
+            '/\b(amount|fee|total|balance|paid|payment|vat)\b.*\b(on|in|from|for)\b/',
+            $lower
+        );
+    }
+
+    public static function looksLikeSummarizeRequest(string $message): bool
+    {
+        $lower = strtolower(trim($message));
+        if ($lower === '') {
+            return true;
+        }
+
+        return (bool) preg_match(
+            '/\b(summarize|summary|sum up|overview|extract(?:\s+details?)?|scan|read|ocr|analy[sz]e|key details|pull details)\b/',
+            $lower
+        );
+    }
+
+    /**
+     * @return array{content: string, alerts?: list<array<string, string>>}
+     */
+    public static function answerDocumentQuestion(string $message, string $text): array
+    {
+        $question = trim($message);
+        $text = self::normalizeText($text);
+        if (!self::hasMeaningfulText($text)) {
+            throw new RuntimeException('No document text is available to answer from.');
+        }
+
+        $focus = self::detectQuestionFocus($question);
+        $financial = self::extractFinancialFields($text);
+
+        $quick = self::tryQuickAnswer($question, $text);
+        if ($quick !== null) {
+            return [
+                'content' => '**From your document:** ' . $quick,
+                'alerts' => self::isFinancialFocus($focus) ? [] : self::complianceAlertsForDocument($text),
+            ];
+        }
+
+        if (OllamaService::isEnabled() && OllamaService::useAiForDocuments()) {
+            try {
+                $answer = trim(OllamaService::answerAboutDocument($text, $question));
+                if ($answer !== '') {
+                    return [
+                        'content' => '**From your document:** ' . $answer,
+                        'alerts' => self::isFinancialFocus($focus) ? [] : self::complianceAlertsForDocument($text . "\n" . $answer),
+                    ];
+                }
+            } catch (Throwable $e) {
+                error_log('Assistant document Q&A: ' . $e->getMessage());
+            }
+        }
+
+        if ($focus === 'amount') {
+            if (isset($financial['Grand Total'])) {
+                return [
+                    'content' => '**From your document:** The grand total is **' . $financial['Grand Total'] . '**.',
+                    'alerts' => [],
+                ];
+            }
+
+            $amount = self::resolvePrimaryAmount($text);
+            if ($amount !== null) {
+                return [
+                    'content' => '**From your document:** The amount is **' . $amount . '**.',
+                    'alerts' => [],
+                ];
+            }
+        }
+
+        if ($focus === 'vat') {
+            $vat = $financial['VAT Amount'] ?? self::formatMoneyDisplay(0);
+            return [
+                'content' => '**From your document:** The VAT amount is **' . $vat . '**.',
+                'alerts' => [],
+            ];
+        }
+
+        if ($focus === 'financial_summary') {
+            $summary = self::formatFinancialSummary($financial);
+            if ($summary !== '') {
+                return [
+                    'content' => '**From your document:** ' . $summary,
+                    'alerts' => [],
+                ];
+            }
+        }
+
+        $structured = self::formatStructuredDetails(self::extractStructuredDetails($text));
+
+        $fallback = $structured !== ''
+            ? $structured
+            : 'I could not find a direct answer. Here is extracted text from the file — try asking about a specific field such as total, date, or bill-to name.';
+
+        return [
+            'content' => '**From your document:** ' . $fallback,
+            'alerts' => self::isFinancialFocus($focus) ? [] : self::complianceAlertsForDocument($text),
+        ];
+    }
+
+    private static function isFinancialFocus(string $focus): bool
+    {
+        return in_array($focus, ['amount', 'vat', 'subtotal', 'amount_due', 'amount_paid', 'financial_summary'], true);
+    }
+
+    /** @return list<array<string, string>> */
+    private static function complianceAlertsForDocument(string $text): array
+    {
+        if (!self::looksLikeIdentityDocument($text)) {
+            return [];
+        }
+
+        return AssistantCompliance::screenText($text);
+    }
+
+    private static function looksLikeIdentityDocument(string $text): bool
+    {
+        $lower = strtolower($text);
+
+        if (preg_match('/\b(receipt|invoice|payment received|amount paid|bill to|grand total|vat amount)\b/', $lower)) {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/\b(affidavit|jurat|passport|power of attorney|statutory declaration|acknowledgment|birth\s*date|date of birth)\b/',
+            $lower
+        );
+    }
+
+    private static function detectQuestionFocus(string $question): string
+    {
+        $lower = strtolower(trim($question));
+
+        if (preg_match('/\b(breakdown|all (?:the )?(?:amounts|figures|totals)|financial summary|summary of (?:amounts|charges|fees))\b/', $lower)) {
+            return 'financial_summary';
+        }
+
+        if (preg_match('/\b(vat|value added tax)\b/', $lower) || preg_match('/\btax\s+(?:amount|total|rate)\b/', $lower)) {
+            return 'vat';
+        }
+
+        if (preg_match('/\b(subtotal|sub-total|sub total)\b/', $lower)) {
+            return 'subtotal';
+        }
+
+        if (preg_match('/\b(amount due|balance due|outstanding|owing|due to pay)\b/', $lower)) {
+            return 'amount_due';
+        }
+
+        if (preg_match('/\b(amount paid|payment received|paid amount|how much (?:was )?paid)\b/', $lower)) {
+            return 'amount_paid';
+        }
+
+        if (preg_match('/\b(invoice number|invoice #|receipt number|receipt #|receipt ref|quotation number|quotation #|quo-|reference number|case reference|matter ref|inv-|rcp-)\b/', $lower)) {
+            return 'reference';
+        }
+
+        if (preg_match('/\b(date|due date|when|issued|valid until)\b/', $lower)) {
+            return 'date';
+        }
+
+        if (preg_match('/\b(bill to|billed to|customer|client name|who is|name on)\b/', $lower)) {
+            return 'party';
+        }
+
+        if (preg_match('/\b(email|phone|address|contact)\b/', $lower)) {
+            return 'contact';
+        }
+
+        if (preg_match('/\b(grand total|total amount|overall total|main amount|how much)\b/', $lower)) {
+            return 'amount';
+        }
+
+        if (preg_match('/\b(amount|sum|fee|price|cost|balance|money|payment)\b/', $lower)) {
+            return 'amount';
+        }
+
+        return 'general';
+    }
+
+    private static function resolveLabeledAmount(string $text, string $labelPattern, bool $allowZero = false): ?string
+    {
+        $moneySuffix = '(?:[£$€]|Rs\.?|\?|\p{Sc})?\s*([\d,]+(?:\.\d{2})?)';
+        $pattern = '/' . $labelPattern . '\s*:?\s*' . $moneySuffix . '/iu';
+        if (!preg_match($pattern, $text, $match)) {
+            return null;
+        }
+
+        $value = self::parseAmountValue((string) ($match[1] ?? ''));
+        if (!$allowZero && $value <= 0) {
+            return null;
+        }
+
+        return self::formatMoneyDisplay($value);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function extractFinancialFields(string $text): array
+    {
+        $definitions = [
+            'Grand Total' => ['pattern' => '\bgrand\s+total\b', 'allow_zero' => false],
+            'Amount Due' => ['pattern' => '\bamount\s+due\b', 'allow_zero' => true],
+            'Amount Paid' => ['pattern' => '\bamount\s+paid\b', 'allow_zero' => true],
+            'Payment received' => ['pattern' => '\bpayment\s+received\b', 'allow_zero' => true],
+            'VAT Amount' => ['pattern' => '\bvat\s+(?:amount|total)\b', 'allow_zero' => true],
+            'Subtotal' => ['pattern' => '\bsubtotal\b', 'allow_zero' => true],
+            'Total fee' => ['pattern' => '\btotal\s+fee\b', 'allow_zero' => false],
+            'Proposed amount' => ['pattern' => '\bproposed\s+amount\b', 'allow_zero' => false],
+            'Net Amount (Excluding VAT)' => ['pattern' => '\bnet\s+amount\s*\(\s*excluding\s+vat\s*\)', 'allow_zero' => true],
+            'Net Amount (Including VAT)' => ['pattern' => '\bnet\s+amount\s*\(\s*including\s+vat\s*\)', 'allow_zero' => true],
+        ];
+
+        $fields = [];
+        foreach ($definitions as $label => $def) {
+            $value = self::resolveLabeledAmount($text, $def['pattern'], $def['allow_zero']);
+            if ($value !== null) {
+                $fields[$label] = $value;
+            }
+        }
+
+        if (!isset($fields['VAT Amount'])) {
+            $tax = self::resolveLabeledAmount($text, '\btax\s*\([^)]+\)', true);
+            if ($tax !== null) {
+                $fields['VAT Amount'] = $tax;
+            }
+        }
+
+        $primary = self::resolvePrimaryAmount($text);
+        if ($primary !== null && !isset($fields['Grand Total'])) {
+            $fields['Grand Total'] = $primary;
+        }
+
+        return $fields;
+    }
+
+    /**
+     * @param array<string, string> $financial
+     */
+    private static function formatFinancialSummary(array $financial): string
+    {
+        if ($financial === []) {
+            return '';
+        }
+
+        $order = [
+            'Subtotal',
+            'VAT Amount',
+            'Net Amount (Excluding VAT)',
+            'Net Amount (Including VAT)',
+            'Total fee',
+            'Proposed amount',
+            'Grand Total',
+            'Amount Due',
+            'Amount Paid',
+            'Payment received',
+        ];
+
+        $lines = ['**Financial summary**', ''];
+        foreach ($order as $label) {
+            if (isset($financial[$label])) {
+                $lines[] = '• **' . $label . ':** ' . $financial[$label];
+            }
+        }
+
+        foreach ($financial as $label => $value) {
+            if (in_array($label, $order, true)) {
+                continue;
+            }
+            $lines[] = '• **' . $label . ':** ' . $value;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private static function parseAmountValue(string $amount): float
+    {
+        $clean = preg_replace('/[^\d.]/', '', $amount) ?? '';
+
+        return $clean === '' ? 0.0 : (float) $clean;
+    }
+
+    private static function formatMoneyDisplay(float $value): string
+    {
+        return formatCurrency(round($value, 2));
+    }
+
+    /**
+     * Pick the document's main monetary figure (grand total, amount due, etc.)
+     * and ignore incidental zero lines such as VAT £0.00.
+     */
+    private static function resolvePrimaryAmount(string $text): ?string
+    {
+        /** @var list<array{priority: int, value: float}> */
+        $candidates = [];
+
+        $labeledPatterns = [
+            ['pattern' => '\bgrand\s+total\b', 'priority' => 100],
+            ['pattern' => '\bamount\s+due\b', 'priority' => 95],
+            ['pattern' => '\bproposed\s+amount\b', 'priority' => 95],
+            ['pattern' => '\bpayment\s+received\b', 'priority' => 90],
+            ['pattern' => '\btotal\s+fee\b', 'priority' => 85],
+            ['pattern' => '\bamount\s+paid\b', 'priority' => 80],
+            ['pattern' => '\bnet\s+amount\s*\(\s*including\s+vat\s*\)', 'priority' => 75],
+            ['pattern' => '\bsubtotal\b', 'priority' => 40],
+        ];
+
+        $moneySuffix = '(?:[£$€]|Rs\.?|\?|\p{Sc})?\s*([\d,]+(?:\.\d{2})?)';
+
+        foreach ($labeledPatterns as $rule) {
+            $pattern = '/' . $rule['pattern'] . '\s*:?\s*' . $moneySuffix . '/iu';
+            if (!preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
+                continue;
+            }
+
+            foreach ($matches as $match) {
+                $value = self::parseAmountValue((string) ($match[1] ?? ''));
+                $candidates[] = ['priority' => $rule['priority'], 'value' => $value];
+            }
+        }
+
+        // Summary-row "Total" (exclude VAT / unit price columns).
+        if (preg_match_all(
+            '/(?<!vat\s)(?<!unit\s)\btotal\b\s*:?\s*(?:[£$€]|Rs\.?|\?|\p{Sc})?\s*([\d,]+(?:\.\d{2})?)/iu',
+            $text,
+            $matches,
+            PREG_SET_ORDER
+        )) {
+            foreach ($matches as $match) {
+                $value = self::parseAmountValue((string) ($match[1] ?? ''));
+                $candidates[] = ['priority' => 60, 'value' => $value];
+            }
+        }
+
+        $best = self::pickBestAmountCandidate($candidates);
+        if ($best !== null) {
+            return self::formatMoneyDisplay($best);
+        }
+
+        if (preg_match_all('/(?:[£$€]|Rs\.?|\?|\p{Sc})\s*([\d,]+(?:\.\d{2})?)/iu', $text, $matches)) {
+            $values = [];
+            foreach ($matches[1] as $raw) {
+                $values[] = self::parseAmountValue((string) $raw);
+            }
+
+            $best = self::pickBestAmountCandidate(array_map(
+                static fn (float $value): array => ['priority' => 20, 'value' => $value],
+                $values
+            ));
+            if ($best !== null) {
+                return self::formatMoneyDisplay($best);
+            }
+        }
+
+        if (preg_match_all('/\b(?:amount|fee|total)\b[^0-9]{0,24}([\d,]+(?:\.\d{2})?)/iu', $text, $matches)) {
+            $values = [];
+            foreach ($matches[1] as $raw) {
+                $values[] = self::parseAmountValue((string) $raw);
+            }
+
+            $best = self::pickBestAmountCandidate(array_map(
+                static fn (float $value): array => ['priority' => 15, 'value' => $value],
+                $values
+            ));
+            if ($best !== null) {
+                return self::formatMoneyDisplay($best);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array{priority: int, value: float}> $candidates
+     */
+    private static function pickBestAmountCandidate(array $candidates): ?float
+    {
+        if ($candidates === []) {
+            return null;
+        }
+
+        usort($candidates, static function (array $a, array $b): int {
+            $aZero = $a['value'] <= 0;
+            $bZero = $b['value'] <= 0;
+            if ($aZero !== $bZero) {
+                return $aZero <=> $bZero;
+            }
+
+            if ($a['priority'] !== $b['priority']) {
+                return $b['priority'] <=> $a['priority'];
+            }
+
+            return $b['value'] <=> $a['value'];
+        });
+
+        $best = $candidates[0]['value'];
+
+        return $best > 0 ? $best : null;
+    }
+
+    private static function extractAmountFromText(string $text): ?string
+    {
+        return self::resolvePrimaryAmount($text);
+    }
+
+    private static function tryQuickAnswer(string $question, string $text): ?string
+    {
+        $fields = self::extractStructuredDetails($text);
+        $financial = self::extractFinancialFields($text);
+        $focus = self::detectQuestionFocus($question);
+
+        if ($focus === 'financial_summary') {
+            $summary = self::formatFinancialSummary($financial);
+            if ($summary !== '') {
+                return $summary;
+            }
+        }
+
+        if ($focus === 'vat') {
+            if (isset($financial['VAT Amount'])) {
+                return 'The VAT amount is **' . $financial['VAT Amount'] . '**.';
+            }
+
+            return 'The VAT amount on this document is **' . self::formatMoneyDisplay(0) . '**.';
+        }
+
+        if ($focus === 'subtotal') {
+            if (isset($financial['Subtotal'])) {
+                return 'The subtotal is **' . $financial['Subtotal'] . '**.';
+            }
+
+            return null;
+        }
+
+        if ($focus === 'amount_due') {
+            if (isset($financial['Amount Due'])) {
+                return 'The amount due is **' . $financial['Amount Due'] . '**.';
+            }
+
+            if (isset($financial['Grand Total'])) {
+                return 'The amount due is **' . $financial['Grand Total'] . '**.';
+            }
+
+            return null;
+        }
+
+        if ($focus === 'amount_paid') {
+            foreach (['Payment received', 'Amount Paid'] as $key) {
+                if (isset($financial[$key])) {
+                    return 'The amount paid is **' . $financial[$key] . '**.';
+                }
+            }
+
+            if (isset($fields['Payment amount'])) {
+                return 'The amount paid is **' . $fields['Payment amount'] . '**.';
+            }
+
+            return null;
+        }
+
+        if ($focus === 'amount') {
+            if (isset($financial['Grand Total'])) {
+                return 'The grand total is **' . $financial['Grand Total'] . '**.';
+            }
+
+            $amount = self::resolvePrimaryAmount($text);
+            if ($amount !== null) {
+                return 'The amount is **' . $amount . '**.';
+            }
+
+            return null;
+        }
+
+        if ($focus === 'reference') {
+            $lower = strtolower($question);
+
+            if (preg_match('/\bquotation\b/', $lower) && isset($fields['Quotation'])) {
+                return 'The quotation number is **' . $fields['Quotation'] . '**.';
+            }
+
+            if (preg_match('/\b(receipt|rcp)\b/i', $question) && isset($fields['Receipt number'])) {
+                return 'The receipt number is **' . $fields['Receipt number'] . '**.';
+            }
+
+            if (preg_match('/\binvoice\b/i', $question) && isset($fields['Invoice number'])) {
+                return 'The invoice number is **' . $fields['Invoice number'] . '**.';
+            }
+
+            foreach (['Quotation', 'Invoice number', 'Receipt number', 'Case reference', 'Matter reference'] as $key) {
+                if (isset($fields[$key])) {
+                    return 'The ' . strtolower($key) . ' is **' . $fields[$key] . '**.';
+                }
+            }
+
+            if (preg_match('/\b(RCP-\d{4}-[A-Z0-9]+)\b/i', $text, $match)) {
+                return 'The receipt number is **' . strtoupper($match[1]) . '**.';
+            }
+
+            return null;
+        }
+
+        if ($focus === 'date') {
+            $lower = strtolower($question);
+            if (str_contains($lower, 'due') && isset($fields['Due date'])) {
+                return 'The due date is **' . $fields['Due date'] . '**.';
+            }
+            if (isset($fields['Date'])) {
+                return 'The date on the document is **' . $fields['Date'] . '**.';
+            }
+
+            return null;
+        }
+
+        if ($focus === 'party') {
+            if (isset($fields['Bill to'])) {
+                return '**Bill to:** ' . $fields['Bill to'];
+            }
+            if (isset($fields['To'])) {
+                return '**To:** ' . $fields['To'];
+            }
+            if (isset($fields['Name'])) {
+                return 'The name on the document is **' . $fields['Name'] . '**.';
+            }
+
+            return null;
+        }
+
+        if ($focus === 'contact') {
+            if (preg_match('/\b(email)\b/i', $question) && isset($fields['Email'])) {
+                return 'The email is **' . $fields['Email'] . '**.';
+            }
+
+            return null;
+        }
+
+        $targeted = self::tryAnswerFromAvailableFields($question, $fields, $financial);
+        if ($targeted !== null) {
+            return $targeted;
+        }
+
+        if ($focus === 'general' && preg_match(
+            '/\b(amount|fee|vat|total|subtotal|price|charge|payment|financial|breakdown|quotation|invoice|receipt)\b/i',
+            $question
+        )) {
+            $summary = self::formatFinancialSummary($financial);
+            if ($summary !== '') {
+                return $summary;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, string> $fields
+     * @param array<string, string> $financial
+     */
+    private static function tryAnswerFromAvailableFields(string $question, array $fields, array $financial): ?string
+    {
+        $lower = strtolower(trim($question));
+
+        $keywordMap = [
+            'vat' => 'VAT Amount',
+            'subtotal' => 'Subtotal',
+            'grand total' => 'Grand Total',
+            'amount due' => 'Amount Due',
+            'amount paid' => 'Amount Paid',
+            'payment received' => 'Payment received',
+            'quotation' => 'Quotation',
+            'invoice number' => 'Invoice number',
+            'receipt number' => 'Receipt number',
+            'case reference' => 'Case reference',
+            'bill to' => 'Bill to',
+            'due date' => 'Due date',
+            'email' => 'Email',
+        ];
+
+        foreach ($keywordMap as $keyword => $fieldKey) {
+            if (!str_contains($lower, $keyword)) {
+                continue;
+            }
+
+            if (isset($financial[$fieldKey])) {
+                return 'The ' . strtolower($fieldKey) . ' is **' . $financial[$fieldKey] . '**.';
+            }
+
+            if (isset($fields[$fieldKey])) {
+                return 'The ' . strtolower($fieldKey) . ' is **' . $fields[$fieldKey] . '**.';
+            }
+        }
+
+        return null;
+    }
+
+    private static function isClearNonDocumentIntent(string $message): bool
+    {
+        $lower = strtolower(trim($message));
+
+        if (AssistantCalculations::looksLikeCalculationQuery($message)) {
+            return true;
+        }
+
+        if (AssistantKnowledge::looksLikeSystemQuery($message)
+            || AssistantKnowledge::looksLikeCapabilitiesQuery($message)) {
+            return true;
+        }
+
+        if (AssistantPracticeFaq::matches($message)) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\b(how many|client count|active cases|total revenue|revenue by|upcoming appointments|recent payments|overdue invoices?|unread notifications|start intake|schedule appointment|book appointment|cancel appointment)\b/',
+            $lower
+        )) {
+            return true;
+        }
+
+        if (preg_match('/\b(find|search|look up)\b.*\b(client|case)\b/', $lower)
+            && !preg_match('/\b(document|receipt|invoice|letter|file|upload|attachment)\b/', $lower)) {
+            return true;
+        }
+
+        if (preg_match('/\b(jurat|apostille|affidavit|poa|notary public|acknowledgment|statutory declaration)\b/', $lower)
+            && !preg_match('/\b(receipt|invoice|document|letter|file|upload|attached|provided)\b/', $lower)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static function normalizeText(string $text): string
+    {
+        $text = assistantSanitizeUtf8($text);
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text) ?? '';
+        $text = preg_replace('/[ \t]+/u', ' ', $text) ?? '';
+        $text = preg_replace('/\R{3,}/u', "\n\n", $text) ?? '';
+
+        return trim($text);
+    }
+
+    private static function hasMeaningfulText(string $text): bool
+    {
+        $text = self::normalizeText($text);
+
+        return $text !== '' && (bool) preg_match('/[\p{L}\p{N}]{2,}/u', $text);
+    }
+
+    private static function pickBestText(string ...$candidates): string
+    {
+        $best = '';
+
+        foreach ($candidates as $candidate) {
+            $candidate = self::normalizeText($candidate);
+            if ($candidate === '') {
+                continue;
+            }
+
+            if (!self::hasMeaningfulText($candidate)) {
+                continue;
+            }
+
+            if (mb_strlen($candidate) > mb_strlen($best)) {
+                $best = $candidate;
+            }
+        }
+
+        return $best;
+    }
+
+    private static function isImageUpload(array $file): bool
+    {
         $name = strtolower((string) ($file['name'] ?? ''));
-
         $mime = strtolower((string) ($file['type'] ?? ''));
 
+        return preg_match('/\.(jpe?g|png|gif|webp)$/i', $name) || str_starts_with($mime, 'image/');
+    }
 
+    private static function readPlainUploadText(array $file): string
+    {
+        $path = (string) ($file['tmp_name'] ?? '');
+        $name = strtolower((string) ($file['name'] ?? ''));
+        $mime = strtolower((string) ($file['type'] ?? ''));
 
         if ($path === '' || !is_readable($path)) {
-
-            throw new RuntimeException('Uploaded file is not readable.');
-
+            return '';
         }
 
-
-
-        if (self::isPdfFile($file)) {
-
-            return self::extractPdfText($path);
-
+        if (self::isPdfUpload($file)) {
+            return '';
         }
 
-
-
-        if (preg_match('/\.(txt|csv|md)$/i', $name) || str_starts_with($mime, 'text/')) {
-
-            $text = file_get_contents($path);
-
-
-
-            return is_string($text) ? assistantSanitizeUtf8(trim($text)) : '';
-
+        if (preg_match('/\.(html?|htm)$/i', $name) || str_contains($mime, 'html')) {
+            return self::extractHtmlText($path);
         }
 
-
-
-        if (preg_match('/\.(jpe?g|png|gif|webp)$/i', $name) || str_starts_with($mime, 'image/')) {
-
-            return '[Image uploaded — using vision model for extraction]';
-
+        if (!preg_match('/\.(txt|csv|md)$/i', $name) && !str_starts_with($mime, 'text/')) {
+            return '';
         }
 
+        $raw = file_get_contents($path);
 
-
-        throw new RuntimeException('Unsupported file type. Upload PDF, text, or image files.');
-
+        return is_string($raw) ? self::normalizeText($raw) : '';
     }
 
-
-
-    private static function isPdfFile(array $file): bool
-
+    private static function extractHtmlText(string $path): string
     {
+        $raw = file_get_contents($path);
+        if (!is_string($raw) || $raw === '') {
+            return '';
+        }
 
+        if (preg_match('/<body[^>]*>(.*)<\/body>/is', $raw, $match)) {
+            $raw = $match[1];
+        }
+
+        $raw = preg_replace('/<script\b[^>]*>.*?<\/script>/is', ' ', $raw) ?? $raw;
+        $raw = preg_replace('/<style\b[^>]*>.*?<\/style>/is', ' ', $raw) ?? $raw;
+        $raw = preg_replace('/<\/(p|div|h\d|li|tr|br)\b[^>]*>/i', "\n", $raw) ?? $raw;
+        $text = html_entity_decode(strip_tags($raw), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return self::normalizeText($text);
+    }
+
+    private static function isPdfUpload(array $file): bool
+    {
         $name = strtolower((string) ($file['name'] ?? ''));
-
         $mime = strtolower((string) ($file['type'] ?? ''));
 
-
-
         return str_ends_with($name, '.pdf') || $mime === 'application/pdf';
-
     }
-
-
 
     private static function extractPdfText(string $path): string
-
     {
-
-        $text = self::extractPdfTextWithParser($path);
-
-        if ($text !== '') {
-
-            return $text;
-
+        if ($path === '' || !is_readable($path)) {
+            return '';
         }
 
+        $fromPoppler = self::extractPdfTextWithPoppler($path);
+        if (self::hasMeaningfulText($fromPoppler)) {
+            return $fromPoppler;
+        }
 
-
-        return self::extractPdfTextWithPoppler($path);
-
+        return self::extractPdfTextWithPdfParser($path);
     }
 
-
-
-    private static function extractPdfTextWithParser(string $path): string
-
+    private static function summarizeImageUpload(array $file, string $question): string
     {
+        unset($file, $question);
 
-        $autoload = __DIR__ . '/lib/pdfparser/alt_autoload.php';
-
-        if (!is_file($autoload)) {
-
-            return '';
-
-        }
-
-
-
-        require_once $autoload;
-
-
-
-        try {
-
-            $parser = new Smalot\PdfParser\Parser();
-
-            $pdf = $parser->parseFile($path);
-
-
-
-            return trim($pdf->getText());
-
-        } catch (Throwable) {
-
-            return '';
-
-        }
-
+        return '**Could not read this screenshot.** Attach a clear image and wait for **Reading screenshot…** to finish, '
+            . 'or use a text-based PDF. Then ask your question (e.g. _what is the amount?_).';
     }
 
+    private static function buildBriefOverview(array $fields, string $text): string
+    {
+        $bullets = [];
 
+        if (preg_match('/\bRECEIPT\b/i', $text)) {
+            $bullets[] = 'This is a receipt or payment confirmation.';
+        } elseif (preg_match('/\bINVOICE\b/i', $text)) {
+            $bullets[] = 'This is an invoice or billing document.';
+        } elseif (preg_match('/\b(agreement|contract|deed|affidavit|letter)\b/i', $text, $m)) {
+            $bullets[] = 'This appears to be a ' . strtolower($m[1]) . ' or formal letter.';
+        } else {
+            $bullets[] = 'Document text was extracted successfully.';
+        }
+
+        if (isset($fields['Bill to'])) {
+            $bullets[] = 'Bill to: ' . $fields['Bill to'];
+        } elseif (isset($fields['To'])) {
+            $bullets[] = 'Addressed to: ' . $fields['To'];
+        }
+
+        if (isset($fields['Payment amount'])) {
+            $bullets[] = 'Payment received: ' . $fields['Payment amount'];
+        } elseif (isset($fields['Total'])) {
+            $bullets[] = 'Total: ' . $fields['Total'];
+        } elseif (isset($fields['Amounts'])) {
+            $bullets[] = 'Amounts: ' . $fields['Amounts'];
+        }
+
+        if (isset($fields['Date'])) {
+            $bullets[] = 'Date: ' . $fields['Date'];
+        }
+
+        if (isset($fields['Receipt number'])) {
+            $bullets[] = 'Receipt #: ' . $fields['Receipt number'];
+        } elseif (isset($fields['Invoice number'])) {
+            $bullets[] = 'Invoice #: ' . $fields['Invoice number'];
+        } elseif (isset($fields['Case reference'])) {
+            $bullets[] = 'Case ref: ' . $fields['Case reference'];
+        }
+
+        $lines = ['**Summary**', ''];
+        foreach ($bullets as $bullet) {
+            $lines[] = '• ' . $bullet;
+        }
+
+        if (!OllamaService::useAiForDocuments()) {
+            $lines[] = '';
+            $lines[] = '_Ask a follow-up in chat (e.g. “what is the amount?” or “who is it billed to?”)._';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private static function summarizeText(string $text, string $question): string
+    {
+        $text = self::normalizeText($text);
+        $question = trim($question) !== ''
+            ? $question
+            : 'Summarize this document: document type, parties, dates, reference numbers, amounts, and important clauses or action items.';
+
+        $structured = self::extractStructuredDetails($text);
+        $structuredBlock = self::formatStructuredDetails($structured);
+        $briefOverview = self::buildBriefOverview($structured, $text);
+
+        $aiSummary = '';
+        if (OllamaService::isEnabled() && OllamaService::useAiForDocuments()) {
+            try {
+                $aiSummary = trim(OllamaService::summarizeTextContent($text, $question));
+            } catch (Throwable $e) {
+                error_log('Assistant document summary: ' . $e->getMessage());
+            }
+        }
+
+        if ($aiSummary !== '') {
+            $parts = ['**Summary**', '', self::normalizeSummaryBullets($aiSummary)];
+            if ($structuredBlock !== '') {
+                $parts[] = '';
+                $parts[] = $structuredBlock;
+            }
+
+            return implode("\n", $parts);
+        }
+
+        $fallback = self::buildTextFallbackSummary($text);
+
+        $parts = [$briefOverview];
+        if ($structuredBlock !== '') {
+            $parts[] = '';
+            $parts[] = $structuredBlock;
+        }
+        $parts[] = '';
+        $parts[] = $fallback;
+
+        return implode("\n", $parts);
+    }
+
+    private static function normalizeSummaryBullets(string $summary): string
+    {
+        $summary = trim($summary);
+        if ($summary === '') {
+            return '';
+        }
+
+        $lines = preg_split('/\R+/', $summary) ?: [];
+        $out = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            if (preg_match('/^[-*•]\s+/', $line)) {
+                $out[] = $line;
+                continue;
+            }
+
+            if (preg_match('/^\d+[.)]\s+/', $line)) {
+                $out[] = preg_replace('/^\d+[.)]\s+/', '• ', $line) ?? ('• ' . $line);
+                continue;
+            }
+
+            $out[] = '• ' . $line;
+        }
+
+        return implode("\n", $out);
+    }
 
     private static function extractPdfTextWithPoppler(string $path): string
-
     {
-
-        $pdftotext = self::popplerBinary('pdftotext');
-
+        $pdftotext = self::popplerExecutable('pdftotext');
         if ($pdftotext === null) {
+            return '';
+        }
+
+        $output = self::runCommand([$pdftotext, '-layout', '-enc', 'UTF-8', $path, '-']);
+
+        return self::normalizeText($output);
+    }
+
+    private static function extractPdfTextWithPdfParser(string $path): string
+    {
+        try {
+            if (!class_exists(\Smalot\PdfParser\Parser::class)) {
+                require_once __DIR__ . '/lib/pdfparser/alt_autoload.php';
+            }
+
+            $parser = new \Smalot\PdfParser\Parser();
+            $pdf = $parser->parseFile($path);
+            $text = $pdf->getText();
+
+            return self::normalizeText(is_string($text) ? $text : '');
+        } catch (Throwable $e) {
+            error_log('Assistant PDF parser: ' . $e->getMessage());
 
             return '';
-
         }
-
-
-
-        foreach ([['-layout'], ['-raw'], []] as $extraFlags) {
-
-            $command = [$pdftotext];
-
-            foreach ($extraFlags as $flag) {
-                $command[] = $flag;
-            }
-
-            $command[] = $path;
-
-            $command[] = '-';
-
-
-
-            $text = trim(self::runCommand($command));
-
-            if ($text !== '') {
-
-                return $text;
-
-            }
-
-        }
-
-
-
-        return '';
-
-    }
-
-
-
-    /** @return list<string> */
-
-    private static function renderPdfPages(string $path, int $maxPages): array
-
-    {
-
-        $pdftoppm = self::popplerBinary('pdftoppm');
-
-        if ($pdftoppm === null || !is_readable($path)) {
-
-            return [];
-
-        }
-
-
-
-        $maxPages = max(1, min($maxPages, 5));
-
-        $outputDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'cn_pdf_' . bin2hex(random_bytes(6));
-
-        if (!mkdir($outputDir) && !is_dir($outputDir)) {
-
-            return [];
-
-        }
-
-
-
-        $prefix = $outputDir . DIRECTORY_SEPARATOR . 'page';
-
-        $command = [
-
-            $pdftoppm,
-
-            '-png',
-
-            '-r',
-
-            '150',
-
-            '-f',
-
-            '1',
-
-            '-l',
-
-            (string) $maxPages,
-
-            $path,
-
-            $prefix,
-
-        ];
-
-
-
-        self::runCommand($command);
-
-
-
-        $images = glob($prefix . '-*.png') ?: [];
-
-        sort($images, SORT_NATURAL);
-
-
-
-        if ($images === []) {
-
-            self::removeDirectory($outputDir);
-
-
-
-            return [];
-
-        }
-
-
-
-        return array_values($images);
-
-    }
-
-
-
-    private static function popplerBinary(string $name): ?string
-
-    {
-
-        $relative = '/../../bin/poppler/poppler-24.08.0/Library/bin/' . $name;
-
-        $base = __DIR__ . $relative;
-
-
-
-        if (PHP_OS_FAMILY === 'Windows') {
-
-            $exe = $base . '.exe';
-
-
-
-            return is_file($exe) ? $exe : null;
-
-        }
-
-
-
-        return is_file($base) && is_executable($base) ? $base : null;
-
-    }
-
-
-
-    /** @param list<string> $command */
-
-    private static function runCommand(array $command): string
-
-    {
-
-        $descriptors = [
-
-            0 => ['pipe', 'r'],
-
-            1 => ['pipe', 'w'],
-
-            2 => ['pipe', 'w'],
-
-        ];
-
-
-
-        $process = proc_open($command, $descriptors, $pipes, self::popplerBinDir());
-
-        if (!is_resource($process)) {
-
-            return '';
-
-        }
-
-
-
-        fclose($pipes[0]);
-
-        $stdout = stream_get_contents($pipes[1]) ?: '';
-
-        $stderr = stream_get_contents($pipes[2]) ?: '';
-
-        fclose($pipes[1]);
-
-        fclose($pipes[2]);
-
-        proc_close($process);
-
-
-
-        return trim($stdout !== '' ? $stdout : $stderr);
-
-    }
-
-
-
-    /** @param list<string> $files */
-
-    private static function cleanupTempFiles(array $files): void
-
-    {
-
-        $dirs = [];
-
-        foreach ($files as $file) {
-
-            if (is_file($file)) {
-
-                $dirs[dirname($file)] = true;
-
-                @unlink($file);
-
-            }
-
-        }
-
-
-
-        foreach (array_keys($dirs) as $dir) {
-
-            self::removeDirectory($dir);
-
-        }
-
-    }
-
-
-
-    private static function removeDirectory(string $dir): void
-
-    {
-
-        if (!is_dir($dir)) {
-
-            return;
-
-        }
-
-
-
-        foreach (glob($dir . DIRECTORY_SEPARATOR . '*') ?: [] as $item) {
-
-            if (is_file($item)) {
-
-                @unlink($item);
-
-            }
-
-        }
-
-
-
-        @rmdir($dir);
-
     }
 
     private static function popplerBinDir(): ?string
     {
-        $binary = self::popplerBinary('pdftoppm');
+        $dir = realpath(__DIR__ . '/../bin/poppler/poppler-24.08.0/Library/bin');
 
-        return $binary !== null ? dirname($binary) : null;
+        return is_dir($dir) ? $dir : null;
     }
 
-    /**
-     * @param list<string> $pageImages
-     */
-    private static function summarizeWithFallback(
-        string $text,
-        string $question,
-        array $file,
-        bool $useVision,
-        array $pageImages = []
-    ): string {
-        $text = assistantSanitizeUtf8(trim($text));
-        $structured = self::extractStructuredDetails($text);
-        $structuredBlock = self::formatStructuredDetails($structured);
-
-        try {
-            $aiSummary = $useVision
-                ? OllamaService::summarizeDocumentImages($pageImages, $question)
-                : OllamaService::summarizeDocument($text, $question, $file);
-
-            $aiSummary = assistantSanitizeUtf8(trim($aiSummary));
-
-            if (self::isUnhelpfulAiSummary($aiSummary, $text !== '')) {
-                throw new RuntimeException('AI summary was not useful.');
-            }
-
-            if ($structuredBlock !== '') {
-                return $structuredBlock . "\n\n**AI notes**\n" . $aiSummary;
-            }
-
-            return $aiSummary;
-        } catch (Throwable $e) {
-            if ($text !== '') {
-                $fallback = self::buildTextFallbackSummary($text, $question);
-
-                return $structuredBlock !== ''
-                    ? $structuredBlock . "\n\n" . $fallback
-                    : $fallback;
-            }
-
-            throw new RuntimeException(self::friendlyAnalysisError($e));
+    private static function popplerExecutable(string $name): ?string
+    {
+        $dir = self::popplerBinDir();
+        if ($dir === null) {
+            return null;
         }
+
+        $exe = $dir . DIRECTORY_SEPARATOR . $name . (PHP_OS_FAMILY === 'Windows' ? '.exe' : '');
+
+        return is_file($exe) ? $exe : null;
+    }
+
+    /** @param list<string> $command */
+    private static function runCommand(array $command): string
+    {
+        if ($command === []) {
+            return '';
+        }
+
+        if (function_exists('proc_open')) {
+            $descriptors = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+
+            $process = proc_open($command, $descriptors, $pipes, self::popplerBinDir() ?: null);
+            if (is_resource($process)) {
+                fclose($pipes[0]);
+                $stdout = stream_get_contents($pipes[1]) ?: '';
+                $stderr = stream_get_contents($pipes[2]) ?: '';
+                fclose($pipes[1]);
+                fclose($pipes[2]);
+                proc_close($process);
+
+                $output = trim($stdout !== '' ? $stdout : $stderr);
+                if ($output !== '') {
+                    return $output;
+                }
+            }
+        }
+
+        return self::runCommandWithShell($command);
+    }
+
+    /** @param list<string> $command */
+    private static function runCommandWithShell(array $command): string
+    {
+        if (!function_exists('shell_exec') || $command === []) {
+            return '';
+        }
+
+        $escaped = array_map(static fn (string $part): string => self::escapeShellArg($part), $command);
+        $commandLine = implode(' ', $escaped);
+        $cwd = self::popplerBinDir();
+
+        if ($cwd !== null && $cwd !== '') {
+            if (PHP_OS_FAMILY === 'Windows') {
+                $commandLine = 'cd /d ' . self::escapeShellArg($cwd) . ' && ' . $commandLine;
+            } else {
+                $commandLine = 'cd ' . self::escapeShellArg($cwd) . ' && ' . $commandLine;
+            }
+        }
+
+        $output = shell_exec($commandLine);
+        if (is_string($output) && trim($output) !== '') {
+            return trim($output);
+        }
+
+        if (function_exists('exec')) {
+            $lines = [];
+            @exec($commandLine, $lines);
+            if ($lines !== []) {
+                return trim(implode("\n", $lines));
+            }
+        }
+
+        return '';
+    }
+
+    private static function escapeShellArg(string $value): string
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            return '"' . str_replace('"', '""', $value) . '"';
+        }
+
+        return escapeshellarg($value);
     }
 
     /** @return array<string, string> */
@@ -565,33 +1757,82 @@ class AssistantDocuments
 
         $fields = [];
 
-        if (preg_match('/#\s*(INV[-\w]+)/i', $text, $match)) {
+        if (preg_match('/\b(CASE-\d{4}-\d{4,})\b/i', $text, $match)) {
+            $fields['Case reference'] = strtoupper($match[1]);
+        }
+
+        if (preg_match('/Matter\s*ref:?\s*([A-Z0-9-]+)/i', $text, $match)) {
+            $fields['Matter reference'] = strtoupper(trim($match[1]));
+        }
+
+        if (preg_match('/\bTo:\s*([^\n]+)/i', $text, $match)) {
+            $fields['To'] = mb_strimwidth(trim($match[1]), 0, 120, '…');
+        }
+
+        if (preg_match('/\b(INV-\d{4}-\d{4,})\b/i', $text, $match)) {
+            $fields['Invoice number'] = strtoupper($match[1]);
+        } elseif (preg_match('/\b(RCP-\d{4}-[A-Z0-9]+)\b/i', $text, $match)) {
+            $fields['Receipt number'] = strtoupper($match[1]);
+        } elseif (preg_match('/#\s*(INV[-\w]+)/i', $text, $match)) {
             $fields['Invoice number'] = $match[1];
         } elseif (preg_match('/invoice\s*#?\s*([A-Z0-9-]+)/i', $text, $match)) {
             $fields['Invoice number'] = $match[1];
         }
 
-        if (preg_match('/\bdate\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{4}-\d{2}-\d{2})/i', $text, $match)) {
-            $fields['Date'] = $match[1];
+        if (preg_match('/payment\s+received\s*:\s*(?:[£$€]|\?|\p{Sc})?\s*([\d,]+(?:\.\d{2})?)/iu', $text, $match)) {
+            $value = self::parseAmountValue((string) ($match[1] ?? ''));
+            if ($value > 0) {
+                $fields['Payment amount'] = self::formatMoneyDisplay($value);
+            }
+        }
+
+        if (preg_match('/\b(QUO-\d{4}-\d{4,})\b/i', $text, $match)) {
+            $fields['Quotation'] = strtoupper($match[1]);
+        }
+
+        if (preg_match('/\bdate\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{4}-\d{2}-\d{2}|[A-Za-z]+ \d{1,2}, \d{4})/i', $text, $match)) {
+            $fields['Date'] = trim($match[1]);
         }
 
         if (preg_match('/due\s*date\s*:?\s*([^\n]+)/i', $text, $match)) {
             $fields['Due date'] = trim($match[1]);
         }
 
-        if (preg_match('/bill\s*to\s*:?\s*(.+?)(?:\n\n|\n(?:payable|total|amount|net)\b)/is', $text, $match)) {
+        if (preg_match('/bill\s*to\s*:?\s*(.+?)(?:\n\n|\n(?:payable|total|amount|net|case reference)\b)/is', $text, $match)) {
             $billTo = trim(preg_replace('/\s+/', ' ', $match[1]) ?? '');
             if ($billTo !== '') {
                 $fields['Bill to'] = mb_strimwidth($billTo, 0, 200, '…');
             }
         }
 
-        if (preg_match('/total\s*[£$€]?\s*([\d,]+(?:\.\d{2})?)/i', $text, $match)) {
-            $fields['Total'] = $match[1];
+        if (preg_match('/case\s*reference\s*:?\s*([A-Z0-9-]+)/i', $text, $match) && !isset($fields['Case reference'])) {
+            $fields['Case reference'] = strtoupper($match[1]);
         }
 
-        if (preg_match_all('/(?:£|€|\$|rs\.?)\s*[\d,]+(?:\.\d{2})?/i', $text, $matches)) {
-            $amounts = array_values(array_unique(array_map('trim', $matches[0])));
+        foreach (self::extractFinancialFields($text) as $label => $value) {
+            $fields[$label] = $value;
+        }
+
+        if (!isset($fields['Total']) && isset($fields['Grand Total'])) {
+            $fields['Total'] = $fields['Grand Total'];
+        } elseif (!isset($fields['Grand Total'])) {
+            $primaryAmount = self::resolvePrimaryAmount($text);
+            if ($primaryAmount !== null) {
+                $fields['Grand Total'] = $primaryAmount;
+                $fields['Total'] = $primaryAmount;
+            }
+        }
+
+        if (isset($fields['Grand Total'], $fields['Total']) && $fields['Grand Total'] === $fields['Total']) {
+            unset($fields['Total']);
+        }
+
+        if (preg_match_all('/(?:[£$€]|Rs\.?|\?|\p{Sc})\s*([\d,]+(?:\.\d{2})?)/iu', $text, $matches)) {
+            $amounts = [];
+            foreach ($matches[0] as $raw) {
+                $amounts[] = trim($raw);
+            }
+            $amounts = array_values(array_unique($amounts));
             if ($amounts !== []) {
                 $fields['Amounts'] = implode('; ', array_slice($amounts, 0, 8));
             }
@@ -600,6 +1841,10 @@ class AssistantDocuments
         if (preg_match('/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/', $text, $match)
             && !isset($fields['Bill to'])) {
             $fields['Name'] = $match[1];
+        }
+
+        if (preg_match('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', $text, $match)) {
+            $fields['Email'] = strtolower($match[0]);
         }
 
         return $fields;
@@ -612,52 +1857,62 @@ class AssistantDocuments
             return '';
         }
 
+        $order = [
+            'To',
+            'Bill to',
+            'Quotation',
+            'Invoice number',
+            'Receipt number',
+            'Case reference',
+            'Matter reference',
+            'Date',
+            'Due date',
+            'Subtotal',
+            'VAT Amount',
+            'Net Amount (Excluding VAT)',
+            'Net Amount (Including VAT)',
+            'Total fee',
+            'Proposed amount',
+            'Grand Total',
+            'Total',
+            'Amount Due',
+            'Amount Paid',
+            'Payment received',
+            'Payment amount',
+            'Amounts',
+            'Name',
+            'Email',
+        ];
+
         $lines = ['**Key details extracted**'];
+        $used = [];
+
+        foreach ($order as $label) {
+            if (!isset($fields[$label]) || isset($used[$label])) {
+                continue;
+            }
+            $lines[] = '• **' . $label . ':** ' . $fields[$label];
+            $used[$label] = true;
+        }
+
         foreach ($fields as $label => $value) {
+            if (isset($used[$label])) {
+                continue;
+            }
             $lines[] = '• **' . $label . ':** ' . $value;
         }
 
         return implode("\n", $lines);
     }
 
-    private static function isUnhelpfulAiSummary(string $summary, bool $hadDocumentText): bool
+    private static function buildTextFallbackSummary(string $text): string
     {
-        if ($summary === '') {
-            return true;
-        }
-
-        if (!$hadDocumentText) {
-            return false;
-        }
-
-        $lower = strtolower($summary);
-        foreach ([
-            'please provide',
-            'please upload',
-            'share the document',
-            'provide the document',
-            'provide the legal',
-            'once you provide',
-            'i\'d be happy to',
-            'i would be happy',
-            'happy to help',
-        ] as $phrase) {
-            if (str_contains($lower, $phrase)) {
-                return true;
-            }
-        }
-
-        return mb_strlen($summary) < 40 && !str_contains($summary, '•');
-    }
-
-    private static function buildTextFallbackSummary(string $text, string $question): string
-    {
-        $snippet = mb_substr(trim($text), 0, 6000);
+        $snippet = self::formatExtractedTextForDisplay(mb_substr($text, 0, 6000));
         $lines = preg_split('/\R+/', $snippet) ?: [];
         $bullets = [];
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line !== '' && mb_strlen($line) > 2) {
+            if ($line !== '' && mb_strlen($line) > 1) {
                 $bullets[] = '• ' . $line;
             }
             if (count($bullets) >= 40) {
@@ -666,34 +1921,71 @@ class AssistantDocuments
         }
 
         if ($bullets === []) {
-            $bullets[] = '• ' . mb_substr($snippet, 0, 500);
+            $bullets[] = '• ' . mb_substr(self::formatExtractedTextForDisplay($snippet), 0, 500);
         }
 
-        return "**Extracted text** _(AI summary unavailable — showing document text)_\n\n"
-            . implode("\n", $bullets);
+        return "**Extracted text**\n\n" . implode("\n", $bullets);
+    }
+
+    private static function formatExtractedTextForDisplay(string $text): string
+    {
+        $text = self::normalizeText($text);
+        if ($text === '') {
+            return '';
+        }
+
+        $labels = [
+            'Bill To:',
+            'Bill to:',
+            'Ship To:',
+            'Issue Date:',
+            'Due Date:',
+            'Due date:',
+            'Invoice reference:',
+            'Case reference',
+            'Description',
+            'Quantity',
+            'Unit Price',
+            'Subtotal',
+            'VAT Amount',
+            'VAT Total',
+            'Total fee:',
+            'Thank you',
+        ];
+
+        foreach ($labels as $label) {
+            $pattern = '/\s+(' . preg_quote($label, '/') . ')/iu';
+            $text = preg_replace($pattern, "\n\n$1", $text) ?? $text;
+        }
+
+        $text = preg_replace('/(Bill To:)\s*/iu', "$1\n", $text) ?? $text;
+        $text = preg_replace('/(Bill to:)\s*/iu', "$1\n", $text) ?? $text;
+        $text = preg_replace('/\s+(RECEIPT\s+#)/iu', "\n\n$1", $text) ?? $text;
+        $text = preg_replace('/\s+(INVOICE\s+#)/iu', "\n\n$1", $text) ?? $text;
+        $text = preg_replace('/\s+(INV-\d{4}-)/iu', "\n\n$1", $text) ?? $text;
+        $text = preg_replace('/\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/iu', "\n$1", $text) ?? $text;
+        $text = preg_replace('/\s+(\+\d{7,15})\b/u', "\n$1", $text) ?? $text;
+        $text = preg_replace('/,\s*(\d{4,6})\s+/u', ",\n$1 ", $text) ?? $text;
+        $text = preg_replace('/\s+([a-z]{4,})\s+(\+\d{7,})/u', "\n$1\n$2", $text) ?? $text;
+        $text = preg_replace('/([a-z0-9.-]+\.[a-z]{2,})\s+([a-z]{4,})\s+/iu', "$1\n$2\n", $text) ?? $text;
+        $text = preg_replace('/\n{3,}/u', "\n\n", $text) ?? $text;
+
+        return trim($text);
     }
 
     private static function friendlyAnalysisError(Throwable $e): string
     {
         $message = $e->getMessage();
 
-        if (str_contains($message, 'out-of-memory') || str_contains($message, 'allocate')) {
-            return 'The AI model ran out of memory. Try a smaller Ollama model (e.g. `ollama pull qwen3.5:2b`) or close other apps.';
-        }
-
-        if (str_contains($message, 'not found')) {
-            return 'The AI model is not available in Ollama. Run `ollama pull qwen2.5:0.5b` or set OLLAMA_MODEL in config.';
+        if (str_contains($message, 'vision') || str_contains($message, 'image') || str_contains($message, 'multimodal')) {
+            return 'Image reading needs a vision model in Ollama (e.g. `ollama pull llava`). For PDFs with selectable text, attach the PDF and the browser will extract text automatically.';
         }
 
         if (str_contains($message, 'Could not reach Ollama')) {
-            return 'Could not reach Ollama. Start Ollama, then try again.';
+            return 'Could not reach Ollama. Text extracted from your document is still shown when available.';
         }
 
-        if (str_contains($message, 'image') || str_contains($message, 'vision') || str_contains($message, 'multimodal')) {
-            return 'Image reading needs a vision model in Ollama. Run `ollama pull llava`, then attach your PDF or screenshot again.';
-        }
-
-        return 'Could not analyze this document. Try a clearer PDF, or upload a photo of the page.';
+        return 'Could not analyze this image with AI. Try a clearer photo, or use a text-based PDF.';
     }
 
     private static function validateUpload(array $file): void
@@ -711,7 +2003,7 @@ class AssistantDocuments
         }
 
         $name = strtolower((string) ($file['name'] ?? ''));
-        $allowed = ['.pdf', '.txt', '.csv', '.md', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        $allowed = ['.pdf', '.html', '.htm', '.txt', '.csv', '.md', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
         $allowedType = false;
 
         foreach ($allowed as $extension) {
@@ -722,7 +2014,7 @@ class AssistantDocuments
         }
 
         if (!$allowedType) {
-            throw new RuntimeException('Unsupported file type. Upload PDF, text, or image files.');
+            throw new RuntimeException('Unsupported file type. Upload PDF, HTML, text, or image files.');
         }
 
         $tmp = (string) ($file['tmp_name'] ?? '');
@@ -730,13 +2022,8 @@ class AssistantDocuments
             throw new RuntimeException('Invalid upload.');
         }
 
-        // Some local Windows/WAMP setups may provide a readable temp file path
-        // that does not pass is_uploaded_file() in this execution context.
         if (!is_uploaded_file($tmp) && !is_readable($tmp)) {
             throw new RuntimeException('Invalid upload.');
         }
     }
-
 }
-
-
