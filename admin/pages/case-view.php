@@ -17,9 +17,9 @@ if (!$workspace) {
 $case         = $workspace['case'];
 $caseBilling  = CaseService::getCaseBilling($case);
 $billingTotals = $caseBilling['totals'];
-$invoiceNonVatServices = ($caseBilling['non_vat'] ?? []) !== [] ? $caseBilling['non_vat'] : [['type' => '', 'net' => 0]];
-$invoiceVatServices    = ($caseBilling['vat'] ?? []) !== [] ? $caseBilling['vat'] : [['type' => '', 'net' => 0]];
-$invoiceVatRate        = (float) ($caseBilling['vat_rate'] ?? CaseService::vatRate());
+$invoiceNonVatServices = [['type' => '', 'net' => 0]];
+$invoiceVatServices    = [['type' => '', 'net' => 0]];
+$invoiceVatRate        = 0.0;
 $companySettings       = getCompanySettings();
 $defaultBankAccount    = SettingsService::defaultBankAccountChoice($companySettings);
 $companyBankAccounts   = SettingsService::bankAccounts($companySettings);
@@ -44,7 +44,6 @@ $currentSavedLetter = ClientLetterService::getCurrentSavedLetter($caseId);
 $currentLetterId    = $currentSavedLetter ? (int) ($currentSavedLetter['id'] ?? 0) : 0;
 $currentLetterPublished = $currentSavedLetter && !empty($currentSavedLetter['published_to_portal']);
 $hasGeneratedDraft  = $clientLetterPaths['html'] !== null || $clientLetterPaths['pdf'] !== null;
-$letterDownloadPath = $clientLetterPath ?? ('cases/' . $caseId . '/generated/client_letter.html');
 $csrfToken          = CSRF::generateToken();
 $csrfFieldName      = (require __DIR__ . '/../config/config.php')['security']['csrf_token_name'];
 
@@ -106,6 +105,7 @@ require __DIR__ . '/../includes/header.php';
                     <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalInvoice"><i class="bi bi-receipt me-2"></i>Generate Invoice</a></li>
                     <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalQuotation"><i class="bi bi-file-earmark-text me-2"></i>Generate Quotation</a></li>
                     <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalProposal"><i class="bi bi-file-text me-2"></i>Generate Proposal</a></li>
+                    <li><a class="dropdown-item" href="<?= url('actions/case-pack-download.php?case_id=' . $caseId) ?>"><i class="bi bi-file-zip me-2"></i>Download Case Pack (ZIP)</a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="#documents" data-case-tab="documents"><i class="bi bi-upload me-2"></i>Upload Document</a></li>
                     <li><hr class="dropdown-divider"></li>
@@ -130,6 +130,7 @@ require __DIR__ . '/../includes/header.php';
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#quotations" type="button">Quotations</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoices" type="button">Invoices</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoice-payments" type="button">Invoice & Payments</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#checklist" type="button">Checklist</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#notes" type="button">Notes</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#activity" type="button">Activity</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#client-letter" type="button">Client Letter</button></li>
@@ -340,6 +341,7 @@ require __DIR__ . '/../includes/header.php';
                         <option value="paid">Paid</option>
                         <option value="partially_paid">Partially Paid</option>
                         <option value="overdue">Overdue</option>
+                        <option value="failed">Failed</option>
                     </select>
                 </div>
                 <?php endif; ?>
@@ -356,28 +358,13 @@ require __DIR__ . '/../includes/header.php';
                                         <td><strong><?= e($inv['invoice_number']) ?></strong></td>
                                         <td><?= formatCurrency((float) $inv['total']) ?></td>
                                         <td><?= formatDate($inv['due_date']) ?></td>
-                                        <td><?= statusBadge($invStatus) ?></td>
+                                        <td><?= invoiceGatewayStatusBadge($inv) ?></td>
                                         <td class="text-end">
                                             <div class="case-row-actions">
                                                 <?php if (!empty($inv['pdf_path'])): ?>
                                                     <a href="<?= url('actions/document-download.php?path=' . urlencode($inv['pdf_path'])) ?>" class="btn btn-soft btn-sm case-action-btn" target="_blank" rel="noopener">
                                                         <i class="bi bi-file-earmark-text"></i><span>View</span>
                                                     </a>
-                                                <?php endif; ?>
-                                                <?php if (!empty($inv['payment_link'])): ?>
-                                                    <a href="<?= e($inv['payment_link']) ?>" target="_blank" rel="noopener" class="btn btn-soft btn-sm case-action-btn" title="Open payment link">
-                                                        <i class="bi bi-link-45deg"></i><span>Pay link</span>
-                                                    </a>
-                                                <?php elseif ($canManagePayments && $stripeReady && in_array($invStatus, ['pending', 'partially_paid', 'overdue'], true)): ?>
-                                                    <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
-                                                        <?= CSRF::field() ?>
-                                                        <input type="hidden" name="action" value="create_invoice_payment_link">
-                                                        <input type="hidden" name="case_id" value="<?= $caseId ?>">
-                                                        <input type="hidden" name="invoice_id" value="<?= (int) $inv['id'] ?>">
-                                                        <button type="submit" class="btn btn-soft btn-sm case-action-btn" title="Create Stripe payment link">
-                                                            <i class="bi bi-link-45deg"></i><span>Create link</span>
-                                                        </button>
-                                                    </form>
                                                 <?php endif; ?>
                                                 <?php if ($canManagePayments): ?>
                                                     <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Email invoice <?= e($inv['invoice_number']) ?> to the client?');">
@@ -494,6 +481,55 @@ require __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
+        <!-- Checklist -->
+        <div class="tab-pane fade" id="checklist">
+            <div class="case-panel">
+                <h3 class="case-panel-title">Case Checklist</h3>
+                <?php $checklistItems = $workspace['checklist'] ?? []; ?>
+                <?php if ($checklistItems === []): ?>
+                    <p class="text-muted small py-3 mb-0">No checklist items for this case.</p>
+                <?php else: ?>
+                    <?php
+                    $progress = CaseChecklistService::progressPercent($checklistItems);
+                    $missingRequired = CaseChecklistService::missingRequiredLabels($checklistItems);
+                    ?>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>Progress</span>
+                            <strong><?= $progress ?>%</strong>
+                        </div>
+                        <div class="progress checklist-progress" role="progressbar" aria-valuenow="<?= $progress ?>" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar checklist-progress-bar" style="width: <?= $progress ?>%"></div>
+                        </div>
+                        <?php if ($missingRequired !== []): ?>
+                            <p class="text-muted small mt-2 mb-0">Missing required: <?= e(implode(', ', $missingRequired)) ?></p>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="list-group">
+                        <?php foreach ($checklistItems as $item): ?>
+                            <form method="post" action="<?= url('actions/case-action.php') ?>" class="list-group-item d-flex align-items-center justify-content-between gap-2">
+                                <?= CSRF::field() ?>
+                                <input type="hidden" name="action" value="toggle_checklist_item">
+                                <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                <input type="hidden" name="item_key" value="<?= e((string) ($item['key'] ?? '')) ?>">
+                                <input type="hidden" name="completed" value="<?= !empty($item['completed']) ? '0' : '1' ?>">
+                                <div>
+                                    <strong><?= e((string) ($item['label'] ?? '')) ?></strong>
+                                    <?php if (!empty($item['required'])): ?>
+                                        <span class="checklist-required-badge ms-1">Required</span>
+                                    <?php endif; ?>
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-soft">
+                                    <?= !empty($item['completed']) ? 'Completed' : 'Mark complete' ?>
+                                </button>
+                            </form>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
         <!-- Notes -->
         <div class="tab-pane fade" id="notes">
             <div class="case-panel">
@@ -542,6 +578,7 @@ require __DIR__ . '/../includes/header.php';
                         <option value="proposal">Proposals</option>
                         <option value="invoice">Invoices</option>
                         <option value="payment">Payments</option>
+                        <option value="status">Status changes</option>
                         <option value="note">Notes</option>
                         <option value="appointment">Appointments</option>
                     </select>
@@ -629,16 +666,18 @@ require __DIR__ . '/../includes/header.php';
                     </div>
 
                     <div class="client-letter-actions d-flex flex-wrap gap-2 mb-3">
-                        <button type="button" class="btn btn-soft btn-sm case-action-btn" id="clientLetterPreviewBtn">
+                        <button type="button" class="btn btn-soft btn-sm case-action-btn" id="clientLetterPreviewBtn" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
                             <i class="bi bi-eye"></i><span>Preview letter</span>
                         </button>
-                        <a href="<?= url('actions/document-download.php?path=' . urlencode($letterDownloadPath)) ?>" class="btn btn-soft btn-sm case-action-btn" target="_blank" rel="noopener">
-                            <i class="bi bi-<?= $letterIsPdf && $hasGeneratedDraft ? 'file-pdf' : 'file-earmark-arrow-down' ?>"></i><span>Download<?= $letterIsPdf && $hasGeneratedDraft ? ' PDF' : '' ?></span>
-                        </a>
+                        <?php if ($hasGeneratedDraft): ?>
+                            <a href="<?= url('actions/document-download.php?path=' . urlencode($clientLetterPath ?? ('cases/' . $caseId . '/generated/client_letter.html'))) ?>" class="btn btn-soft btn-sm case-action-btn" target="_blank" rel="noopener">
+                                <i class="bi bi-<?= $letterIsPdf ? 'file-pdf' : 'file-earmark-arrow-down' ?>"></i><span>Download<?= $letterIsPdf ? ' PDF' : '' ?></span>
+                            </a>
+                        <?php endif; ?>
                         <button type="submit" data-letter-action="generate_client_letter" class="btn btn-soft btn-sm case-action-btn">
-                            <i class="bi bi-arrow-clockwise"></i><span><?= $hasGeneratedDraft ? 'Regenerate' : 'Generate letter' ?></span>
+                            <i class="bi bi-file-earmark-plus"></i><span><?= $hasGeneratedDraft ? 'Regenerate' : 'Generate letter' ?></span>
                         </button>
-                        <button type="submit" data-letter-action="save_client_letter_record" class="btn btn-soft btn-sm case-action-btn">
+                        <button type="submit" data-letter-action="save_client_letter_record" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft ? 'disabled' : '' ?>>
                             <i class="bi bi-save"></i><span>Save to client record</span>
                         </button>
                         <?php if ($currentLetterPublished): ?>
@@ -646,11 +685,11 @@ require __DIR__ . '/../includes/header.php';
                                 <i class="bi bi-eye-slash"></i><span>Unpublish from client portal</span>
                             </button>
                         <?php else: ?>
-                            <button type="submit" data-letter-action="publish_client_letter" class="btn btn-soft btn-sm case-action-btn">
+                            <button type="submit" data-letter-action="publish_client_letter" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
                                 <i class="bi bi-globe"></i><span>Publish to client portal</span>
                             </button>
                         <?php endif; ?>
-                        <button type="submit" data-letter-action="send_client_letter" class="btn btn-soft btn-sm case-action-btn">
+                        <button type="submit" data-letter-action="send_client_letter" class="btn btn-soft btn-sm case-action-btn" <?= !$hasGeneratedDraft && !$currentSavedLetter ? 'disabled' : '' ?>>
                             <i class="bi bi-envelope"></i><span>Email to client</span>
                         </button>
                     </div>
@@ -663,7 +702,7 @@ require __DIR__ . '/../includes/header.php';
                         <div class="client-letter-preview-frame-wrap">
                             <iframe id="clientLetterPreviewFrame" title="Letter preview" class="client-letter-preview-frame"></iframe>
                             <div id="clientLetterPreviewPlaceholder" class="client-letter-preview-placeholder">
-                                <span class="text-muted small">Live preview loads when you open this tab.</span>
+                                <span class="text-muted small">Generate a letter, then click <strong>Preview letter</strong>.</span>
                             </div>
                         </div>
                     </div>
@@ -789,7 +828,7 @@ require __DIR__ . '/../includes/header.php';
                         <h6 class="case-billing-part-title mb-0">VAT services</h6>
                         <div class="d-flex align-items-center gap-2">
                             <label class="small text-muted mb-0" for="invoiceVatRate">VAT rate (%)</label>
-                            <input type="number" step="0.01" min="0" max="100" id="invoiceVatRate" name="invoice_vat_rate" class="form-control form-control-sm case-billing-rate-input" value="<?= e(rtrim(rtrim(number_format($invoiceVatRate, 2), '0'), '.')) ?>">
+                            <input type="number" step="0.01" min="0" max="100" id="invoiceVatRate" name="invoice_vat_rate" class="form-control form-control-sm case-billing-rate-input" value="0">
                             <button type="button" class="btn btn-soft btn-sm js-invoice-add-row" data-billing-part="vat">
                                 <i class="bi bi-plus-lg"></i> Add service
                             </button>
@@ -819,13 +858,13 @@ require __DIR__ . '/../includes/header.php';
                     <div class="card-body py-3">
                         <div class="row g-2 small">
                             <div class="col-sm-6">
-                                <div class="d-flex justify-content-between"><span>Non-VAT net</span><strong id="invoiceNonVatNet"><?= formatCurrency((float) ($billingTotals['non_vat_net_subtotal'] ?? 0)) ?></strong></div>
-                                <div class="d-flex justify-content-between"><span>VAT services net</span><strong id="invoiceVatNet"><?= formatCurrency((float) ($billingTotals['vat_net_subtotal'] ?? 0)) ?></strong></div>
-                                <div class="d-flex justify-content-between"><span>Net subtotal</span><strong id="invoiceSubtotalPreview"><?= formatCurrency((float) (($billingTotals['non_vat_net_subtotal'] ?? 0) + ($billingTotals['vat_net_subtotal'] ?? 0))) ?></strong></div>
+                                <div class="d-flex justify-content-between"><span>Non-VAT net</span><strong id="invoiceNonVatNet"><?= formatCurrency(0) ?></strong></div>
+                                <div class="d-flex justify-content-between"><span>VAT services net</span><strong id="invoiceVatNet"><?= formatCurrency(0) ?></strong></div>
+                                <div class="d-flex justify-content-between"><span>Net subtotal</span><strong id="invoiceSubtotalPreview"><?= formatCurrency(0) ?></strong></div>
                             </div>
                             <div class="col-sm-6">
-                                <div class="d-flex justify-content-between"><span>VAT amount</span><strong id="invoiceVatPreview"><?= formatCurrency((float) ($billingTotals['vat_amount'] ?? 0)) ?></strong></div>
-                                <div class="d-flex justify-content-between fs-6 mt-2 pt-2 border-top"><span>Invoice total</span><strong id="invoiceTotalPreview"><?= formatCurrency((float) ($billingTotals['grand_total'] ?? 0)) ?></strong></div>
+                                <div class="d-flex justify-content-between"><span>VAT amount</span><strong id="invoiceVatPreview"><?= formatCurrency(0) ?></strong></div>
+                                <div class="d-flex justify-content-between fs-6 mt-2 pt-2 border-top"><span>Invoice total</span><strong id="invoiceTotalPreview"><?= formatCurrency(0) ?></strong></div>
                             </div>
                         </div>
                     </div>
@@ -858,18 +897,16 @@ require __DIR__ . '/../includes/header.php';
                 <div class="mb-0"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
                 <div class="mb-0 mt-3" id="invoicePaymentLinkRow">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="generate_payment_link" id="invoiceGeneratePaymentLink" value="1"<?= $stripeReady ? '' : ' disabled' ?>>
+                        <input class="form-check-input" type="checkbox" name="generate_payment_link" id="invoiceGeneratePaymentLink" value="1">
                         <label class="form-check-label" for="invoiceGeneratePaymentLink">
                             <i class="bi bi-link-45deg me-1 text-primary"></i>
-                            Generate payment link
-                            <span class="text-muted small">(adds a Pay Now button to the invoice)</span>
+                            Generate Payment Link
+                            <span class="text-muted small">(adds a Pay Now button and demo checkout page)</span>
                         </label>
                     </div>
-                    <?php if (!$stripeReady): ?>
-                        <div class="form-text text-warning mt-1">
-                            Stripe is not configured — add keys under <strong>Settings → Payments</strong> to enable this.
-                        </div>
-                    <?php endif; ?>
+                    <div class="form-text text-muted mt-1">
+                        Uses the prototype payment gateway. Live Stripe/PayPal keys can replace this later without changing your workflow.
+                    </div>
                 </div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Generate</button></div>
@@ -994,36 +1031,11 @@ document.addEventListener("DOMContentLoaded", function() {
             return fd;
         }
 
-        function resizeLetterPreviewFrame(frame) {
-            if (!frame) return;
-            try {
-                var doc = frame.contentDocument || frame.contentWindow.document;
-                if (!doc || !doc.body) return;
-                var height = Math.max(
-                    doc.body.scrollHeight,
-                    doc.documentElement ? doc.documentElement.scrollHeight : 0
-                );
-                if (height > 0) {
-                    var wrap = frame.closest(".client-letter-preview-frame-wrap");
-                    var max = Math.min(window.innerHeight * 0.75, 720);
-                    frame.style.height = Math.min(Math.max(height + 12, 360), max) + "px";
-                    if (wrap) {
-                        wrap.style.height = frame.style.height;
-                    }
-                }
-            } catch (err) {
-                // ignore cross-origin issues
-            }
-        }
-
         function refreshLetterPreview() {
             var frame = document.getElementById("clientLetterPreviewFrame");
             var placeholder = document.getElementById("clientLetterPreviewPlaceholder");
             var newTab = document.getElementById("clientLetterPreviewNewTab");
             if (!frame) return;
-            frame.onload = function() {
-                resizeLetterPreviewFrame(frame);
-            };
             if (placeholder) {
                 placeholder.classList.remove("is-hidden");
                 placeholder.innerHTML = "<span class=\"loading-inline\"><span class=\"spinner-border spinner-border-sm\" role=\"presentation\" aria-hidden=\"true\"></span> Generating preview…</span>";
@@ -1040,7 +1052,6 @@ document.addEventListener("DOMContentLoaded", function() {
                         newTab._blobUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
                         newTab.href = newTab._blobUrl;
                     }
-                    setTimeout(function() { resizeLetterPreviewFrame(frame); }, 60);
                 })
                 .catch(function() {
                     if (placeholder) {
@@ -1053,17 +1064,20 @@ document.addEventListener("DOMContentLoaded", function() {
         var previewBtn = document.getElementById("clientLetterPreviewBtn");
         if (previewBtn) previewBtn.addEventListener("click", refreshLetterPreview);
 
-        function scheduleLetterPreview() {
-            setTimeout(refreshLetterPreview, 300);
+        function maybeRefreshLetterPreview() {
+            if (document.querySelector("#client-letter.active, #client-letter.show")) {
+                refreshLetterPreview();
+            }
         }
 
         document.querySelectorAll("[data-bs-target=\"#client-letter\"]").forEach(function(tab) {
-            tab.addEventListener("shown.bs.tab", scheduleLetterPreview);
+            tab.addEventListener("shown.bs.tab", maybeRefreshLetterPreview);
         });
 
-        if (document.querySelector("#client-letter.active, #client-letter.show")
-            || window.location.hash === "#client-letter") {
-            scheduleLetterPreview();
+        if (window.location.hash === "#client-letter" || letterForm.getAttribute("data-has-draft") === "1") {
+            var previewBtn = document.getElementById("clientLetterPreviewBtn");
+            if (previewBtn) previewBtn.disabled = false;
+            setTimeout(refreshLetterPreview, 400);
         }
     }
 

@@ -176,7 +176,7 @@ class FinancialDocumentRenderer
             $notes[] = '<p class="fdoc-note"><strong>Notes:</strong> ' . nl2br(e($quotationNotes)) . '</p>';
         }
 
-        $company = documentBrandingSettings();
+        $company = getCompanySettings();
 
         return self::render([
             'type'        => 'quotation',
@@ -220,7 +220,7 @@ class FinancialDocumentRenderer
             $summaryOpts
         );
 
-        $company = documentBrandingSettings();
+        $company = getCompanySettings();
         $paymentTerms = trim((string) ($invoice['payment_terms'] ?? ''));
         if ($paymentTerms === '') {
             $paymentTerms = trim((string) ($company['default_invoice_payment_terms'] ?? ''));
@@ -245,12 +245,16 @@ class FinancialDocumentRenderer
 
         $footerHtml = self::paymentFooterHtml($company, $invoice, $payableName);
 
-        if (!empty($invoice['payment_link'])) {
+        if (PaymentGatewayService::invoiceHasPayableLink($invoice)) {
             $payBtn = '<div class="fdoc-pay-now no-print">'
-                . '<a href="' . e((string) $invoice['payment_link']) . '" target="_blank" rel="noopener" class="fdoc-pay-btn">'
-                . '&#128179; Pay Now'
+                . '<a href="' . e((string) $invoice['payment_link']) . '" class="fdoc-pay-btn">'
+                . '<span class="fdoc-pay-btn__icon" aria-hidden="true">&#128179;</span>'
+                . '<span class="fdoc-pay-btn__text">Pay Now</span>'
+                . '<span class="fdoc-pay-btn__amount">' . e(formatCurrency(CaseService::getInvoiceRemainingBalance($invoice))) . '</span>'
                 . '</a></div>';
             array_unshift($notes, $payBtn);
+        } elseif (invoiceStatusValue($invoice) === 'paid') {
+            $notes[] = '<p class="fdoc-paid-badge no-print"><span class="fdoc-paid-badge__pill">Paid</span></p>';
         }
 
         return self::render([
@@ -318,7 +322,7 @@ class FinancialDocumentRenderer
             $detailNote .= '<p class="fdoc-note"><strong>Notes:</strong> ' . nl2br(e($notes)) . '</p>';
         }
 
-        $company = documentBrandingSettings();
+        $company = getCompanySettings();
 
         return self::render([
             'type'        => 'receipt',
@@ -352,7 +356,7 @@ class FinancialDocumentRenderer
      */
     public static function render(array $config): string
     {
-        $company     = documentBrandingSettings();
+        $company     = getCompanySettings();
         $primary     = (string) ($company['primary_color'] ?? '#3aafa9');
         $secondary   = (string) ($company['secondary_color'] ?? '#00182c');
         $companyName = e(companyBrandName($company));
@@ -561,17 +565,22 @@ class FinancialDocumentRenderer
         }
 
         $bankHtml = self::bankDetailsHtml($company, $invoice);
-        if ($bankHtml === '' && $payableName === '') {
+        $vat      = trim(InvoiceService::companyVatNumber($company));
+
+        if ($bankHtml === '' && $payableName === '' && $vat === '') {
             return '';
         }
 
+        $bankBlock = $bankHtml !== '' ? '<div class="fdoc-bank">' . $bankHtml . '</div>' : '';
+        $vatBlock  = $vat !== ''
+            ? '<p class="fdoc-vat-line">VAT Number: ' . e($vat) . '</p>'
+            : '';
+
         return '<section class="fdoc-payment">'
             . '<p class="fdoc-payment-label">Payable To:</p>'
-            . '<div class="fdoc-bank">'
-            . '<div class="fdoc-payee">' . e($payableName) . '</div>'
-            . $bankHtml
-            . '</div>'
-            . '<p class="fdoc-vat-no"><span class="fdoc-date-label">VAT Number:</span> ' . e(InvoiceService::companyVatNumber($company)) . '</p>'
+            . '<p class="fdoc-payee">' . e($payableName) . '</p>'
+            . $bankBlock
+            . $vatBlock
             . '</section>';
     }
 
@@ -582,22 +591,23 @@ class FinancialDocumentRenderer
 
     private static function styles(string $primary, string $secondary, ?array $company = null): string
     {
-        $font      = companyFontInlineStack($company);
+        $brandSans = companyFontInlineStack($company);
+        $serif     = companyDocumentSerifStack();
         $primary   = e($primary);
         $secondary = e($secondary);
 
         return '<style>
             *,*::before,*::after{box-sizing:border-box}
-            body{font-family:' . $font . ';color:#1e293b;margin:0;padding:40px 48px 48px;font-size:15px;line-height:1.6;background:#fff;-webkit-font-smoothing:antialiased}
+            body{font-family:' . $serif . ';color:#1e293b;margin:0;padding:40px 48px 48px;font-size:15px;line-height:1.6;background:#fff;-webkit-font-smoothing:antialiased;font-variant-numeric:lining-nums}
             .no-print{max-width:900px;margin:0 auto 24px}
-            .no-print button{padding:10px 20px;background:' . $primary . ';color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;font-size:14px}
+            .no-print button{padding:10px 20px;background:' . $primary . ';color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:' . $brandSans . ';font-size:14px}
             .fdoc-doc{max-width:900px;margin:0 auto}
             .fdoc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;padding-bottom:28px;margin-bottom:32px;border-bottom:1px solid #e2e8f0}
             .fdoc-logo{max-height:96px;max-width:280px;object-fit:contain;display:block}
-            .fdoc-logo-text{font-size:20px;font-weight:700;color:' . $secondary . ';letter-spacing:.02em}
+            .fdoc-logo-text{font-family:' . $brandSans . ';font-size:20px;font-weight:700;color:' . $secondary . ';letter-spacing:.02em}
             .fdoc-heading{text-align:right;flex-shrink:0}
-            .fdoc-heading h1{margin:0;color:' . $primary . ';font-size:40px;font-weight:700;letter-spacing:.06em;line-height:1}
-            .fdoc-number{font-size:20px;font-weight:700;color:' . $secondary . ';margin-top:8px;letter-spacing:.02em}
+            .fdoc-heading h1{margin:0;font-family:' . $serif . ';color:' . $primary . ';font-size:40px;font-weight:700;letter-spacing:.06em;line-height:1}
+            .fdoc-number{font-size:20px;font-weight:700;color:' . $secondary . ';margin-top:8px;letter-spacing:.02em;font-variant-numeric:lining-nums tabular-nums}
             .fdoc-parties{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:start;margin-bottom:28px;width:100%}
             .fdoc-from{min-width:0}
             .fdoc-bill-to{text-align:right;min-width:0;padding-right:2px}
@@ -617,33 +627,28 @@ class FinancialDocumentRenderer
             .fdoc-table thead th{background:' . $secondary . ';color:#fff;font-weight:600;font-size:13px;letter-spacing:.02em;padding:12px 14px;border:none;text-align:left}
             .fdoc-table tbody td{padding:12px 14px;font-size:14px;color:#1e293b;border:none;border-top:1px solid #e2e8f0;vertical-align:top}
             .fdoc-table tbody tr:first-child td{border-top:none}
-            .fdoc-table .num{text-align:right;white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums}
+            .fdoc-table .num{text-align:right;white-space:nowrap;font-weight:600;font-variant-numeric:lining-nums tabular-nums}
             .fdoc-table thead th.num{padding-right:14px}
             .fdoc-empty{color:#94a3b8;font-style:italic;text-align:center}
             .fdoc-summary{background:' . $primary . ';color:#fff;padding:20px 24px;margin-bottom:28px;border-radius:6px}
             .fdoc-summary-row{display:flex;justify-content:space-between;align-items:baseline;gap:24px;padding:4px 0;font-size:15px;font-weight:500;line-height:1.55}
             .fdoc-summary-label{opacity:.95}
-            .fdoc-summary-value{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;min-width:120px}
+            .fdoc-summary-value{font-weight:700;font-variant-numeric:lining-nums tabular-nums;white-space:nowrap;text-align:right;min-width:120px}
             .fdoc-summary-row--highlight{margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.32);font-size:18px;font-weight:700}
             .fdoc-summary-row--highlight:last-child{font-size:20px}
             .fdoc-note{font-size:14px;line-height:1.7;margin:0 0 16px;color:#64748b;padding:12px 16px;background:#f8fafc;border-radius:6px}
-            .fdoc-payment{font-size:14px;line-height:1.6;color:#475569;margin-bottom:20px;padding:18px 20px;border-radius:10px;background:color-mix(in srgb,' . $primary . ' 4%,#fff);border:1px solid color-mix(in srgb,' . $primary . ' 14%,#e2e8f0)}
-            .fdoc-payment-label{margin:0 0 10px;font-weight:700;color:#1e293b;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
-            .fdoc-bank{margin:0;line-height:1.6}
-            .fdoc-bank .bank-details-panel{display:grid;gap:6px;margin-top:4px}
-            .fdoc-bank .bank-detail-row{display:grid;grid-template-columns:minmax(110px,38%) 1fr;gap:8px 12px;padding:6px 0;border-bottom:1px solid color-mix(in srgb,' . $primary . ' 10%,#e2e8f0);background:transparent;border-radius:0}
-            .fdoc-bank .bank-detail-row:last-child{border-bottom:none;padding-bottom:0}
-            .fdoc-bank .bank-detail-row__content{display:contents}
-            .fdoc-bank .bank-detail-row__label{font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#64748b}
-            .fdoc-bank .bank-detail-row__value{font-size:14px;font-weight:600;color:' . $secondary . ';word-break:break-word}
-            .fdoc-bank-line{margin:0 0 4px;font-size:14px;color:#334155}
+            .fdoc-payment{margin:24px 0 0;padding:0;font-size:14px;line-height:1.55;color:#1e293b}
+            .fdoc-payment-label{margin:0 0 10px;font-weight:700;color:#1e293b;font-size:14px;letter-spacing:normal;text-transform:none}
+            .fdoc-payee{margin:0 0 12px;font-family:' . $brandSans . ';font-size:15px;font-weight:700;line-height:1.35;color:' . $primary . ';text-transform:uppercase;letter-spacing:.02em}
+            .fdoc-bank{margin:0}
+            .fdoc-bank-line{margin:0 0 5px;font-size:14px;color:#1e293b;line-height:1.5;font-variant-numeric:lining-nums tabular-nums}
             .fdoc-bank-line:last-child{margin-bottom:0}
-            .fdoc-bank-label{font-weight:600;color:#1e293b}
-            .fdoc-payee{margin:0 0 6px;font-size:16px;font-weight:700;line-height:1.4;color:' . $primary . '}
-            .fdoc-vat-no{margin:16px 0 0;font-size:14px;color:#475569}
+            .fdoc-bank-instructions{margin:0;font-size:14px;line-height:1.65;color:#334155;font-variant-numeric:lining-nums}
+            .fdoc-vat-line{margin:14px 0 0;font-size:14px;color:#1e293b;line-height:1.5;font-variant-numeric:lining-nums tabular-nums}
             .fdoc-pay-now{margin:20px 0;text-align:center}
-            .fdoc-pay-btn{display:inline-block;padding:12px 32px;background:' . $primary . ';color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:16px;letter-spacing:.02em}
+            .fdoc-pay-btn{display:inline-flex;align-items:center;justify-content:center;gap:0.65rem;flex-wrap:wrap;padding:12px 32px;background:' . $primary . ';color:#fff;text-decoration:none;border-radius:8px;font-family:' . $brandSans . ';font-weight:700;font-size:16px;letter-spacing:.02em}
             .fdoc-pay-btn:hover{background:color-mix(in srgb,' . $primary . ' 82%,#000)}
+            .fdoc-pay-btn__amount{margin-left:0.15rem;padding-left:0.65rem;border-left:1px solid rgba(255,255,255,.35);font-size:15px;font-weight:700}
             .fdoc-footer{margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}
             @page{size:A4 portrait;margin:8mm 10mm}
             @media print{

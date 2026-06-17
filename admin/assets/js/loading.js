@@ -22,6 +22,9 @@
         if (!main || main.hasAttribute('data-no-page-skeleton')) {
             return false;
         }
+        if (document.body.classList.contains('page-chatbot')) {
+            return false;
+        }
         return !!main.querySelector('.page-loading-skeleton');
     }
 

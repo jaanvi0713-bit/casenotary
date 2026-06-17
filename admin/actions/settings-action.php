@@ -50,6 +50,11 @@ try {
         SettingsService::saveSetting('backup_frequency', $freq, TenantService::id());
         flash('success', 'Backup schedule saved.');
         redirect('pages/settings.php?tab=backup');
+    } elseif ($tab === 'ai') {
+        if (!Auth::can(RoleAccess::PERMISSION_SETTINGS)) {
+            throw new RuntimeException('You do not have permission to manage AI settings.');
+        }
+        ChatbotCompanyKnowledge::save((string) ($_POST['ai_knowledge'] ?? ''));
     } else {
         SettingsService::update(
             $_POST,
@@ -60,6 +65,7 @@ try {
     }
     $successMessage = match ($tab) {
         'roles' => 'Role Access saved successfully.',
+        'ai'    => 'AI knowledge base saved successfully.',
         default => 'Settings saved successfully.',
     };
     flash('success', $successMessage);

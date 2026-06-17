@@ -57,6 +57,12 @@ class Database
     private static array $columnCache = [];
     private static array $tableCache = [];
 
+    public static function clearSchemaCache(): void
+    {
+        self::$columnCache = [];
+        self::$tableCache = [];
+    }
+
     public static function columnExists(string $table, string $column): bool
     {
         $key = $table . '.' . $column;

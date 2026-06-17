@@ -767,6 +767,28 @@ require __DIR__ . '/../includes/header.php';
                         ]); ?>
                     </div>
                 </div>
+            <?php elseif ($tab === 'ai'): ?>
+                <?php ChatbotCompanyKnowledge::ensureSchema(); ?>
+                <div class="settings-form-section">
+                    <div class="settings-form-section__header">
+                        <h3 class="settings-form-section__title">Company knowledge for AI</h3>
+                        <p class="settings-form-section__desc mb-0">
+                            FAQs, fee schedule, office policies, and anything staff and client assistants should know.
+                            One topic per line works well (e.g. <code>Apostille fee: £85 per document</code>).
+                        </p>
+                    </div>
+                    <div class="settings-form-section__body mt-3">
+                        <label class="form-label" for="ai_knowledge">Knowledge base</label>
+                        <textarea
+                            id="ai_knowledge"
+                            name="ai_knowledge"
+                            class="form-control font-monospace"
+                            rows="16"
+                            placeholder="Office hours: Mon–Fri 9am–5pm&#10;Standard notarization: from £120&#10;We offer remote online notarization by appointment&#10;Parking: free street parking on High Street"
+                        ><?= e(ChatbotCompanyKnowledge::get()) ?></textarea>
+                        <p class="form-text mb-0">Used when users ask about fees, hours, policies, or your process — in admin and client assistants.</p>
+                    </div>
+                </div>
             <?php endif; ?>
 
             <div class="mt-4">

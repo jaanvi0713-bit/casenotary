@@ -143,6 +143,14 @@ if (!is_file($fullPath)) {
     exit('File not found');
 }
 
+AuditService::log(
+    'document_downloaded',
+    $letterId > 0 ? 'client_letter' : ($id > 0 ? 'document' : 'generated_document'),
+    $letterId > 0 ? $letterId : ($id > 0 ? $id : null),
+    ['path' => $path !== '' ? $path : null],
+    Auth::id()
+);
+
 $mime = mime_content_type($fullPath) ?: 'application/octet-stream';
 $name = $downloadName ?? basename($fullPath);
 

@@ -111,10 +111,10 @@ class MailService
             : '<strong>Amount:</strong> ' . formatCurrency($total) . '<br>';
 
         $payNowBlock = '';
-        if (!empty($invoice['payment_link'])) {
+        if (PaymentGatewayService::invoiceHasPayableLink($invoice)) {
             $payNowBlock = '<p style="text-align:center;margin:20px 0">'
-                . '<a href="' . e((string) $invoice['payment_link']) . '" style="display:inline-block;padding:12px 28px;background:#3aafa9;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px">'
-                . '&#128179; Pay Now'
+                . '<a href="' . e((string) $invoice['payment_link']) . '" style="display:inline-block;padding:14px 32px;background:#3aafa9;color:#fff;text-decoration:none;border-radius:10px;font-weight:700;font-size:16px">'
+                . '&#128179; Pay Now — ' . e(formatCurrency($remaining))
                 . '</a></p>';
         }
 
@@ -325,6 +325,27 @@ class MailService
         );
 
         return self::send($to, 'New appointment request — ' . clientFullName($client), $body);
+    }
+
+    public static function sendClientMessageReplyEmail(string $clientName, string $clientEmail, string $subject, string $replyBody): bool
+    {
+        $clientEmail = trim($clientEmail);
+        if ($clientEmail === '') {
+            return false;
+        }
+
+        $company = getCompanySettings();
+        $body    = self::wrapTemplate(
+            'Reply from ' . companyBrandName($company),
+            '<p>Dear ' . e($clientName) . ',</p>'
+            . '<p>We have replied to your message regarding <strong>' . e($subject) . '</strong>:</p>'
+            . '<div style="padding:12px 16px;background:#f8fafb;border-left:4px solid ' . e($company['primary_color'] ?? '#3aafa9') . ';margin:16px 0;">'
+            . nl2br(e($replyBody))
+            . '</div>'
+            . '<p><a href="' . e(clientUrl('pages/contact.php')) . '" style="color:' . e($company['primary_color'] ?? '#3aafa9') . ';">View in Client Portal</a></p>'
+        );
+
+        return self::send($clientEmail, 'Re: ' . $subject, $body);
     }
 
     private static function wrapTemplate(string $title, string $content): string

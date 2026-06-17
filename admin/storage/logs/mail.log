@@ -366,6 +366,7 @@ Payment receivedHi there,Payment received£ 7,400.00 for INV-2026-GXU9XOpen in p
 Subject: Payment received
 Payment receivedHi Admin User,Payment received£ 7,400.00 for INV-2026-GXU9XOpen in portalYou can change notification preferences under Settings → Notification Preferences.
 ------------------------------------------------------------
+<<<<<<< Updated upstream
 2026-06-15 15:18:00 | To: Louismac@gmail.com
 Subject: Appointment: Notary appointment
 WHARF NOTARIESAppointment ScheduledDear Louis Macwell,An appointment has been scheduled for you.Notary appointmentWhen: Jun 16, 2026 2:00 PMLocation: To be confirmedAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalWHARF NOTARIES
@@ -389,3 +390,280 @@ Appointment scheduledHi Gary Coll,Appointment scheduledLouis Macwell — Notary 
 2026-06-15 15:18:00 | To: max@gmail.com
 Subject: Appointment scheduled
 Appointment scheduledHi Max Holly,Appointment scheduledLouis Macwell — Notary appointment (Jun 16, 2026 2:00 PM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+=======
+2026-06-15 08:59:07 | To: Louismac@gmail.com
+Subject: Invoice generated
+Invoice generatedHi there,Invoice generatedINV-2026-488SX — £ 5,600.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 08:59:07 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-488SX — £ 5,600.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 08:59:07 | To: avi@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Avi Avi,Invoice generatedINV-2026-488SX — £ 5,600.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 08:59:07 | To: fran@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Francis Barber,Invoice generatedINV-2026-488SX — £ 5,600.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-15 08:59:07 | To: max@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Max Holly,Invoice generatedINV-2026-488SX — £ 5,600.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:36:06 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 5,600.00 for INV-2026-488SXOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:36:06 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 5,600.00 for INV-2026-488SXOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:36:06 | To: avi@gmail.com
+Subject: Payment received
+Payment receivedHi Avi Avi,Payment received£ 5,600.00 for INV-2026-488SXOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:36:06 | To: fran@gmail.com
+Subject: Payment received
+Payment receivedHi Francis Barber,Payment received£ 5,600.00 for INV-2026-488SXOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:36:06 | To: max@gmail.com
+Subject: Payment received
+Payment receivedHi Max Holly,Payment received£ 5,600.00 for INV-2026-488SXOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:39:06 | To: Louismac@gmail.com
+Subject: Invoice generated
+Invoice generatedHi there,Invoice generatedINV-2026-SRET6 — £ 1,900.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:39:07 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-SRET6 — £ 1,900.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:39:07 | To: avi@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Avi Avi,Invoice generatedINV-2026-SRET6 — £ 1,900.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:39:07 | To: fran@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Francis Barber,Invoice generatedINV-2026-SRET6 — £ 1,900.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 03:39:07 | To: max@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Max Holly,Invoice generatedINV-2026-SRET6 — £ 1,900.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+>>>>>>> Stashed changes
+------------------------------------------------------------
+2026-06-16 06:49:49 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 1,900.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:49:49 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 1,900.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:49:49 | To: avi@gmail.com
+Subject: Payment received
+Payment receivedHi Avi Avi,Payment received£ 1,900.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:49:49 | To: fran@gmail.com
+Subject: Payment received
+Payment receivedHi Francis Barber,Payment received£ 1,900.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:49:49 | To: max@gmail.com
+Subject: Payment received
+Payment receivedHi Max Holly,Payment received£ 1,900.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:56:50 | To: Louismac@gmail.com
+Subject: Invoice generated
+Invoice generatedHi there,Invoice generatedINV-2026-SXKWL — £ 24,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:56:50 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-SXKWL — £ 24,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:56:50 | To: avi@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Avi Avi,Invoice generatedINV-2026-SXKWL — £ 24,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:56:50 | To: fran@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Francis Barber,Invoice generatedINV-2026-SXKWL — £ 24,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:56:50 | To: max@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Max Holly,Invoice generatedINV-2026-SXKWL — £ 24,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:57:27 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 24,000.00 for INV-2026-SXKWLOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:57:27 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 24,000.00 for INV-2026-SXKWLOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:57:27 | To: avi@gmail.com
+Subject: Payment received
+Payment receivedHi Avi Avi,Payment received£ 24,000.00 for INV-2026-SXKWLOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:57:27 | To: fran@gmail.com
+Subject: Payment received
+Payment receivedHi Francis Barber,Payment received£ 24,000.00 for INV-2026-SXKWLOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 06:57:27 | To: max@gmail.com
+Subject: Payment received
+Payment receivedHi Max Holly,Payment received£ 24,000.00 for INV-2026-SXKWLOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:01:45 | To: Louismac@gmail.com
+Subject: Invoice generated
+Invoice generatedHi there,Invoice generatedINV-2026-LSM9E — £ 15,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:01:46 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-LSM9E — £ 15,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:01:46 | To: avi@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Avi Avi,Invoice generatedINV-2026-LSM9E — £ 15,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:01:46 | To: fran@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Francis Barber,Invoice generatedINV-2026-LSM9E — £ 15,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:01:46 | To: max@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Max Holly,Invoice generatedINV-2026-LSM9E — £ 15,000.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:04:45 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 15,000.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:04:46 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 15,000.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:04:46 | To: avi@gmail.com
+Subject: Payment received
+Payment receivedHi Avi Avi,Payment received£ 15,000.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:04:46 | To: fran@gmail.com
+Subject: Payment received
+Payment receivedHi Francis Barber,Payment received£ 15,000.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-16 07:04:46 | To: max@gmail.com
+Subject: Payment received
+Payment receivedHi Max Holly,Payment received£ 15,000.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 02:56:13 | To: Louismac@gmail.com
+Subject: Invoice generated
+Invoice generatedHi there,Invoice generatedINV-2026-3K78E — £ 1,680.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 02:56:14 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-3K78E — £ 1,680.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 02:56:14 | To: avi@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Avi Avi,Invoice generatedINV-2026-3K78E — £ 1,680.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 02:56:14 | To: fran@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Francis Barber,Invoice generatedINV-2026-3K78E — £ 1,680.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 02:56:14 | To: max@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Max Holly,Invoice generatedINV-2026-3K78E — £ 1,680.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 03:09:09 | To: info@premiernotary.com
+Subject: Client Portal: invoice
+From: Louis MacwellEmail: Louismac@gmail.comSubject: invoiceneed help
+------------------------------------------------------------
+2026-06-17 03:18:46 | To: emily.chen@email.com
+Subject: Appointment: meeting
+Premier Notary ServicesAppointment ScheduledDear Emily Chen,An appointment has been scheduled for you.meetingWhen: Jun 24, 2026 9:00 AMLocation: zoomAdd to Google CalendarAdd to Outlook CalendarDownload Calendar FileView in Client PortalPremier Notary Services
+------------------------------------------------------------
+2026-06-17 03:18:46 | To: admin@admin.com
+Subject: Appointment scheduled
+Appointment scheduledHi Admin User,Appointment scheduledEmily Chen — meeting (Jun 24, 2026 9:00 AM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 03:18:46 | To: avi@gmail.com
+Subject: Appointment scheduled
+Appointment scheduledHi Avi Avi,Appointment scheduledEmily Chen — meeting (Jun 24, 2026 9:00 AM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 03:18:46 | To: fran@gmail.com
+Subject: Appointment scheduled
+Appointment scheduledHi Francis Barber,Appointment scheduledEmily Chen — meeting (Jun 24, 2026 9:00 AM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 03:18:46 | To: max@gmail.com
+Subject: Appointment scheduled
+Appointment scheduledHi Max Holly,Appointment scheduledEmily Chen — meeting (Jun 24, 2026 9:00 AM)Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 03:37:35 | To: info@premiernotary.com
+Subject: Client Portal: Test
+From: Louis MacwellEmail: Louismac@gmail.comSubject: TesthelpView in Admin Portal
+------------------------------------------------------------
+2026-06-17 03:43:11 | To: Louismac@gmail.com
+Subject: Re: Test
+Premier Notary ServicesReply from Premier Notary ServicesDear Client,We have replied to your message regarding Test:TestingView in Client PortalPremier Notary Services
+------------------------------------------------------------
+2026-06-17 03:46:10 | To: info@premiernotary.com
+Subject: Client Portal: Doc Signing
+From: Louis MacwellEmail: Louismac@gmail.comSubject: Doc SigningWhat docs to bring?View in Admin Portal
+------------------------------------------------------------
+2026-06-17 04:26:43 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 1,680.00 for INV-2026-3K78EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:26:43 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 1,680.00 for INV-2026-3K78EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:26:43 | To: avi@gmail.com
+Subject: Payment received
+Payment receivedHi Avi Avi,Payment received£ 1,680.00 for INV-2026-3K78EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:26:43 | To: fran@gmail.com
+Subject: Payment received
+Payment receivedHi Francis Barber,Payment received£ 1,680.00 for INV-2026-3K78EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:26:43 | To: max@gmail.com
+Subject: Payment received
+Payment receivedHi Max Holly,Payment received£ 1,680.00 for INV-2026-3K78EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:15 | To: Louismac@gmail.com
+Subject: Invoice generated
+Invoice generatedHi there,Invoice generatedINV-2026-9NNAD — £ 5,360.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:15 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-9NNAD — £ 5,360.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:15 | To: avi@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Avi Avi,Invoice generatedINV-2026-9NNAD — £ 5,360.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:15 | To: fran@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Francis Barber,Invoice generatedINV-2026-9NNAD — £ 5,360.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:15 | To: max@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Max Holly,Invoice generatedINV-2026-9NNAD — £ 5,360.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:31 | To: Louismac@gmail.com
+Subject: Payment received
+Payment receivedHi there,Payment received£ 5,360.00 for INV-2026-9NNADOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:31 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 5,360.00 for INV-2026-9NNADOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:31 | To: avi@gmail.com
+Subject: Payment received
+Payment receivedHi Avi Avi,Payment received£ 5,360.00 for INV-2026-9NNADOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:31 | To: fran@gmail.com
+Subject: Payment received
+Payment receivedHi Francis Barber,Payment received£ 5,360.00 for INV-2026-9NNADOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 04:28:31 | To: max@gmail.com
+Subject: Payment received
+Payment receivedHi Max Holly,Payment received£ 5,360.00 for INV-2026-9NNADOpen in portalYou can change notification preferences under Settings → Notification Preferences.

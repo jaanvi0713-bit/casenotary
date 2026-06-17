@@ -1,8 +1,8 @@
 /**
  * Shared design system for Invoice, Quotation, and Payment Receipt PDFs.
  *
- * Injected at runtime: --fdoc-primary, --fdoc-secondary, --fdoc-font
- * Typography scale and spacing are fixed below for cross-document consistency.
+ * Injected at runtime: --fdoc-primary, --fdoc-secondary, --fdoc-font-brand
+ * Body copy uses Georgia serif; brand accents use --fdoc-font-brand.
  */
 :root {
     --fdoc-text-footer: 12px;
@@ -37,7 +37,7 @@
 }
 
 body {
-    font-family: var(--fdoc-font);
+    font-family: Georgia, "Times New Roman", Times, serif;
     color: var(--fdoc-color-text);
     margin: 0;
     padding: 40px 48px 48px;
@@ -45,6 +45,7 @@ body {
     line-height: 1.6;
     background: #fff;
     -webkit-font-smoothing: antialiased;
+    font-variant-numeric: lining-nums;
 }
 
 .no-print {
@@ -60,7 +61,7 @@ body {
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
-    font-family: inherit;
+    font-family: var(--fdoc-font-brand, 'Montserrat', Arial, sans-serif);
     font-size: var(--fdoc-text-body);
 }
 
@@ -88,6 +89,7 @@ body {
 }
 
 .fdoc-logo-text {
+    font-family: var(--fdoc-font-brand, 'Montserrat', Arial, sans-serif);
     font-size: var(--fdoc-text-doc-number);
     font-weight: 700;
     color: var(--fdoc-secondary);
@@ -102,6 +104,7 @@ body {
 
 .fdoc-heading h1 {
     margin: 0;
+    font-family: Georgia, "Times New Roman", Times, serif;
     color: var(--fdoc-primary);
     font-size: var(--fdoc-text-doc-title);
     font-weight: 700;
@@ -117,6 +120,7 @@ body {
     margin-top: var(--fdoc-space-tight);
     letter-spacing: 0.02em;
     line-height: 1.3;
+    font-variant-numeric: lining-nums tabular-nums;
 }
 
 /* ── Parties / client details ────────────────────────────────────── */
@@ -267,7 +271,7 @@ body {
     text-align: right;
     white-space: nowrap;
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: lining-nums tabular-nums;
 }
 
 .fdoc-table thead th.num {
@@ -335,7 +339,7 @@ body {
 
 .fdoc-summary-value {
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: lining-nums tabular-nums;
     white-space: nowrap;
     text-align: right;
     min-width: var(--fdoc-summary-value-width);
@@ -398,80 +402,59 @@ body {
 }
 
 .fdoc-payment {
+    margin: 24px 0 0;
+    padding: 0;
     font-size: var(--fdoc-text-body);
-    line-height: 1.6;
-    color: var(--fdoc-color-muted);
-    margin-bottom: 20px;
-    padding: 18px 20px;
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--fdoc-primary) 4%, #fff);
-    border: 1px solid color-mix(in srgb, var(--fdoc-primary) 14%, #e2e8f0);
-}
-
-.fdoc-payment .bank-details-panel {
-    display: grid;
-    gap: 6px;
-    margin-top: 4px;
-}
-
-.fdoc-payment .bank-detail-row {
-    display: grid;
-    grid-template-columns: minmax(110px, 38%) 1fr;
-    gap: 8px 12px;
-    padding: 6px 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--fdoc-primary) 10%, #e2e8f0);
-    background: transparent;
-    border-left: none;
-    border-right: none;
-    border-top: none;
-    border-radius: 0;
-}
-
-.fdoc-payment .bank-detail-row:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
-}
-
-.fdoc-payment .bank-detail-row__content {
-    display: contents;
-}
-
-.fdoc-payment .bank-detail-row__label {
-    font-size: var(--fdoc-text-caption);
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: #64748b;
-}
-
-.fdoc-payment .bank-detail-row__value {
-    font-size: var(--fdoc-text-body);
-    font-weight: 600;
-    color: var(--fdoc-secondary);
-    word-break: break-word;
+    line-height: 1.55;
+    color: var(--fdoc-color-text);
 }
 
 .fdoc-payment-label {
     margin: 0 0 10px;
     font-weight: 700;
     color: var(--fdoc-color-text);
-    font-size: var(--fdoc-text-caption);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: var(--fdoc-text-body);
+    letter-spacing: normal;
+    text-transform: none;
     line-height: 1.3;
+}
+
+.fdoc-payee {
+    margin: 0 0 12px;
+    font-family: var(--fdoc-font-brand, 'Montserrat', Arial, sans-serif);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--fdoc-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
 }
 
 .fdoc-bank {
     margin: 0;
-    line-height: 1.6;
-    font-size: var(--fdoc-text-body);
 }
 
-.fdoc-bank-line {
-    margin: 0 0 4px;
+.fdoc-bank-instructions {
+    margin: 0;
+    font-size: var(--fdoc-text-body);
+    line-height: 1.65;
+    color: #334155;
+}
+
+.fdoc-vat-line {
+    margin: 14px 0 0;
     font-size: var(--fdoc-text-body);
     color: var(--fdoc-color-text);
     line-height: 1.5;
+    font-variant-numeric: lining-nums tabular-nums;
+}
+
+.fdoc-bank-line {
+    margin: 0 0 5px;
+    font-size: var(--fdoc-text-body);
+    color: var(--fdoc-color-text);
+    line-height: 1.5;
+    font-variant-numeric: lining-nums tabular-nums;
 }
 
 .fdoc-bank-line:last-child {
@@ -481,21 +464,6 @@ body {
 .fdoc-bank-label {
     font-weight: 600;
     color: var(--fdoc-color-text-strong, #1e293b);
-}
-
-.fdoc-payee {
-    margin: 0 0 var(--fdoc-space-line);
-    font-size: var(--fdoc-text-lead);
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--fdoc-primary);
-}
-
-.fdoc-vat-no {
-    margin: var(--fdoc-space-block) 0 0;
-    font-size: var(--fdoc-text-body);
-    color: var(--fdoc-color-muted);
-    line-height: 1.5;
 }
 
 .fdoc-accent-bar {
@@ -642,4 +610,65 @@ body {
         break-inside: avoid;
         page-break-inside: avoid;
     }
+}
+
+/* Pay Now button on invoices */
+.fdoc-pay-now {
+    margin: 0 0 1rem;
+    text-align: center;
+}
+
+.fdoc-pay-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    min-width: min(100%, 280px);
+    padding: 0.85rem 1.5rem;
+    background: #3aafa9;
+    color: #fff !important;
+    text-decoration: none !important;
+    border-radius: 10px;
+    font-family: var(--fdoc-font-brand, 'Montserrat', Arial, sans-serif);
+    font-weight: 700;
+    font-size: 1rem;
+    box-shadow: 0 4px 14px rgba(58, 175, 169, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.fdoc-pay-btn:hover {
+    background: #2d8f8a;
+    color: #fff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(58, 175, 169, 0.4);
+}
+
+.fdoc-pay-btn__text {
+    margin-right: 0.15rem;
+}
+
+.fdoc-pay-btn__amount {
+    font-size: 0.9rem;
+    opacity: 0.95;
+    margin-left: 0.15rem;
+    padding-left: 0.65rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.fdoc-paid-badge {
+    text-align: center;
+    margin: 0 0 1rem;
+}
+
+.fdoc-paid-badge__pill {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    background: #d1fae5;
+    color: #065f46;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }

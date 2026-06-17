@@ -9,20 +9,26 @@
                     </div>
                     <div>
                         <h2 class="biz-insights-title">Business Insights</h2>
-                        <p class="biz-insights-subtitle">Live overview — <?= date('F Y') ?></p>
+                        <p class="biz-insights-subtitle">Intelligence hub — <?= date('F Y') ?> · Real-time analytics</p>
                     </div>
                 </div>
                 <div class="biz-insights-header-right">
-                    <div class="biz-tab-group" role="tablist" aria-label="Insight sections">
-                        <button class="biz-tab active" data-biz-tab="financial" type="button" role="tab" aria-selected="true">Financial</button>
+                    <div class="biz-tab-group biz-tab-group--scroll" role="tablist" aria-label="Insight sections">
+                        <button class="biz-tab active" data-biz-tab="overview" type="button" role="tab" aria-selected="true">Overview</button>
+                        <button class="biz-tab" data-biz-tab="financial" type="button" role="tab" aria-selected="false">Financial</button>
                         <button class="biz-tab" data-biz-tab="cases" type="button" role="tab" aria-selected="false">Cases</button>
-                        <button class="biz-tab" data-biz-tab="clients" type="button" role="tab" aria-selected="false">Clients</button>
+                        <button class="biz-tab" data-biz-tab="audience" type="button" role="tab" aria-selected="false">Clients</button>
                         <button class="biz-tab" data-biz-tab="appointments" type="button" role="tab" aria-selected="false">Appointments</button>
+                        <button class="biz-tab" data-biz-tab="operations" type="button" role="tab" aria-selected="false">Operations</button>
+                        <button class="biz-tab" data-biz-tab="intelligence" type="button" role="tab" aria-selected="false">Intelligence</button>
+                        <button class="biz-tab" data-biz-tab="reports" type="button" role="tab" aria-selected="false">Reports</button>
                     </div>
                 </div>
             </div>
 
-            <div class="biz-tab-panel active" id="biz-panel-financial">
+            <?php require __DIR__ . '/insights-hub-extended.php'; ?>
+
+            <div class="biz-tab-panel" id="biz-panel-financial">
                 <?php $issuedInvoices = (int) $stats['paid_invoices'] + (int) $stats['pending_invoices'] + (int) $stats['overdue_invoices']; ?>
 
                 <p class="biz-section-label">Revenue</p>
@@ -68,20 +74,48 @@
                 </div>
 
                 <?php if ($hasWeeklyChartData): ?>
-                <div class="biz-sparkline-card">
-                    <div class="biz-sparkline-head">
-                        <span class="biz-sparkline-label">7-day payment trend</span>
-                        <span class="biz-sparkline-hint">Daily completed payments</span>
+                <div class="biz-chart-card">
+                    <div class="biz-chart-head">
+                        <div class="biz-chart-head-text">
+                            <h3 class="biz-chart-title">7-Day Revenue Trend</h3>
+                            <p class="biz-chart-desc">Payments received vs invoices issued — hover for details</p>
+                        </div>
+                        <div class="biz-chart-legend" role="group" aria-label="Chart series">
+                            <button type="button" class="biz-chart-legend-btn active" data-chart-series="payments" aria-pressed="true">
+                                <span class="biz-chart-legend-dot biz-chart-legend-dot--pay"></span> Payments
+                            </button>
+                            <button type="button" class="biz-chart-legend-btn active" data-chart-series="invoices" aria-pressed="true">
+                                <span class="biz-chart-legend-dot biz-chart-legend-dot--inv"></span> Invoiced
+                            </button>
+                        </div>
                     </div>
-                    <div class="biz-sparkline-canvas-wrap">
-                        <canvas id="bizRevenueSparkline" height="64"></canvas>
+                    <div class="biz-chart-stats">
+                        <div class="biz-chart-stat">
+                            <span class="biz-chart-stat-label">Week payments</span>
+                            <strong class="biz-chart-stat-value"><?= formatCurrency($weekPayTotal) ?></strong>
+                        </div>
+                        <div class="biz-chart-stat">
+                            <span class="biz-chart-stat-label">Week invoiced</span>
+                            <strong class="biz-chart-stat-value"><?= formatCurrency($weekInvTotal) ?></strong>
+                        </div>
+                        <div class="biz-chart-stat">
+                            <span class="biz-chart-stat-label">Peak day</span>
+                            <strong class="biz-chart-stat-value"><?= $peakPayAmt > 0 ? e($peakPayDay) . ' · ' . formatCurrency($peakPayAmt) : '—' ?></strong>
+                        </div>
+                        <div class="biz-chart-stat">
+                            <span class="biz-chart-stat-label">Daily avg</span>
+                            <strong class="biz-chart-stat-value"><?= formatCurrency($avgDailyPay) ?></strong>
+                        </div>
+                    </div>
+                    <div class="biz-chart-canvas-wrap">
+                        <canvas id="bizRevenueChart" height="160"></canvas>
                     </div>
                 </div>
                 <?php endif; ?>
 
                 <p class="biz-section-label">Collections</p>
                 <div class="biz-kpi-row biz-kpi-row--4">
-                    <a href="<?= url('pages/payments.php') ?>" class="biz-kpi biz-kpi--amber biz-kpi--link<?= $stats['outstanding_balance'] > 0 ? ' biz-kpi--alert' : '' ?>">
+                    <a href="<?= url('pages/payments.php') ?>" class="biz-kpi biz-kpi--indigo biz-kpi--link<?= $stats['outstanding_balance'] > 0 ? ' biz-kpi--emphasis' : '' ?>">
                         <div class="biz-kpi-head">
                             <span class="biz-kpi-icon"><i class="bi bi-exclamation-triangle"></i></span>
                             <span class="biz-kpi-label">Outstanding</span>
@@ -105,7 +139,7 @@
                         </div>
                     </div>
 
-                    <a href="<?= url('pages/payments.php?status=overdue') ?>" class="biz-kpi biz-kpi--red biz-kpi--link<?= $stats['overdue_invoices'] > 0 ? ' biz-kpi--alert' : '' ?>">
+                    <a href="<?= url('pages/payments.php?status=overdue') ?>" class="biz-kpi biz-kpi--rose biz-kpi--link<?= $stats['overdue_invoices'] > 0 ? ' biz-kpi--emphasis' : '' ?>">
                         <div class="biz-kpi-head">
                             <span class="biz-kpi-icon"><i class="bi bi-clock-history"></i></span>
                             <span class="biz-kpi-label">Overdue</span>
@@ -178,7 +212,7 @@
                             <?php endif; ?>
 
                             <?php if ($stats['cases_deadline_soon'] > 0): ?>
-                            <a href="<?= url('pages/cases.php') ?>" class="biz-kpi biz-kpi--amber biz-kpi--link">
+                            <a href="<?= url('pages/cases.php') ?>" class="biz-kpi biz-kpi--slate biz-kpi--link">
                                 <div class="biz-kpi-head">
                                     <span class="biz-kpi-icon"><i class="bi bi-hourglass-split"></i></span>
                                     <span class="biz-kpi-label">Due This Week</span>
@@ -222,9 +256,9 @@
                                 <ul class="biz-donut-legend">
                                     <?php
                                     $statusMeta = [
-                                        'pending'            => ['Pending', '#f59e0b'],
-                                        'in_progress'        => ['In Progress', '#3aafa9'],
-                                        'waiting_for_client' => ['Waiting for Client', '#6366f1'],
+                                        'pending'            => ['Pending', '#6366f1'],
+                                        'in_progress'        => ['In Progress', '#14b8a6'],
+                                        'waiting_for_client' => ['Waiting for Client', '#0ea5e9'],
                                         'completed'          => ['Completed', '#10b981'],
                                         'closed'             => ['Closed', '#64748b'],
                                     ];
@@ -271,56 +305,6 @@
                 </div>
             </div>
 
-            <div class="biz-tab-panel" id="biz-panel-clients">
-                <p class="biz-section-label">Client metrics</p>
-                <div class="biz-kpi-row biz-kpi-row--4">
-                    <a href="<?= url('pages/clients.php') ?>" class="biz-kpi biz-kpi--primary biz-kpi--link">
-                        <div class="biz-kpi-head">
-                            <span class="biz-kpi-icon"><i class="bi bi-people-fill"></i></span>
-                            <span class="biz-kpi-label">Total Clients</span>
-                        </div>
-                        <span class="biz-kpi-value"><?= number_format($stats['total_clients']) ?></span>
-                        <span class="biz-kpi-sub">Registered in the system <i class="bi bi-arrow-right-short biz-kpi-arrow"></i></span>
-                    </a>
-
-                    <div class="biz-kpi biz-kpi--blue">
-                        <div class="biz-kpi-head">
-                            <span class="biz-kpi-icon"><i class="bi bi-person-plus-fill"></i></span>
-                            <span class="biz-kpi-label">New This Month</span>
-                        </div>
-                        <span class="biz-kpi-value"><?= number_format($stats['new_clients_month']) ?></span>
-                        <span class="biz-kpi-sub">Joined in <?= date('F Y') ?></span>
-                    </div>
-
-                    <div class="biz-kpi biz-kpi--teal">
-                        <div class="biz-kpi-head">
-                            <span class="biz-kpi-icon"><i class="bi bi-folder2-open"></i></span>
-                            <span class="biz-kpi-label">Cases per Client</span>
-                        </div>
-                        <span class="biz-kpi-value"><?= $stats['total_clients'] > 0 ? number_format($totalCasesAll / $stats['total_clients'], 1) : '—' ?></span>
-                        <span class="biz-kpi-sub">Average across all clients</span>
-                    </div>
-
-                    <div class="biz-kpi biz-kpi--green">
-                        <div class="biz-kpi-head">
-                            <span class="biz-kpi-icon"><i class="bi bi-currency-dollar"></i></span>
-                            <span class="biz-kpi-label">Revenue per Client</span>
-                        </div>
-                        <span class="biz-kpi-value"><?= $stats['total_clients'] > 0 ? formatCurrency($stats['total_revenue'] / $stats['total_clients']) : '—' ?></span>
-                        <span class="biz-kpi-sub">All-time average</span>
-                    </div>
-
-                    <div class="biz-kpi biz-kpi--amber">
-                        <div class="biz-kpi-head">
-                            <span class="biz-kpi-icon"><i class="bi bi-receipt"></i></span>
-                            <span class="biz-kpi-label">Pending Invoices</span>
-                        </div>
-                        <span class="biz-kpi-value"><?= number_format($stats['pending_invoices']) ?></span>
-                        <span class="biz-kpi-sub">Awaiting payment</span>
-                    </div>
-                </div>
-            </div>
-
             <div class="biz-tab-panel" id="biz-panel-appointments">
                 <p class="biz-section-label">Schedule</p>
                 <div class="biz-kpi-row biz-kpi-row--4">
@@ -360,6 +344,19 @@
                         <span class="biz-kpi-sub">Total in system</span>
                     </div>
                 </div>
+
+                <?php $apptStats = $hub['appointment_stats'] ?? []; if (!empty($apptStats)): ?>
+                <p class="biz-section-label">Appointment funnel</p>
+                <ul class="biz-bar-list">
+                    <?php $maxAppt = max(1, max($apptStats)); foreach ($apptStats as $status => $count): ?>
+                    <li class="biz-bar-item">
+                        <span class="biz-bar-name"><?= e(ucfirst(str_replace('_', ' ', $status))) ?></span>
+                        <div class="biz-bar-track"><div class="biz-bar-fill" style="width:<?= round((int) $count / $maxAppt * 100) ?>%"></div></div>
+                        <span class="biz-bar-count"><?= (int) $count ?></span>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php endif; ?>
             </div>
 
         </div>

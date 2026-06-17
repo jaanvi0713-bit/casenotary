@@ -13,7 +13,8 @@ if (!$clientId) {
 $pageTitle = 'My Cases';
 $pageSubtitle = 'View your cases and upload documents';
 $perPage = 10;
-$allCases = getClientCases($clientId);
+$search = trim((string) ($_GET['q'] ?? ''));
+$allCases = getClientCases($clientId, $search);
 $page = requestPageNumber();
 $totalCases = count($allCases);
 $totalPages = max(1, (int) ceil($totalCases / $perPage));
@@ -33,6 +34,10 @@ require __DIR__ . '/../includes/header.php';
             <h2 class="saas-card-title">My Cases</h2>
             <p class="saas-card-subtitle"><?= $totalCases ?> assigned case(s)</p>
         </div>
+        <form method="get" class="d-flex gap-2">
+            <input type="search" name="q" class="form-control form-control-sm" placeholder="Search case #, title, service..." value="<?= e($search) ?>">
+            <button type="submit" class="btn btn-soft btn-sm">Search</button>
+        </form>
     </div>
     <div class="card-body p-0">
         <?php if ($totalCases === 0): ?>

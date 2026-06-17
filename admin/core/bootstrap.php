@@ -28,13 +28,18 @@ require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/UserService.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/CaseService.php';
+require_once __DIR__ . '/AuditService.php';
+require_once __DIR__ . '/CaseChecklistService.php';
 require_once __DIR__ . '/FinancialDocumentRenderer.php';
 require_once __DIR__ . '/DocumentTemplate.php';
 require_once __DIR__ . '/ClientLetterService.php';
 require_once __DIR__ . '/InvoiceService.php';
 require_once __DIR__ . '/ReceiptService.php';
 require_once __DIR__ . '/StripeService.php';
+require_once __DIR__ . '/PaymentGatewayService.php';
+require_once __DIR__ . '/InsightsService.php';
 require_once __DIR__ . '/ClientService.php';
+require_once __DIR__ . '/ClientMessageService.php';
 require_once __DIR__ . '/MailService.php';
 require_once __DIR__ . '/AppointmentService.php';
 require_once __DIR__ . '/GoogleCalendarService.php';
@@ -45,16 +50,27 @@ require_once __DIR__ . '/SettingsService.php';
 require_once __DIR__ . '/BackupService.php';
 require_once __DIR__ . '/TenantService.php';
 require_once __DIR__ . '/CompanyService.php';
-require_once __DIR__ . '/AssistantHelpers.php';
-require_once __DIR__ . '/OllamaService.php';
-require_once __DIR__ . '/AssistantRouter.php';
-require_once __DIR__ . '/AssistantDashboard.php';
-require_once __DIR__ . '/AssistantActions.php';
-require_once __DIR__ . '/AssistantSearch.php';
-require_once __DIR__ . '/AssistantDocuments.php';
-require_once __DIR__ . '/AssistantIntake.php';
-require_once __DIR__ . '/AssistantCompliance.php';
-require_once __DIR__ . '/AssistantCalculations.php';
-require_once __DIR__ . '/AssistantKnowledge.php';
-require_once __DIR__ . '/AssistantChatStore.php';
-require_once __DIR__ . '/AssistantService.php';
+
+// Chatbot modules are optional in some deployments.
+$requireIfExists = static function (string $file): void {
+    $path = __DIR__ . '/' . $file;
+    if (is_file($path)) {
+        require_once $path;
+    }
+};
+
+$requireIfExists('ChatbotConversation.php');
+$requireIfExists('ChatbotChatStore.php');
+$requireIfExists('ChatbotScope.php');
+$requireIfExists('ChatbotDraft.php');
+$requireIfExists('ChatbotCaseContext.php');
+$requireIfExists('ChatbotActions.php');
+$requireIfExists('ChatbotReports.php');
+$requireIfExists('ChatbotDocumentText.php');
+$requireIfExists('ChatbotDocuments.php');
+$requireIfExists('ChatbotInsights.php');
+$requireIfExists('ChatbotCompanyKnowledge.php');
+$requireIfExists('ClientChatbotService.php');
+$requireIfExists('ChatbotKnowledge.php');
+$requireIfExists('ChatbotQueries.php');
+$requireIfExists('ChatbotService.php');

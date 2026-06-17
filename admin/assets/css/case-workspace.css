@@ -523,6 +523,31 @@
     white-space: nowrap;
 }
 
+.checklist-required-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.25;
+    border-radius: 6px;
+    vertical-align: middle;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    color: var(--primary);
+}
+
+.checklist-progress {
+    height: 0.5rem;
+    background: color-mix(in srgb, var(--primary) 12%, var(--gray-100));
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.checklist-progress-bar {
+    background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 72%, white));
+    border-radius: 999px;
+    transition: width 0.35s ease;
+}
+
 .case-form-card {
     background: var(--white);
     border: 1px solid #e2e8f0;
@@ -1011,8 +1036,7 @@ textarea.case-form-control {
 
 .client-letter-preview-frame-wrap {
     position: relative;
-    min-height: 360px;
-    height: auto;
+    height: min(70vh, 600px);
     background: #e8ecef;
 }
 
@@ -1047,8 +1071,7 @@ textarea.case-form-control {
 }
 
 .client-letter-preview-wrap--full .client-letter-preview-frame-wrap {
-    min-height: 360px;
-    max-height: min(75vh, 720px);
+    height: min(75vh, 720px);
 }
 
 @media (max-width: 991.98px) {

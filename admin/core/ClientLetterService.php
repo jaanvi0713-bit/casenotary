@@ -418,7 +418,7 @@ HTML,
 
     public static function buildContext(array $case, array $client, ?array $company = null): array
     {
-        $company = $company ?? documentBrandingSettings();
+        $company = $company ?? getCompanySettings();
         $billing = CaseService::getCaseBilling($case);
         $serviceLines = [];
 
@@ -569,7 +569,7 @@ HTML,
             throw new RuntimeException('Client not found.');
         }
 
-        $company  = documentBrandingSettings();
+        $company  = getCompanySettings();
         $billing  = CaseService::getCaseBilling($case);
         $context  = self::buildContext($case, $client, $company);
         $sections = self::normalizeSections($sections);
@@ -700,6 +700,7 @@ HTML,
         $primary     = e($company['primary_color'] ?? '#3aafa9');
         $secondary   = e($company['secondary_color'] ?? '#00182c');
         $brandSans   = companyFontInlineStack($company);
+        $serif       = companyDocumentSerifStack();
         $companyName = e($context['company_name']);
         $legalName   = e($context['company_legal_name']);
         $logoUrl     = companyDocumentLogoUrl();
@@ -740,7 +741,7 @@ HTML,
         return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
             . '<title>Client Letter — ' . e($case['case_number'] ?? '') . '</title>'
             . self::documentStyles($primary, $secondary, $brandSans, $embed)
-            . '</head><body' . ($embed ? ' class="cl-embed-preview"' : '') . '>'
+            . '</head><body>'
             . ($embed ? '' : '<div class="cl-toolbar no-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>')
             . '<div class="cl-document">'
             . '<header class="cl-letterhead">'
@@ -778,8 +779,7 @@ HTML,
     public static function documentStyles(string $primary, string $secondary, string $brandSans, bool $embed = false): string
     {
         $bodyBg = $embed ? '#fff' : '#e5e7eb';
-        $docMin = $embed ? 'auto' : '297mm';
-        $docPad = $embed ? '10mm 12mm 18mm' : '12mm 14mm 32mm';
+        $serif  = companyDocumentSerifStack();
 
         return '<style>
             @page {
@@ -792,7 +792,7 @@ HTML,
                 margin: 0;
                 background: ' . $bodyBg . ';
                 color: #111;
-                font-family: Georgia, "Times New Roman", Times, serif;
+                font-family: ' . $serif . ';
                 font-size: 11pt;
                 line-height: 1.55;
             }
@@ -816,8 +816,8 @@ HTML,
                 max-width: 210mm;
                 margin: 0 auto;
                 background: #fff;
-                padding: ' . $docPad . ';
-                min-height: ' . $docMin . ';
+                padding: 12mm 14mm 32mm;
+                min-height: 297mm;
             }
             .cl-letterhead { margin-bottom: 5mm; }
             .cl-letterhead-top {
@@ -844,7 +844,7 @@ HTML,
             }
             .cl-title {
                 margin: 0;
-                font-family: Georgia, "Times New Roman", Times, serif;
+                font-family: ' . $serif . ';
                 font-size: 28pt;
                 font-weight: 700;
                 color: ' . $primary . ';
@@ -957,7 +957,7 @@ HTML,
             .cl-running-footer-address {
                 display: inline-block;
                 vertical-align: middle;
-                font-family: Georgia, serif;
+                font-family: ' . $serif . ';
                 font-size: 7.5pt;
                 line-height: 1.3;
                 color: #333;

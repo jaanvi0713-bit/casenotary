@@ -4,6 +4,58 @@ declare(strict_types=1);
 
 class ReminderService
 {
+    public static function sendCaseWorkflowReminders(): int
+    {
+        $sent = 0;
+        $today = date('Y-m-d');
+
+        $cases = Database::fetchAll(
+            "SELECT c.*
+             FROM cases c
+             WHERE c.status IN ('pending','in_progress','waiting_for_client')
+             ORDER BY c.updated_at ASC"
+        );
+
+        foreach ($cases as $case) {
+            $caseId = (int) ($case['id'] ?? 0);
+            if ($caseId <= 0) {
+                continue;
+            }
+
+            $reminders = [];
+            if (!empty($case['deadline']) && (string) $case['deadline'] < $today) {
+                $reminders[] = 'Case deadline has passed.';
+            }
+
+            $checklist = CaseChecklistService::getChecklist($caseId, (string) ($case['service_type'] ?? ''));
+            $missing = CaseChecklistService::missingRequiredLabels($checklist);
+            if ($missing !== []) {
+                $reminders[] = 'Missing required checklist items: ' . implode(', ', array_slice($missing, 0, 3));
+            }
+
+            $openInvoices = Database::fetch(
+                "SELECT COUNT(*) AS c FROM invoices
+                 WHERE case_id = ? AND " . invoiceStatusColumn() . " IN ('pending','overdue','partially_paid')",
+                [$caseId]
+            );
+            if ((int) ($openInvoices['c'] ?? 0) > 0) {
+                $reminders[] = 'There are unpaid invoices for this case.';
+            }
+
+            if ($reminders === []) {
+                continue;
+            }
+
+            $message = implode(' ', $reminders);
+            $title = 'Case reminder: ' . ($case['case_number'] ?? ('Case #' . $caseId));
+            CaseService::notifyCaseEvent($caseId, 'case', $title, $message, 'pages/case-view.php?id=' . $caseId);
+            AuditService::log('case_reminder_sent', 'case', $caseId, ['message' => $message], Auth::id());
+            $sent++;
+        }
+
+        return $sent;
+    }
+
     public static function sendDueReminders(): int
     {
         if (!Database::columnExists('appointments', 'reminder_sent')) {

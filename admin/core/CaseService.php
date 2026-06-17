@@ -22,6 +22,31 @@ class CaseService
 
     private static ?string $clientPostalSelectSql = null;
 
+    private static function ensureStatusHistorySchema(): void
+    {
+        if (Database::tableExists('case_status_history')) {
+            return;
+        }
+
+        try {
+            Database::query(
+                'CREATE TABLE IF NOT EXISTS case_status_history (
+                    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    case_id INT UNSIGNED NOT NULL,
+                    from_status VARCHAR(50) DEFAULT NULL,
+                    to_status VARCHAR(50) NOT NULL,
+                    note VARCHAR(500) DEFAULT NULL,
+                    changed_by INT UNSIGNED DEFAULT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_case_status_history_case (case_id),
+                    INDEX idx_case_status_history_created (created_at)
+                ) ENGINE=InnoDB'
+            );
+        } catch (Throwable $e) {
+            // Best-effort runtime migration.
+        }
+    }
+
     public static function isValidStatus(string $status): bool
     {
         return in_array($status, self::STATUSES, true);
@@ -1017,6 +1042,8 @@ class CaseService
             'payments'    => self::getPayments($caseId),
             'receipts'        => self::getReceipts($caseId),
             'client_letters'  => ClientLetterService::listForCase($caseId, false),
+            'checklist'       => CaseChecklistService::getChecklist($caseId, (string) ($case['service_type'] ?? '')),
+            'status_history'  => self::getStatusHistory($caseId),
             'notes'           => self::getNotes($caseId, true),
             'activity'        => self::getActivity($caseId),
         ];
@@ -1045,6 +1072,7 @@ class CaseService
     public static function createCase(array $data, int $adminId): int
     {
         self::ensureCasesSchema();
+        self::ensureStatusHistorySchema();
 
         $caseNumber   = self::generateNumber('CASE');
         $instructions = trim($data['client_instructions'] ?? '') ?: null;
@@ -1087,6 +1115,8 @@ class CaseService
         }
 
         $id = self::insertCaseRow($row);
+        CaseChecklistService::ensureCaseChecklist($id, (string) ($resolved['service_type'] ?? ''));
+        self::addStatusHistory($id, null, 'pending', 'Case created', $adminId);
 
         if ($instructions && !Database::columnExists('cases', 'client_instructions') && Database::tableExists('case_notes')) {
             try {
@@ -1236,6 +1266,7 @@ class CaseService
 
     public static function updateStatus(int $id, string $status, ?int $userId = null): void
     {
+        self::ensureStatusHistorySchema();
         $case = self::getCaseById($id);
         if (!$case) {
             throw new RuntimeException('Case not found.');
@@ -1252,6 +1283,7 @@ class CaseService
         }
 
         Database::query('UPDATE cases SET status = ?, updated_at = NOW() WHERE id = ?', [$status, $id]);
+        self::addStatusHistory($id, (string) $case['status'], $status, null, $userId ?? Auth::id());
 
         self::logCaseEvent($id, 'status_changed', [
             'from' => $case['status'],
@@ -1260,6 +1292,50 @@ class CaseService
 
         $label = self::statusLabel($status);
         self::notifyCaseEvent($id, 'case', 'Case status updated', "Status changed to {$label}.", 'pages/case-view.php?id=' . $id);
+    }
+
+    public static function addStatusHistory(
+        int $caseId,
+        ?string $from,
+        string $to,
+        ?string $note = null,
+        ?int $userId = null
+    ): void {
+        self::ensureStatusHistorySchema();
+        if (!Database::tableExists('case_status_history')) {
+            return;
+        }
+        try {
+            Database::insert(
+                'INSERT INTO case_status_history (case_id, from_status, to_status, note, changed_by, created_at)
+                 VALUES (?, ?, ?, ?, ?, NOW())',
+                [$caseId, $from, $to, $note, $userId ?? Auth::id()]
+            );
+        } catch (Throwable $e) {
+            // optional
+        }
+    }
+
+    public static function getStatusHistory(int $caseId, int $limit = 50): array
+    {
+        self::ensureStatusHistorySchema();
+        if (!Database::tableExists('case_status_history')) {
+            return [];
+        }
+
+        try {
+            return Database::fetchAll(
+                'SELECT h.*, u.name AS actor_name
+                 FROM case_status_history h
+                 LEFT JOIN users u ON u.id = h.changed_by
+                 WHERE h.case_id = ?
+                 ORDER BY h.created_at DESC
+                 LIMIT ' . max(1, (int) $limit),
+                [$caseId]
+            );
+        } catch (Throwable $e) {
+            return [];
+        }
     }
 
     public static function getDocuments(int $caseId): array
@@ -1711,18 +1787,6 @@ class CaseService
         $due    = $data['due_date'] ?? date('Y-m-d', strtotime('+14 days'));
         $bankAccount = SettingsService::normalizeBankAccountChoice($data['bank_account'] ?? null);
 
-        $paymentLink = null;
-        if (!empty($data['generate_payment_link']) && StripeService::isConfigured()) {
-            try {
-                $paymentLink = StripeService::createPaymentLink([
-                    'invoice_number' => $number,
-                    'case_number'    => $case['case_number'] ?? '',
-                ], $totals['total']);
-            } catch (Throwable $e) {
-                error_log('[InvoiceService] Could not create Stripe payment link: ' . $e->getMessage());
-            }
-        }
-
         $invoiceRow = self::withCaseCompanyId([
             'invoice_number'  => $number,
             'case_id'         => $caseId,
@@ -1742,10 +1806,17 @@ class CaseService
             'payment_terms'        => trim((string) ($data['payment_terms'] ?? '')) ?: null,
             'payment_instructions' => trim((string) ($data['payment_instructions'] ?? '')) ?: null,
             'bank_account'         => $bankAccount,
-            'payment_link'         => $paymentLink,
         ], $case, 'invoices');
 
         $id = insertTableRow('invoices', $invoiceRow);
+
+        if (!empty($data['generate_payment_link'])) {
+            try {
+                PaymentGatewayService::assignPaymentLink($id);
+            } catch (Throwable $e) {
+                error_log('[PaymentGateway] Could not create payment link: ' . $e->getMessage());
+            }
+        }
 
         self::saveHtmlDocument($caseId, 'invoice', $id);
 
@@ -1788,7 +1859,8 @@ class CaseService
         } elseif (!empty($invoice['due_date']) && strtotime($invoice['due_date']) < strtotime('today')) {
             $newStatus = 'overdue';
         } else {
-            $newStatus = 'pending';
+            $current = invoiceStatusValue($invoice);
+            $newStatus = $current === 'failed' ? 'failed' : 'pending';
         }
 
         Database::query(
@@ -1979,6 +2051,18 @@ class CaseService
             ];
         }
 
+        foreach (self::getStatusHistory($caseId, 100) as $statusEvent) {
+            $from = (string) ($statusEvent['from_status'] ?? '');
+            $to   = (string) ($statusEvent['to_status'] ?? '');
+            $events[] = [
+                'type'   => 'status',
+                'title'  => 'Status changed',
+                'detail' => ($from !== '' ? self::statusLabel($from) . ' → ' : '') . self::statusLabel($to),
+                'time'   => $statusEvent['created_at'],
+                'actor'  => $statusEvent['actor_name'] ?? null,
+            ];
+        }
+
         foreach (self::getProposals($caseId) as $pro) {
             $events[] = [
                 'type'   => 'proposal',
@@ -2067,28 +2151,23 @@ class CaseService
             ];
         }
 
+        if ($action === 'checklist_toggled') {
+            $item = (string) ($details['item_key'] ?? 'Checklist item');
+            $completed = !empty($details['completed']);
+            return [
+                'type'   => 'note',
+                'title'  => $completed ? 'Checklist item completed' : 'Checklist item reopened',
+                'detail' => $item,
+                'actor'  => $actor,
+            ];
+        }
+
         return null;
     }
 
     public static function logCaseEvent(int $caseId, string $action, array $details = [], ?int $userId = null): void
     {
-        try {
-            Database::insert(
-                'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, ip_address, user_agent, details, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
-                [
-                    $userId,
-                    $action,
-                    'case',
-                    $caseId,
-                    $_SERVER['REMOTE_ADDR'] ?? null,
-                    substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
-                    json_encode($details, JSON_UNESCAPED_UNICODE),
-                ]
-            );
-        } catch (Throwable $e) {
-            // optional
-        }
+        AuditService::log($action, 'case', $caseId, $details, $userId);
     }
 
     public static function getAdmins(): array
@@ -2177,10 +2256,6 @@ class CaseService
 
     public static function createInvoicePaymentLink(int $caseId, int $invoiceId): string
     {
-        if (!StripeService::isConfigured()) {
-            throw new RuntimeException('Stripe is not configured. Add keys in Settings → Payments.');
-        }
-
         $invoice = Database::fetch(
             'SELECT i.*, c.case_number
              FROM invoices i
@@ -2192,33 +2267,7 @@ class CaseService
             throw new RuntimeException('Invoice not found for this case.');
         }
 
-        if (!empty($invoice['payment_link'])) {
-            return (string) $invoice['payment_link'];
-        }
-
-        $status = invoiceStatusValue($invoice);
-        if (!in_array($status, ['pending', 'partially_paid', 'overdue'], true)) {
-            throw new RuntimeException('Payment links can only be created for unpaid invoices.');
-        }
-
-        $amount = self::getInvoiceRemainingBalance($invoice);
-        if ($amount <= 0) {
-            throw new RuntimeException('Nothing left to pay on this invoice.');
-        }
-
-        $paymentLink = StripeService::createPaymentLink([
-            'id'             => $invoiceId,
-            'invoice_number' => $invoice['invoice_number'] ?? '',
-            'case_number'    => $invoice['case_number'] ?? '',
-        ], $amount);
-
-        if (Database::columnExists('invoices', 'payment_link')) {
-            Database::query('UPDATE invoices SET payment_link = ? WHERE id = ?', [$paymentLink, $invoiceId]);
-        }
-
-        self::regenerateInvoiceHtml($caseId, $invoiceId);
-
-        return $paymentLink;
+        return PaymentGatewayService::assignPaymentLink($invoiceId);
     }
 
     public static function regenerateQuotationHtml(int $caseId, int $quotationId): void

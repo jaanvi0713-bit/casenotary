@@ -16,7 +16,7 @@ class RoleAccess
     public const PERMISSION_PAYMENTS = 'payments';
     public const PERMISSION_APPOINTMENTS = 'appointments';
     public const PERMISSION_NOTIFICATIONS = 'notifications';
-    public const PERMISSION_ASSISTANT = 'assistant';
+    public const PERMISSION_CHATBOT = 'chatbot';
     public const PERMISSION_SETTINGS = 'settings';
     public const PERMISSION_PROFILE = 'profile';
 
@@ -41,7 +41,7 @@ class RoleAccess
             self::PERMISSION_PAYMENTS,
             self::PERMISSION_APPOINTMENTS,
             self::PERMISSION_NOTIFICATIONS,
-            self::PERMISSION_ASSISTANT,
+            self::PERMISSION_CHATBOT,
             self::PERMISSION_SETTINGS,
             self::PERMISSION_PROFILE,
         ],
@@ -53,7 +53,7 @@ class RoleAccess
             self::PERMISSION_PAYMENTS,
             self::PERMISSION_APPOINTMENTS,
             self::PERMISSION_NOTIFICATIONS,
-            self::PERMISSION_ASSISTANT,
+            self::PERMISSION_CHATBOT,
             self::PERMISSION_PROFILE,
         ],
         'staff' => [
@@ -62,7 +62,7 @@ class RoleAccess
             self::PERMISSION_CASES,
             self::PERMISSION_APPOINTMENTS,
             self::PERMISSION_NOTIFICATIONS,
-            self::PERMISSION_ASSISTANT,
+            self::PERMISSION_CHATBOT,
             self::PERMISSION_PROFILE,
         ],
         'viewer' => [
@@ -72,7 +72,6 @@ class RoleAccess
             self::PERMISSION_PAYMENTS,
             self::PERMISSION_APPOINTMENTS,
             self::PERMISSION_NOTIFICATIONS,
-            self::PERMISSION_ASSISTANT,
             self::PERMISSION_PROFILE,
         ],
     ];
@@ -80,6 +79,7 @@ class RoleAccess
     /** @var array<string, string> */
     private const PAGE_PERMISSIONS = [
         'dashboard' => self::PERMISSION_DASHBOARD,
+        'insights' => self::PERMISSION_INSIGHTS,
         'companies' => self::PERMISSION_COMPANIES,
         'users' => self::PERMISSION_USERS,
         'user-form' => self::PERMISSION_USERS,
@@ -91,7 +91,8 @@ class RoleAccess
         'payments' => self::PERMISSION_PAYMENTS,
         'appointments' => self::PERMISSION_APPOINTMENTS,
         'notifications' => self::PERMISSION_NOTIFICATIONS,
-        'assistant' => self::PERMISSION_ASSISTANT,
+        'message-view' => self::PERMISSION_NOTIFICATIONS,
+        'chatbot' => self::PERMISSION_CHATBOT,
         'settings' => self::PERMISSION_SETTINGS,
     ];
 
@@ -100,6 +101,7 @@ class RoleAccess
         'client-action.php' => self::PERMISSION_CLIENTS,
         'case-action.php' => self::PERMISSION_CASES,
         'document-download.php' => self::PERMISSION_CASES,
+        'case-pack-download.php' => self::PERMISSION_CASES,
         'client-letter-preview.php' => self::PERMISSION_CASES,
         'payment-action.php' => self::PERMISSION_PAYMENTS,
         'payment-export.php' => self::PERMISSION_PAYMENTS,
@@ -109,6 +111,8 @@ class RoleAccess
         'appointment-ics.php' => self::PERMISSION_APPOINTMENTS,
         'notification-action.php' => self::PERMISSION_NOTIFICATIONS,
         'notification-read.php' => self::PERMISSION_NOTIFICATIONS,
+        'message-action.php' => self::PERMISSION_NOTIFICATIONS,
+        'reminder-run.php' => self::PERMISSION_NOTIFICATIONS,
         'settings-action.php' => self::PERMISSION_SETTINGS,
         'settings-backup.php' => self::PERMISSION_SETTINGS,
         'settings-restore.php' => self::PERMISSION_SETTINGS,
@@ -122,6 +126,9 @@ class RoleAccess
         'user-action.php' => self::PERMISSION_USERS,
         'role-action.php' => self::PERMISSION_SETTINGS,
         'switch-company.php' => self::PERMISSION_COMPANIES,
+        'insights-export.php' => self::PERMISSION_INSIGHTS,
+        'insights-live.php' => self::PERMISSION_INSIGHTS,
+        'insights-report-action.php' => self::PERMISSION_INSIGHTS,
     ];
 
     /** @var array<string, array{icon: string, label: string, href: string, page: string, permission: string}> */
@@ -132,6 +139,13 @@ class RoleAccess
             'href' => 'pages/dashboard.php',
             'page' => 'dashboard',
             'permission' => self::PERMISSION_DASHBOARD,
+        ],
+        'insights' => [
+            'icon' => 'bi-bar-chart-line-fill',
+            'label' => 'Insights',
+            'href' => 'pages/insights.php',
+            'page' => 'insights',
+            'permission' => self::PERMISSION_INSIGHTS,
         ],
         'clients' => [
             'icon' => 'bi-people',
@@ -168,12 +182,12 @@ class RoleAccess
             'page' => 'notifications',
             'permission' => self::PERMISSION_NOTIFICATIONS,
         ],
-        'assistant' => [
+        'chatbot' => [
             'icon' => 'bi-robot',
             'label' => 'AI Assistant',
-            'href' => 'pages/assistant.php',
-            'page' => 'assistant',
-            'permission' => self::PERMISSION_ASSISTANT,
+            'href' => 'pages/chatbot.php',
+            'page' => 'chatbot',
+            'permission' => self::PERMISSION_CHATBOT,
         ],
         'users' => [
             'icon' => 'bi-person-badge',

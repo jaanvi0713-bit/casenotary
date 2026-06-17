@@ -24,7 +24,7 @@ class DocumentTemplate
 
     public static function proposal(array $case, array $proposal): string
     {
-        $company = documentBrandingSettings();
+        $company = getCompanySettings();
         $content = nl2br(e($proposal['content'] ?? ''));
         $amount  = formatCurrency((float) ($proposal['amount'] ?? $proposal['total'] ?? 0));
 

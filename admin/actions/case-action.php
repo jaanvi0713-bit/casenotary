@@ -130,6 +130,21 @@ try {
             redirectCase($caseId, 'notes');
             break;
 
+        case 'toggle_checklist_item':
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
+            $itemKey = trim((string) ($_POST['item_key'] ?? ''));
+            if ($itemKey === '') {
+                throw new RuntimeException('Invalid checklist item.');
+            }
+            $completed = !empty($_POST['completed']);
+            CaseChecklistService::updateItem($caseId, $itemKey, $completed);
+            AuditService::log('checklist_toggled', 'case', $caseId, ['item_key' => $itemKey, 'completed' => $completed], Auth::id());
+            flash('success', 'Checklist updated.');
+            redirectCase($caseId, 'checklist');
+            break;
+
         case 'generate_quotation':            CaseService::generateQuotation($caseId, $_POST);
             flash('success', 'Quotation generated.');
             redirectCase($caseId, 'quotations');
@@ -233,13 +248,9 @@ try {
             redirectCase($caseId, 'client-letter');
             break;
 
-        case 'send_client_letter':
-            if ($caseId <= 0) {
+        case 'send_client_letter':            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
-            $instructions = trim($_POST['client_instructions'] ?? '');
-            $sections     = ClientLetterService::sectionsFromPost($_POST);
-            ClientLetterService::ensureGeneratedDraft($caseId, $instructions, $sections);
             CaseService::sendClientLetterToClient($caseId);
             flash('success', 'Client letter emailed to client.');
             redirectCase($caseId, 'client-letter');
@@ -250,10 +261,10 @@ try {
                 throw new RuntimeException('You do not have permission to manage invoices.');
             }
             $invoiceId = CaseService::generateInvoice($caseId, $_POST);
-            if (!empty($_POST['generate_payment_link'])) {
+            if (!empty($data['generate_payment_link'])) {
                 $inv = Database::fetch('SELECT payment_link FROM invoices WHERE id = ?', [$invoiceId]);
                 if (empty($inv['payment_link'])) {
-                    flash('warning', 'Invoice created, but the Stripe payment link could not be generated. Use Create link on the invoice row or check Settings → Payments.');
+                    flash('warning', 'Invoice created, but the payment link could not be generated. Try regenerating the invoice or contact support.');
                 } else {
                     flash('success', 'Invoice generated with payment link.');
                 }
@@ -271,8 +282,8 @@ try {
             if ($invoiceId <= 0) {
                 throw new RuntimeException('Invalid invoice.');
             }
-            CaseService::createInvoicePaymentLink($caseId, $invoiceId);
-            flash('success', 'Payment link created. Use Pay link on the invoice row to open it.');
+            PaymentGatewayService::assignPaymentLink($invoiceId);
+            flash('success', 'Payment link created.');
             redirectCase($caseId, 'invoices');
             break;
 

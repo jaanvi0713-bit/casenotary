@@ -242,7 +242,8 @@ require __DIR__ . '/../includes/header.php';
             <option value="pending" <?= $invStatusFilter === 'pending' ? 'selected' : '' ?>>Pending</option>
             <option value="partially_paid" <?= $invStatusFilter === 'partially_paid' ? 'selected' : '' ?>>Partially Paid</option>
             <option value="overdue" <?= $invStatusFilter === 'overdue' ? 'selected' : '' ?>>Overdue</option>
-            <option value="paid" <?= $invStatusFilter === 'paid' ? 'selected' : '' ?>>Paid</option>
+            <option value="failed" <?= $invStatusFilter === 'failed' ? 'selected' : '' ?>>Failed</option>
+            <option value="failed" <?= $invStatusFilter === 'failed' ? 'selected' : '' ?>>Failed</option>
         </select>
         <select class="form-select form-select-sm table-filter table-filter-month" name="inv_month" onchange="this.form.requestSubmit()">
             <option value="">All months</option>
@@ -267,6 +268,7 @@ require __DIR__ . '/../includes/header.php';
                             <th>Total</th>
                             <th>Amount Due</th>
                             <th>Status</th>
+                            <th>Payment</th>
                             <th>Issued</th>
                             <th>Due Date</th>
                             <th>PDF</th>
@@ -278,6 +280,7 @@ require __DIR__ . '/../includes/header.php';
                             $invStatus = invoiceStatusValue($invoice);
                             $amountDue = CaseService::getInvoiceRemainingBalance($invoice);
                             $caseId = (int) ($invoice['case_id'] ?? 0);
+                            $payInfo = PaymentGatewayService::paymentInfoSummary($invoice);
                             ?>
                             <tr>
                                 <td>
@@ -289,7 +292,16 @@ require __DIR__ . '/../includes/header.php';
                                 <td><?= e(clientFullName($invoice)) ?></td>
                                 <td><span class="table-primary"><?= formatCurrency((float) $invoice['total']) ?></span></td>
                                 <td><span class="table-primary"><?= formatCurrency($amountDue) ?></span></td>
-                                <td><?= statusBadge($invStatus) ?></td>
+                                <td><?= invoiceGatewayStatusBadge($invoice) ?></td>
+                                <td>
+                                    <?php if ($payInfo['has_link'] || $payInfo['transaction_reference'] !== '' || !empty($payInfo['payment_date'])): ?>
+                                        <button type="button" class="btn btn-soft btn-sm" data-bs-toggle="modal" data-bs-target="#invoicePaymentModal" data-invoice-number="<?= e($invoice['invoice_number']) ?>" data-invoice-status="<?= e($payInfo['status_label']) ?>" data-invoice-due="<?= e(formatCurrency($payInfo['amount_due'])) ?>" data-invoice-total="<?= e(formatCurrency($payInfo['total'])) ?>" data-payment-link="<?= e($payInfo['payment_link']) ?>" data-payment-date="<?= !empty($payInfo['payment_date']) ? e(formatDateTime($payInfo['payment_date'])) : '' ?>" data-transaction-ref="<?= e($payInfo['transaction_reference']) ?>">
+                                            <i class="bi bi-credit-card"></i> Details
+                                        </button>
+                                    <?php else: ?>
+                                        <span class="text-muted small">—</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td class="text-muted"><?= formatDate($invoice['issue_date'] ?? $invoice['created_at']) ?></td>
                                 <td class="text-muted"><?= !empty($invoice['due_date']) ? formatDate($invoice['due_date']) : '—' ?></td>
                                 <td>
@@ -370,4 +382,54 @@ require __DIR__ . '/../includes/header.php';
 </div>
 <?php endif; ?>
 
-<?php require __DIR__ . '/../includes/footer.php'; ?>
+<div class="modal fade" id="invoicePaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Payment information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row mb-0 invoice-payment-dl">
+                    <dt class="col-sm-4">Invoice</dt>
+                    <dd class="col-sm-8" id="ipmInvoiceNumber">—</dd>
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8" id="ipmStatus">—</dd>
+                    <dt class="col-sm-4">Amount due</dt>
+                    <dd class="col-sm-8" id="ipmDue">—</dd>
+                    <dt class="col-sm-4">Invoice total</dt>
+                    <dd class="col-sm-8" id="ipmTotal">—</dd>
+                    <dt class="col-sm-4">Paid at</dt>
+                    <dd class="col-sm-8" id="ipmPaidAt">—</dd>
+                    <dt class="col-sm-4">Reference</dt>
+                    <dd class="col-sm-8"><code id="ipmRef">—</code></dd>
+                    <dt class="col-sm-4">Payment link</dt>
+                    <dd class="col-sm-8" id="ipmLinkWrap">—</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
+$pageScripts = '<script>
+document.getElementById("invoicePaymentModal")?.addEventListener("show.bs.modal", function(e) {
+    var btn = e.relatedTarget;
+    if (!btn) return;
+    document.getElementById("ipmInvoiceNumber").textContent = btn.dataset.invoiceNumber || "—";
+    document.getElementById("ipmStatus").textContent = btn.dataset.invoiceStatus || "—";
+    document.getElementById("ipmDue").textContent = btn.dataset.invoiceDue || "—";
+    document.getElementById("ipmTotal").textContent = btn.dataset.invoiceTotal || "—";
+    document.getElementById("ipmPaidAt").textContent = btn.dataset.paymentDate || "—";
+    document.getElementById("ipmRef").textContent = btn.dataset.transactionRef || "—";
+    var link = btn.dataset.paymentLink || "";
+    var linkWrap = document.getElementById("ipmLinkWrap");
+    if (link) {
+        linkWrap.innerHTML = "<a href=\"" + link.replace(/"/g, "&quot;") + "\" target=\"_blank\" rel=\"noopener\">Open payment page</a>";
+    } else {
+        linkWrap.textContent = "—";
+    }
+});
+</script>';
+
+require __DIR__ . '/../includes/footer.php'; ?>

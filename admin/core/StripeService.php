@@ -54,58 +54,6 @@ class StripeService
         return self::request('POST', 'checkout/sessions', $params);
     }
 
-    public static function createPaymentLink(array $invoice, float $amount): string
-    {
-        if (!self::isConfigured()) {
-            throw new RuntimeException('Stripe is not configured. Add keys in Settings → Payments.');
-        }
-
-        if ($amount <= 0) {
-            throw new RuntimeException('Invoice amount must be greater than zero.');
-        }
-
-        $currency      = strtolower(getCurrencySettings()['code'] ?? 'gbp');
-        $config        = require __DIR__ . '/../config/config.php';
-        $redirectUrl   = rtrim($config['client_url'], '/') . '/pages/payments.php?paid=1';
-        $invoiceNumber = (string) ($invoice['invoice_number'] ?? '');
-        $caseNumber    = (string) ($invoice['case_number'] ?? '');
-        $productName   = 'Invoice ' . $invoiceNumber;
-        if ($caseNumber !== '') {
-            $productName .= ' — ' . $caseNumber;
-        }
-
-        $price = self::request('POST', 'prices', [
-            'unit_amount'        => (int) round($amount * 100),
-            'currency'           => $currency,
-            'product_data[name]' => $productName,
-        ]);
-
-        $priceId = (string) ($price['id'] ?? '');
-        if ($priceId === '') {
-            throw new RuntimeException('Stripe did not return a price ID.');
-        }
-
-        $linkParams = [
-            'line_items[0][price]'                 => $priceId,
-            'line_items[0][quantity]'              => 1,
-            'after_completion[type]'               => 'redirect',
-            'after_completion[redirect][url]'      => $redirectUrl,
-        ];
-
-        if (!empty($invoice['id'])) {
-            $linkParams['metadata[invoice_id]'] = (string) $invoice['id'];
-        }
-
-        $link = self::request('POST', 'payment_links', $linkParams);
-        $url  = (string) ($link['url'] ?? '');
-
-        if ($url === '') {
-            throw new RuntimeException('Stripe did not return a payment link URL.');
-        }
-
-        return $url;
-    }
-
     public static function retrieveCheckoutSession(string $sessionId): array
     {
         return self::request('GET', 'checkout/sessions/' . urlencode($sessionId));
@@ -134,27 +82,11 @@ class StripeService
             $options[CURLOPT_POSTFIELDS] = http_build_query($params);
         }
 
-        $caBundle = self::caBundlePath();
-        if ($caBundle !== null) {
-            $options[CURLOPT_SSL_VERIFYPEER] = true;
-            $options[CURLOPT_SSL_VERIFYHOST] = 2;
-            $options[CURLOPT_CAINFO]         = $caBundle;
-        }
-
         curl_setopt_array($ch, $options);
 
         $body   = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
         curl_close($ch);
-
-        if ($body === false || $status === 0) {
-            $message = $curlError !== '' ? $curlError : 'Could not reach Stripe. Check your server can connect to api.stripe.com.';
-            if (stripos($message, 'SSL certificate') !== false) {
-                $message = 'Secure connection to the payment provider failed. Please try bank transfer or contact the office.';
-            }
-            throw new RuntimeException($message);
-        }
 
         $data = json_decode($body ?: '', true);
 
@@ -164,22 +96,5 @@ class StripeService
         }
 
         return $data;
-    }
-
-    private static function caBundlePath(): ?string
-    {
-        $candidates = [
-            __DIR__ . '/../certs/cacert.pem',
-            (string) ini_get('curl.cainfo'),
-            (string) ini_get('openssl.cafile'),
-        ];
-
-        foreach ($candidates as $path) {
-            if ($path !== '' && is_file($path)) {
-                return $path;
-            }
-        }
-
-        return null;
     }
 }

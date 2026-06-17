@@ -13,8 +13,22 @@ if (!$clientId) {
 $company = getCompanySettings();
 $contactPhone = trim($company['office_phone'] ?? '') ?: '+1 (555) 123-4567';
 $businessHours = trim($company['business_hours'] ?? '') ?: 'Monday – Friday: 9:00 AM – 5:00 PM, Saturday – Sunday: Closed';
+$activeThreadId = (int) ($_GET['thread'] ?? 0);
+$clientThreads  = ClientMessageService::listThreadsForClient($clientId);
+$messagingBlocked = ClientMessageService::isMessagingBlocked($clientId);
+$activeThread   = $activeThreadId > 0
+    ? ClientMessageService::getThreadForClient($activeThreadId, $clientId)
+    : null;
+if ($activeThreadId > 0 && !$activeThread) {
+    flash('error', 'Message not found.');
+    header('Location: ' . clientUrl('pages/contact.php'));
+    exit;
+}
 $pageTitle = 'Contact';
 $pageSubtitle = 'Get in touch with our team';
+if ($activeThread) {
+    $pageScripts = '<script src="' . e(adminAsset('js/message-thread.js')) . '"></script>';
+}
 
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -159,6 +173,47 @@ require __DIR__ . '/../includes/header.php';
         font-size: 0.875rem;
         flex-shrink: 0;
     }
+
+    .contact-thread-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .contact-thread-link {
+        display: block;
+        padding: 0.875rem 1rem;
+        border: 1px solid var(--gray-200);
+        border-radius: 10px;
+        text-decoration: none !important;
+        color: inherit;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .contact-thread-link:hover,
+    .contact-thread-link.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 25%, transparent);
+    }
+
+    .contact-thread-link strong {
+        display: block;
+        color: var(--secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    .contact-thread-link span {
+        display: block;
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+    }
+
+    .contact-thread-link small {
+        display: block;
+        margin-top: 0.35rem;
+        font-size: 0.75rem;
+        color: var(--gray-500);
+    }
 </style>
 <div class="contact-page">
     <div class="row g-4 contact-page-top">
@@ -225,12 +280,104 @@ require __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="col-lg-6">
+            <?php if ($activeThread): ?>
+                <?php
+                $activeMessages = $activeThread['messages'] ?? [];
+                $threadClosed = ($activeThread['status'] ?? '') === 'closed';
+                ?>
+                <div class="contact-chat-stack">
+                    <a href="<?= clientUrl('pages/contact.php') ?>" class="btn btn-soft btn-sm contact-thread-back">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </a>
+                    <div class="saas-card contact-panel contact-thread-card">
+                        <div class="saas-card-header contact-thread-header message-view-header--brand">
+                            <div class="message-view-header-main">
+                                <h2 class="saas-card-title mb-0"><?= e((string) ($activeThread['subject'] ?? '')) ?></h2>
+                                <p class="saas-card-subtitle mb-0">
+                                    <?= formatDateTime((string) ($activeThread['created_at'] ?? '')) ?>
+                                    · <?= $threadClosed ? 'Closed' : 'Open' ?>
+                                </p>
+                            </div>
+                            <div class="message-view-header-meta contact-thread-header-actions">
+                                <?php if (!$messagingBlocked): ?>
+                                    <a href="<?= clientUrl('pages/contact.php') ?>" class="btn btn-light btn-sm">New message</a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="card-body message-thread-body message-thread-body--panel contact-thread-body">
+                            <?php foreach ($activeMessages as $message): ?>
+                                <?php
+                                $isOutbound = ($message['direction'] ?? '') === 'outbound';
+                                $sender     = $isOutbound ? companyBrandName($company) : 'You';
+                                $canEditMessage = false;
+                                $editFormAction = clientUrl('actions/contact-message-edit-action.php');
+                                require __DIR__ . '/../../admin/pages/partials/message-thread-item.php';
+                                ?>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+
+                    <?php if (!$threadClosed && !$messagingBlocked): ?>
+                        <div class="saas-card contact-panel message-reply-card contact-reply-card">
+                            <div class="saas-card-header message-view-header message-view-header--brand">
+                                <h3 class="saas-card-title mb-0">Your reply</h3>
+                            </div>
+                            <div class="card-body message-reply-body contact-thread-reply-body">
+                                <label class="form-label contact-form-label" for="reply">Message</label>
+                                <textarea id="reply"
+                                          name="message"
+                                          form="contactReplyForm"
+                                          class="form-control mb-3"
+                                          rows="4"
+                                          required
+                                          placeholder="Write a follow-up message..."></textarea>
+                                <div class="contact-thread-reply-actions">
+                                    <form method="post"
+                                          action="<?= clientUrl('actions/contact-clear-action.php') ?>"
+                                          class="m-0 contact-clear-form"
+                                          onsubmit="return confirm('Clear this entire chat? This cannot be undone.');">
+                                        <?= CSRF::field() ?>
+                                        <input type="hidden" name="thread_id" value="<?= (int) $activeThread['id'] ?>">
+                                        <button type="submit" class="btn btn-soft-danger btn-sm contact-thread-action-btn">
+                                            <i class="bi bi-trash me-2"></i> Clear chat
+                                        </button>
+                                    </form>
+                                    <form method="post" action="<?= clientUrl('actions/contact-reply-action.php') ?>" id="contactReplyForm" class="m-0">
+                                        <?= CSRF::field() ?>
+                                        <input type="hidden" name="thread_id" value="<?= (int) $activeThread['id'] ?>">
+                                        <button type="submit" class="btn btn-primary btn-sm contact-thread-action-btn">
+                                            <i class="bi bi-send me-2"></i> Send reply
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    <?php elseif ($messagingBlocked): ?>
+                        <div class="alert alert-warning border mb-0">
+                            Your ability to send messages has been restricted. Please contact the office by phone or email.
+                        </div>
+                    <?php else: ?>
+                        <div class="saas-card contact-panel contact-thread-footer-card">
+                            <div class="card-body contact-thread-footer">
+                                <p class="text-muted small mb-0">This chat has been closed by the office.</p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
             <div class="saas-card h-100 contact-panel">
                 <div class="saas-card-header contact-form-header">
                     <h2 class="saas-card-title mb-0">Send a Message</h2>
-                    <p class="contact-response-note mb-0">We typically respond with one or two business day(s).</p>
+                    <?php if (!$messagingBlocked): ?>
+                        <p class="contact-response-note mb-0">We typically respond with one or two business day(s).</p>
+                    <?php endif; ?>
                 </div>
                 <div class="card-body contact-form-body">
+                    <?php if ($messagingBlocked): ?>
+                        <div class="alert alert-warning border mb-0">
+                            Your ability to send messages has been restricted. Please contact the office by phone or email.
+                        </div>
+                    <?php else: ?>
                     <form method="post" action="<?= clientUrl('actions/contact-action.php') ?>" class="contact-message-form">
                         <?= CSRF::field() ?>
                         <div class="mb-3">
@@ -247,10 +394,31 @@ require __DIR__ . '/../includes/header.php';
                             <i class="bi bi-send me-2"></i> Send Message
                         </button>
                     </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <?php if ($clientThreads !== [] && !$activeThread): ?>
+        <div class="saas-card contact-panel mt-4">
+            <div class="saas-card-header contact-panel-header">
+                <h2 class="saas-card-title mb-0">Your Messages</h2>
+            </div>
+            <div class="card-body contact-info-body">
+                <div class="contact-thread-list">
+                    <?php foreach ($clientThreads as $thread): ?>
+                        <a href="<?= clientUrl('pages/contact.php?thread=' . (int) $thread['id']) ?>" class="contact-thread-link">
+                            <strong><?= e((string) ($thread['subject'] ?? '')) ?></strong>
+                            <span><?= e(mb_strimwidth((string) ($thread['preview'] ?? ''), 0, 120, '…')) ?></span>
+                            <small><?= timeAgo((string) ($thread['last_message_at'] ?? '')) ?> · <?= ($thread['status'] ?? '') === 'closed' ? 'Closed' : 'Open' ?></small>
+                        </a>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
-    </div>
+    <?php endif; ?>
 
     <div class="saas-card contact-quick-links-card contact-panel mt-4">
         <div class="saas-card-header contact-panel-header">

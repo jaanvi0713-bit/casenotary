@@ -10,6 +10,7 @@ $navItems = [
     ['icon' => 'bi-envelope', 'label' => 'Contact', 'href' => 'pages/contact.php', 'page' => 'contact'],
     ['icon' => 'bi-bell', 'label' => 'Notifications', 'href' => 'pages/notifications.php', 'page' => 'notifications'],
     ['icon' => 'bi-cloud-arrow-down', 'label' => 'My Data Backup', 'href' => 'pages/backup.php', 'page' => 'backup'],
+    ['icon' => 'bi-robot', 'label' => 'AI Assistant', 'href' => 'pages/chatbot.php', 'page' => 'chatbot'],
 ];
 ?>
 <aside class="sidebar" id="sidebar">

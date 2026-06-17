@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS clients (
     zip_code        VARCHAR(20) DEFAULT NULL,
     country         VARCHAR(100) DEFAULT 'USA',
     notes           TEXT DEFAULT NULL,
+    messaging_blocked TINYINT(1) NOT NULL DEFAULT 0,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -129,7 +130,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     tax_rate        DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
     tax_amount      DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
     total           DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    status          ENUM('pending', 'paid', 'partially_paid', 'overdue') NOT NULL DEFAULT 'pending',
+    status          ENUM('pending', 'paid', 'partially_paid', 'overdue', 'failed') NOT NULL DEFAULT 'pending',
     due_date        DATE NOT NULL,
     notes           TEXT DEFAULT NULL,
     payment_terms   TEXT DEFAULT NULL,
@@ -137,6 +138,9 @@ CREATE TABLE IF NOT EXISTS invoices (
     bank_account    TINYINT UNSIGNED DEFAULT NULL,
     issue_date      DATE DEFAULT NULL,
     payment_link    VARCHAR(2000) DEFAULT NULL,
+    payment_token   VARCHAR(64) DEFAULT NULL,
+    payment_date    DATETIME DEFAULT NULL,
+    transaction_reference VARCHAR(120) DEFAULT NULL,
     pdf_path        VARCHAR(500) DEFAULT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -268,6 +272,9 @@ CREATE TABLE IF NOT EXISTS company_settings (
     stripe_public_key VARCHAR(255) DEFAULT NULL,
     stripe_secret_key VARCHAR(255) DEFAULT NULL,
     backup_frequency VARCHAR(20) NOT NULL DEFAULT 'never',
+    insights_digest_frequency VARCHAR(20) NOT NULL DEFAULT 'monthly',
+    insights_digest_format VARCHAR(20) NOT NULL DEFAULT 'pdf',
+    insights_digest_recipients TEXT DEFAULT NULL,
     last_backup_at DATETIME DEFAULT NULL,
     google_calendar_id VARCHAR(255) DEFAULT NULL,
     outlook_calendar_id VARCHAR(255) DEFAULT NULL,
@@ -339,4 +346,34 @@ CREATE TABLE IF NOT EXISTS quotations (
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- CLIENT CONTACT MESSAGES
+-- ============================================================
+CREATE TABLE IF NOT EXISTS client_contact_threads (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    company_id      INT UNSIGNED DEFAULT NULL,
+    client_id       INT UNSIGNED NOT NULL,
+    subject         VARCHAR(255) NOT NULL,
+    status          ENUM('open', 'closed') NOT NULL DEFAULT 'open',
+    admin_unread    TINYINT(1) NOT NULL DEFAULT 1,
+    last_message_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_cct_client (client_id),
+    INDEX idx_cct_company (company_id),
+    INDEX idx_cct_unread (admin_unread, last_message_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS client_contact_messages (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    thread_id       INT UNSIGNED NOT NULL,
+    direction       ENUM('inbound', 'outbound') NOT NULL,
+    body            TEXT NOT NULL,
+    admin_user_id   INT UNSIGNED DEFAULT NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    edited_at DATETIME DEFAULT NULL,
+    INDEX idx_ccm_thread (thread_id),
+    INDEX idx_ccm_admin (admin_user_id)
 ) ENGINE=InnoDB;

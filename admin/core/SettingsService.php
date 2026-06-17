@@ -574,6 +574,49 @@ class SettingsService
         return '<div class="bank-details-panel bank-details-panel--plain' . ($withIcons ? '' : ' bank-details-panel--document') . '">' . nl2br(e($text)) . '</div>';
     }
 
+    /** Compact line markup for invoice / receipt PDFs (Payable To block). */
+    public static function bankAccountDocumentHtml(string $text): string
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return '';
+        }
+
+        $fields = self::parseBankAccountText($text);
+        if (self::formatBankAccountText($fields) === '') {
+            return '<div class="fdoc-bank-instructions">' . nl2br(e($text)) . '</div>';
+        }
+
+        $lines = '';
+        foreach (self::BANK_FIELD_LABELS as $key => $label) {
+            $value = trim((string) ($fields[$key] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            $lines .= '<p class="fdoc-bank-line">'
+                . e(self::bankDocumentFieldLabel($key))
+                . ' '
+                . e($value)
+                . '</p>';
+        }
+
+        return $lines;
+    }
+
+    public static function bankDocumentFieldLabel(string $key): string
+    {
+        return match ($key) {
+            'account_number' => 'Account number:',
+            'sort_code'      => 'Sort code:',
+            'iban'           => 'IBAN:',
+            'bic'            => 'BIC:',
+            'bank_name'      => 'Bank name:',
+            'account_name'   => 'Account name:',
+            'reference'      => 'Reference:',
+            default          => (self::BANK_FIELD_LABELS[$key] ?? ucfirst($key)) . ':',
+        };
+    }
+
     public static function formatBankFieldDisplayValue(string $key, string $value): string
     {
         $value = trim($value);
@@ -681,7 +724,7 @@ class SettingsService
         $settings ??= self::get();
         $custom   = trim((string) ($invoice['payment_instructions'] ?? ''));
         if ($custom !== '') {
-            return nl2br(e($custom));
+            return '<div class="fdoc-bank-instructions">' . nl2br(e($custom)) . '</div>';
         }
 
         $choice = (int) ($invoice['bank_account'] ?? 0);
@@ -691,7 +734,7 @@ class SettingsService
 
         $text = self::resolveBankAccountText($settings, $choice);
 
-        return self::bankAccountDisplayHtml($text, false);
+        return self::bankAccountDocumentHtml($text);
     }
 
     /**

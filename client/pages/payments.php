@@ -13,9 +13,10 @@ if (!$clientId) {
 $pageTitle = 'Payments';
 $pageSubtitle = 'Your invoices and payment history';
 $perPage = 10;
+$search = trim((string) ($_GET['q'] ?? ''));
 
-$allInvoices = getClientInvoices($clientId);
-$allPayments = getClientPayments($clientId);
+$allInvoices = getClientInvoices($clientId, $search);
+$allPayments = getClientPayments($clientId, $search);
 
 $invoicePage = requestPageNumber('invoice_page');
 $totalInvoices = count($allInvoices);
@@ -120,6 +121,10 @@ require __DIR__ . '/../includes/header.php';
             <h2 class="saas-card-title">Invoices</h2>
             <p class="saas-card-subtitle mb-0"><?= $totalInvoices ?> invoice(s)</p>
         </div>
+        <form method="get" class="d-flex gap-2">
+            <input type="search" name="q" class="form-control form-control-sm" placeholder="Search invoice, case, receipt..." value="<?= e($search) ?>">
+            <button type="submit" class="btn btn-soft btn-sm">Search</button>
+        </form>
         <?php if ($stripeEnabled): ?>
             <span class="badge bg-light text-dark"><i class="bi bi-shield-check"></i> Secure Stripe checkout</span>
         <?php endif; ?>
@@ -175,12 +180,14 @@ require __DIR__ . '/../includes/header.php';
                                     <?php if (!empty($invoice['pdf_path'])): ?>
                                         <a href="<?= adminUrl('actions/document-download.php?path=' . urlencode($invoice['pdf_path'])) ?>" class="btn btn-soft btn-sm" target="_blank">PDF</a>
                                     <?php endif; ?>
-                                    <?php if ($canPay && !empty($invoice['payment_link'])): ?>
-                                        <a href="<?= e($invoice['payment_link']) ?>" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
-                                            &#128179; Pay Now
+                                    <?php if (PaymentGatewayService::invoiceHasPayableLink($invoice)): ?>
+                                        <a href="<?= e($invoice['payment_link']) ?>" class="btn btn-primary btn-sm payment-pay-now-btn">
+                                            <i class="bi bi-credit-card"></i> Pay Now
                                         </a>
+                                    <?php elseif ($status === 'paid'): ?>
+                                        <span class="status-badge badge-paid">Paid</span>
                                     <?php endif; ?>
-                                    <?php if ($canPay && $stripeEnabled): ?>
+                                    <?php if ($canPay && $stripeEnabled && empty($invoice['payment_link'])): ?>
                                         <form method="post" action="<?= clientUrl('actions/stripe-checkout.php') ?>" class="d-inline">
                                             <?= CSRF::field() ?>
                                             <input type="hidden" name="invoice_id" value="<?= (int) $invoice['id'] ?>">
