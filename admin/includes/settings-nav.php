@@ -22,9 +22,6 @@
     <li class="nav-item">
         <a class="nav-link <?= $settingsNavTab === 'payments' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=payments') ?>">Payments</a>
     </li>
-    <li class="nav-item">
-        <a class="nav-link <?= $settingsNavTab === 'ai' ? 'active' : '' ?>" href="<?= url('pages/settings.php?tab=ai') ?>">AI Assistant</a>
-    </li>
     <?php if ($editableRoleKeys !== []): ?>
     <li class="nav-item">
         <a class="nav-link <?= $settingsNavTab === 'roles' ? 'active' : '' ?>" href="<?= url('pages/settings-roles.php') ?>">Role Access</a>
