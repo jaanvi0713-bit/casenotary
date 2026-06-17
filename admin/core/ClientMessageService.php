@@ -163,12 +163,15 @@ class ClientMessageService
     }
 
     /** @return list<array<string, mixed>> */
-    public static function listThreadsForClient(int $clientId, int $limit = 20): array
+    public static function listThreadsForClient(int $clientId, int $page = 1, int $perPage = 10): array
     {
         self::ensureSchema();
         if (!Database::tableExists('client_contact_threads')) {
             return [];
         }
+
+        $page   = max(1, $page);
+        $offset = paginationOffset($page, $perPage);
 
         return Database::fetchAll(
             'SELECT t.*,
@@ -176,9 +179,24 @@ class ClientMessageService
              FROM client_contact_threads t
              WHERE t.client_id = ?
              ORDER BY t.last_message_at DESC
-             LIMIT ?',
-            [$clientId, $limit]
+             LIMIT ? OFFSET ?',
+            [$clientId, $perPage, $offset]
         );
+    }
+
+    public static function countThreadsForClient(int $clientId): int
+    {
+        self::ensureSchema();
+        if (!Database::tableExists('client_contact_threads')) {
+            return 0;
+        }
+
+        $row = Database::fetch(
+            'SELECT COUNT(*) AS c FROM client_contact_threads WHERE client_id = ?',
+            [$clientId]
+        );
+
+        return (int) ($row['c'] ?? 0);
     }
 
     public static function getThreadForAdmin(int $threadId): ?array
@@ -468,7 +486,11 @@ class ClientMessageService
 
         $body = trim($body);
         $thread = self::getThreadForClient($threadId, $clientId);
-        if ($body === '' || !$thread) {
+        if ($body === '' || !$thread || ($thread['status'] ?? '') === 'closed') {
+            return false;
+        }
+
+        if (self::isMessagingBlocked($clientId)) {
             return false;
         }
 

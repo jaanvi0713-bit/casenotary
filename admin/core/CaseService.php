@@ -2410,6 +2410,77 @@ class CaseService
         return rtrim($config['upload']['path'], '/\\') . '/' . ltrim($relativePath, '/\\');
     }
 
+    public static function deletePayment(int $paymentId): void
+    {
+        $payment = Database::fetch(
+            'SELECT p.id, p.invoice_id, i.case_id
+             FROM payments p
+             JOIN invoices i ON i.id = p.invoice_id
+             WHERE p.id = ?',
+            [$paymentId]
+        );
+        if (!$payment) {
+            throw new RuntimeException('Payment not found.');
+        }
+
+        $invoice = self::getInvoiceForAdmin((int) $payment['invoice_id']);
+        if (!$invoice) {
+            throw new RuntimeException('Payment not found.');
+        }
+
+        $caseId = (int) ($invoice['case_id'] ?? 0);
+        if ($caseId > 0) {
+            self::assertCaseAccess($caseId);
+        }
+
+        if (Database::columnExists('receipts', 'pdf_path')) {
+            foreach (Database::fetchAll('SELECT pdf_path FROM receipts WHERE payment_id = ?', [$paymentId]) as $receipt) {
+                $path = trim((string) ($receipt['pdf_path'] ?? ''));
+                if ($path !== '' && is_file(self::documentPath($path))) {
+                    @unlink(self::documentPath($path));
+                }
+            }
+        }
+
+        $invoiceId = (int) $payment['invoice_id'];
+        Database::query('DELETE FROM payments WHERE id = ?', [$paymentId]);
+        self::updateInvoicePaymentStatus($invoiceId);
+    }
+
+    public static function deleteInvoice(int $invoiceId): void
+    {
+        $invoice = self::getInvoiceForAdmin($invoiceId);
+        if (!$invoice) {
+            throw new RuntimeException('Invoice not found.');
+        }
+
+        $caseId = (int) ($invoice['case_id'] ?? 0);
+        if ($caseId > 0) {
+            self::assertCaseAccess($caseId);
+        }
+
+        if (!empty($invoice['pdf_path'])) {
+            $path = self::documentPath((string) $invoice['pdf_path']);
+            if (is_file($path)) {
+                @unlink($path);
+            }
+        }
+
+        Database::query('DELETE FROM invoices WHERE id = ?', [$invoiceId]);
+    }
+
+    private static function getInvoiceForAdmin(int $invoiceId): ?array
+    {
+        $where = ['i.id = ?'];
+        $params = [$invoiceId];
+        TenantService::appendClientScope($where, $params, 'cl');
+
+        return Database::fetch(
+            'SELECT i.* FROM invoices i JOIN clients cl ON cl.id = i.client_id WHERE ' . implode(' AND ', $where),
+            $params
+        ) ?: null;
+    }
+
     public static function deleteCase(int $caseId): void
     {
         $case = self::getCaseById($caseId);

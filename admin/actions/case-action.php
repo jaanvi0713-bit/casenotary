@@ -336,7 +336,11 @@ try {
             redirectCase($caseId, 'invoice-payments');
             break;
 
-        case 'delete_case':            if ($caseId <= 0) {
+        case 'delete_case':
+            if ($isClient || !Auth::canManage(RoleAccess::PERMISSION_CASES)) {
+                throw new RuntimeException('You do not have permission to delete cases.');
+            }
+            if ($caseId <= 0) {
                 throw new RuntimeException('Invalid case.');
             }
             CaseService::deleteCase($caseId);
