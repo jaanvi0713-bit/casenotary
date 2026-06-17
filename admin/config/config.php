@@ -3,7 +3,8 @@
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $projectRoot = realpath(__DIR__ . '/../..');
-$docRoot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '') ?: null;
+$rawDocRoot = trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+$docRoot = $rawDocRoot !== '' ? (realpath($rawDocRoot) ?: null) : null;
 $relativeRoot = '';
 
 if ($projectRoot && $docRoot && str_starts_with(strtolower($projectRoot), strtolower($docRoot))) {
@@ -13,6 +14,16 @@ if ($projectRoot && $docRoot && str_starts_with(strtolower($projectRoot), strtol
 if ($relativeRoot === '' && !empty($_SERVER['SCRIPT_NAME'])
     && preg_match('#^(/[^/]+)/(?:admin|client)/#', str_replace('\\', '/', $_SERVER['SCRIPT_NAME']), $scriptMatches)) {
     $relativeRoot = $scriptMatches[1];
+}
+
+if ($relativeRoot === '' && $projectRoot) {
+    $parentDir = realpath(dirname($projectRoot)) ?: '';
+    $folder = basename($projectRoot);
+    if ($folder !== '' && $parentDir !== '' && is_dir($parentDir . DIRECTORY_SEPARATOR . $folder)) {
+        if ($docRoot === null || strcasecmp(str_replace('\\', '/', $docRoot), str_replace('\\', '/', $parentDir)) === 0) {
+            $relativeRoot = '/' . $folder;
+        }
+    }
 }
 
 $baseUrl = $scheme . '://' . $host . $relativeRoot;

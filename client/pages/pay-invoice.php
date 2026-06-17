@@ -42,8 +42,9 @@ if ($invoice) {
 
 $company = getCompanySettings();
 $brandName = companyBrandName($company);
+$pageBodyClass = 'public-payment-page';
 
-require __DIR__ . '/../includes/header.php';
+require __DIR__ . '/../includes/public-header.php';
 ?>
 
 <div class="payment-gateway-page">
@@ -170,4 +171,4 @@ require __DIR__ . '/../includes/header.php';
     <?php endif; ?>
 </div>
 
-<?php require __DIR__ . '/../includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/public-footer.php'; ?>

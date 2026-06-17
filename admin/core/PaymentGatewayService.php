@@ -24,7 +24,20 @@ class PaymentGatewayService
             throw new RuntimeException('Cannot add a payment link to a paid invoice.');
         }
 
-        if (!empty($invoice['payment_link']) && !empty($invoice['payment_token'])) {
+        if (!empty($invoice['payment_token'])) {
+            $url = self::buildPaymentUrl((string) $invoice['payment_token']);
+            if ((string) ($invoice['payment_link'] ?? '') !== $url) {
+                self::updateInvoiceColumns($invoiceId, ['payment_link' => $url]);
+                $caseId = (int) ($invoice['case_id'] ?? 0);
+                if ($caseId > 0) {
+                    CaseService::regenerateInvoiceHtml($caseId, $invoiceId);
+                }
+            }
+
+            return $url;
+        }
+
+        if (!empty($invoice['payment_link'])) {
             return (string) $invoice['payment_link'];
         }
 
@@ -181,7 +194,7 @@ class PaymentGatewayService
 
     public static function invoiceHasPayableLink(array $invoice): bool
     {
-        if (empty($invoice['payment_link'])) {
+        if (empty($invoice['payment_link']) && empty($invoice['payment_token'])) {
             return false;
         }
 
@@ -228,6 +241,40 @@ class PaymentGatewayService
     private static function generateTransactionReference(): string
     {
         return 'DEMO-' . strtoupper(substr(bin2hex(random_bytes(6)), 0, 12));
+    }
+
+    public static function checkoutUrl(string $token): string
+    {
+        return self::buildPaymentUrl($token);
+    }
+
+    public static function repairPaymentLinks(): int
+    {
+        if (!Database::columnExists('invoices', 'payment_token') || !Database::columnExists('invoices', 'payment_link')) {
+            return 0;
+        }
+
+        $rows = Database::fetchAll(
+            "SELECT id, case_id, payment_token, payment_link FROM invoices WHERE payment_token IS NOT NULL AND payment_token <> ''"
+        );
+        $fixed = 0;
+
+        foreach ($rows as $row) {
+            $token = (string) $row['payment_token'];
+            $url   = self::buildPaymentUrl($token);
+            if ((string) ($row['payment_link'] ?? '') === $url) {
+                continue;
+            }
+
+            self::updateInvoiceColumns((int) $row['id'], ['payment_link' => $url]);
+            $caseId = (int) ($row['case_id'] ?? 0);
+            if ($caseId > 0) {
+                CaseService::regenerateInvoiceHtml($caseId, (int) $row['id']);
+            }
+            $fixed++;
+        }
+
+        return $fixed;
     }
 
     private static function buildPaymentUrl(string $token): string

@@ -1,8 +1,9 @@
 <?php
 $company          = getCompanySettings();
 $user             = Auth::user();
-$unreadCount      = getUnreadNotificationCount(Auth::id());
-$navNotifications = getRecentNotifications(Auth::id(), 5, true);
+$userId           = Auth::id();
+$unreadCount      = $userId !== null ? getUnreadNotificationCount($userId) : 0;
+$navNotifications = $userId !== null ? getRecentNotifications($userId, 5, true) : [];
 $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['security']['csrf_token_name'];
 ?>
 <!DOCTYPE html>

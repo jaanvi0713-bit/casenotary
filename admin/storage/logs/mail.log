@@ -501,3 +501,35 @@ Invoice generatedHi Francis Barber,Invoice generatedINV-2026-35Q7K — £ 11,600
 2026-06-17 07:18:24 | To: max@gmail.com
 Subject: Invoice generated
 Invoice generatedHi Max Holly,Invoice generatedINV-2026-35Q7K — £ 11,600.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 08:41:56 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-SRET6 — £ 3,400.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 08:41:56 | To: fran@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Francis Barber,Invoice generatedINV-2026-SRET6 — £ 3,400.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 08:41:56 | To: gary@example.com
+Subject: Invoice generated
+Invoice generatedHi Gary Coll,Invoice generatedINV-2026-SRET6 — £ 3,400.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 08:41:56 | To: max@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Max Holly,Invoice generatedINV-2026-SRET6 — £ 3,400.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 08:42:03 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 3,400.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 08:42:03 | To: fran@gmail.com
+Subject: Payment received
+Payment receivedHi Francis Barber,Payment received£ 3,400.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 08:42:03 | To: gary@example.com
+Subject: Payment received
+Payment receivedHi Gary Coll,Payment received£ 3,400.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-17 08:42:03 | To: max@gmail.com
+Subject: Payment received
+Payment receivedHi Max Holly,Payment received£ 3,400.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.

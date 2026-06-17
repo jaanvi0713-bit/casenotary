@@ -246,8 +246,11 @@ class FinancialDocumentRenderer
         $footerHtml = self::paymentFooterHtml($company, $invoice, $payableName);
 
         if (PaymentGatewayService::invoiceHasPayableLink($invoice)) {
+            $payUrl = !empty($invoice['payment_token'])
+                ? PaymentGatewayService::checkoutUrl((string) $invoice['payment_token'])
+                : (string) ($invoice['payment_link'] ?? '');
             $payBtn = '<div class="fdoc-pay-now no-print">'
-                . '<a href="' . e((string) $invoice['payment_link']) . '" class="fdoc-pay-btn">'
+                . '<a href="' . e($payUrl) . '" class="fdoc-pay-btn">'
                 . '<span class="fdoc-pay-btn__icon" aria-hidden="true">&#128179;</span>'
                 . '<span class="fdoc-pay-btn__text">Pay Now</span>'
                 . '<span class="fdoc-pay-btn__amount">' . e(formatCurrency(CaseService::getInvoiceRemainingBalance($invoice))) . '</span>'

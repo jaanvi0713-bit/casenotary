@@ -91,4 +91,8 @@ if (columnExists($pdo, 'invoices', 'payment_token')) {
 ensureFailedStatus($pdo, 'status');
 ensureFailedStatus($pdo, 'payment_status');
 
+require_once __DIR__ . '/../core/bootstrap.php';
+$fixed = PaymentGatewayService::repairPaymentLinks();
+echo "[OK] Repaired {$fixed} invoice payment link(s)\n";
+
 echo "\nMigration complete.\n";
