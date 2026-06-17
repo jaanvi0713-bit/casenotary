@@ -14,8 +14,25 @@ $company = getCompanySettings();
 $contactPhone = trim($company['office_phone'] ?? '') ?: '+1 (555) 123-4567';
 $businessHours = trim($company['business_hours'] ?? '') ?: 'Monday – Friday: 9:00 AM – 5:00 PM, Saturday – Sunday: Closed';
 $activeThreadId = (int) ($_GET['thread'] ?? 0);
-$clientThreads  = ClientMessageService::listThreadsForClient($clientId);
 $messagingBlocked = ClientMessageService::isMessagingBlocked($clientId);
+$libraryPerPage = 10;
+$libraryPage = requestPageNumber();
+$totalClientThreads = ClientMessageService::countThreadsForClient($clientId);
+$libraryTotalPages = max(1, (int) ceil($totalClientThreads / $libraryPerPage));
+if ($libraryPage > $libraryTotalPages) {
+    $libraryPage = $libraryTotalPages;
+}
+$clientThreads = ClientMessageService::listThreadsForClient($clientId, $libraryPage, $libraryPerPage);
+$libraryShowingFrom = $totalClientThreads > 0 ? paginationOffset($libraryPage, $libraryPerPage) + 1 : 0;
+$libraryShowingTo = min($totalClientThreads, $libraryPage * $libraryPerPage);
+$libraryPaginationHtml = renderPaginationNav($libraryPage, $libraryTotalPages);
+if ($libraryPaginationHtml === '') {
+    $libraryPaginationHtml = '<nav aria-label="Chat library pagination" class="saas-pagination-nav"><ul class="pagination pagination-sm mb-0">'
+        . '<li class="page-item disabled"><span class="page-link" aria-label="Previous">&laquo;</span></li>'
+        . '<li class="page-item active"><span class="page-link">1</span></li>'
+        . '<li class="page-item disabled"><span class="page-link" aria-label="Next">&raquo;</span></li>'
+        . '</ul></nav>';
+}
 $activeThread   = $activeThreadId > 0
     ? ClientMessageService::getThreadForClient($activeThreadId, $clientId)
     : null;
@@ -180,8 +197,15 @@ require __DIR__ . '/../includes/header.php';
         gap: 0.75rem;
     }
 
+    .contact-thread-item {
+        display: flex;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
     .contact-thread-link {
         display: block;
+        flex: 1;
         padding: 0.875rem 1rem;
         border: 1px solid var(--gray-200);
         border-radius: 10px;
@@ -213,6 +237,15 @@ require __DIR__ . '/../includes/header.php';
         margin-top: 0.35rem;
         font-size: 0.75rem;
         color: var(--gray-500);
+    }
+
+    .contact-thread-delete {
+        align-self: center;
+        flex-shrink: 0;
+    }
+
+    .contact-library-list {
+        padding: 1.25rem 1.5rem;
     }
 </style>
 <div class="contact-page">
@@ -305,11 +338,14 @@ require __DIR__ . '/../includes/header.php';
                             </div>
                         </div>
                         <div class="card-body message-thread-body message-thread-body--panel contact-thread-body">
-                            <?php foreach ($activeMessages as $message): ?>
+                            <?php
+                            $threadId = (int) ($activeThread['id'] ?? 0);
+                            foreach ($activeMessages as $message):
+                            ?>
                                 <?php
                                 $isOutbound = ($message['direction'] ?? '') === 'outbound';
                                 $sender     = $isOutbound ? companyBrandName($company) : 'You';
-                                $canEditMessage = false;
+                                $canEditMessage = !$threadClosed && !$messagingBlocked && !$isOutbound;
                                 $editFormAction = clientUrl('actions/contact-message-edit-action.php');
                                 require __DIR__ . '/../../admin/pages/partials/message-thread-item.php';
                                 ?>
@@ -342,7 +378,7 @@ require __DIR__ . '/../includes/header.php';
                                             <i class="bi bi-trash me-2"></i> Clear chat
                                         </button>
                                     </form>
-                                    <form method="post" action="<?= clientUrl('actions/contact-reply-action.php') ?>" id="contactReplyForm" class="m-0">
+                                    <form method="post" action="<?= clientUrl('actions/contact-reply-action.php') ?>" id="contactReplyForm" class="m-0 ms-auto contact-reply-form">
                                         <?= CSRF::field() ?>
                                         <input type="hidden" name="thread_id" value="<?= (int) $activeThread['id'] ?>">
                                         <button type="submit" class="btn btn-primary btn-sm contact-thread-action-btn">
@@ -401,20 +437,39 @@ require __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-    <?php if ($clientThreads !== [] && !$activeThread): ?>
+    <?php if ($totalClientThreads > 0 && !$activeThread): ?>
         <div class="saas-card contact-panel mt-4">
             <div class="saas-card-header contact-panel-header">
-                <h2 class="saas-card-title mb-0">Your Messages</h2>
+                <div>
+                    <h2 class="saas-card-title mb-0">Chat Library</h2>
+                    <p class="saas-card-subtitle mb-0"><?= $totalClientThreads ?> saved chat<?= $totalClientThreads === 1 ? '' : 's' ?></p>
+                </div>
             </div>
-            <div class="card-body contact-info-body">
-                <div class="contact-thread-list">
+            <div class="card-body contact-info-body p-0">
+                <div class="contact-thread-list contact-library-list">
                     <?php foreach ($clientThreads as $thread): ?>
-                        <a href="<?= clientUrl('pages/contact.php?thread=' . (int) $thread['id']) ?>" class="contact-thread-link">
-                            <strong><?= e((string) ($thread['subject'] ?? '')) ?></strong>
-                            <span><?= e(mb_strimwidth((string) ($thread['preview'] ?? ''), 0, 120, '…')) ?></span>
-                            <small><?= timeAgo((string) ($thread['last_message_at'] ?? '')) ?> · <?= ($thread['status'] ?? '') === 'closed' ? 'Closed' : 'Open' ?></small>
-                        </a>
+                        <div class="contact-thread-item">
+                            <a href="<?= clientUrl('pages/contact.php?thread=' . (int) $thread['id']) ?>" class="contact-thread-link">
+                                <strong><?= e((string) ($thread['subject'] ?? '')) ?></strong>
+                                <span><?= e(mb_strimwidth((string) ($thread['preview'] ?? ''), 0, 120, '…')) ?></span>
+                                <small><?= timeAgo((string) ($thread['last_message_at'] ?? '')) ?> · <?= ($thread['status'] ?? '') === 'closed' ? 'Closed' : 'Open' ?></small>
+                            </a>
+                            <form method="post"
+                                  action="<?= clientUrl('actions/contact-clear-action.php') ?>"
+                                  class="m-0 contact-thread-delete"
+                                  onsubmit="return confirm('Delete this chat from your library? This cannot be undone.');">
+                                <?= CSRF::field() ?>
+                                <input type="hidden" name="thread_id" value="<?= (int) $thread['id'] ?>">
+                                <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
                     <?php endforeach; ?>
+                </div>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-2 border-top">
+                    <small class="text-muted">
+                        Showing <?= $libraryShowingFrom ?>–<?= $libraryShowingTo ?> of <?= $totalClientThreads ?> chats · Page <?= $libraryPage ?> of <?= $libraryTotalPages ?>
+                    </small>
+                    <?= $libraryPaginationHtml ?>
                 </div>
             </div>
         </div>

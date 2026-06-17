@@ -66,6 +66,30 @@ $pagedActivity = array_slice(
 $activityShowingFrom = $totalActivity > 0 ? paginationOffset($activityPage, $activityPerPage) + 1 : 0;
 $activityShowingTo   = min($totalActivity, $activityPage * $activityPerPage);
 
+$overviewActivityPerPage = 10;
+$overviewActivityPage    = requestPageNumber('overview_activity_page');
+$overviewTotalActivity   = $totalActivity;
+$overviewTotalPages      = max(1, (int) ceil($overviewTotalActivity / $overviewActivityPerPage));
+if ($overviewActivityPage > $overviewTotalPages) {
+    $overviewActivityPage = $overviewTotalPages;
+}
+$overviewPagedActivity = array_slice(
+    $allActivity,
+    paginationOffset($overviewActivityPage, $overviewActivityPerPage),
+    $overviewActivityPerPage
+);
+$overviewShowingFrom = $overviewTotalActivity > 0 ? paginationOffset($overviewActivityPage, $overviewActivityPerPage) + 1 : 0;
+$overviewShowingTo   = min($overviewTotalActivity, $overviewActivityPage * $overviewActivityPerPage);
+$overviewPaginationHtml = renderPaginationNav($overviewActivityPage, $overviewTotalPages, 'overview_activity_page', 'overview');
+if ($overviewPaginationHtml === '' && $overviewTotalActivity > 0) {
+    $overviewPaginationHtml = '<nav aria-label="Recent activity pagination" class="saas-pagination-nav case-overview-pagination">'
+        . '<ul class="pagination pagination-sm mb-0">'
+        . '<li class="page-item disabled"><span class="page-link" aria-label="Previous">&laquo;</span></li>'
+        . '<li class="page-item active"><span class="page-link">1</span></li>'
+        . '<li class="page-item disabled"><span class="page-link" aria-label="Next">&raquo;</span></li>'
+        . '</ul></nav>';
+}
+
 require __DIR__ . '/../includes/header.php';
 ?>
 
@@ -139,11 +163,20 @@ require __DIR__ . '/../includes/header.php';
     <div class="tab-content case-tab-content">
         <!-- Overview -->
         <div class="tab-pane fade show active" id="overview">
-            <div class="row g-3 align-items-start">
-                <div class="col-lg-8">
-                    <div class="case-panel">
+            <div class="case-panel case-panel--overview-summary mb-3">
+                <h3 class="case-panel-title">Summary</h3>
+                <ul class="case-summary-list case-summary-list--inline">
+                    <li><i class="bi bi-file-earmark"></i> <?= count($workspace['documents']) ?> Documents</li>
+                    <li><i class="bi bi-receipt"></i> <?= count($workspace['invoices']) ?> Invoices</li>
+                    <li><i class="bi bi-cash-coin"></i> <?= count($workspace['payments']) ?> Payments</li>
+                    <li><i class="bi bi-file-text"></i> <?= count($workspace['proposals']) + count($workspace['quotations']) ?> Quotes & Proposals</li>
+                </ul>
+            </div>
+            <div class="row g-3 case-overview-row">
+                <div class="col-lg-8 d-flex">
+                    <div class="case-panel case-panel--match-height w-100">
                         <h3 class="case-panel-title">Case Details</h3>
-                        <div class="case-detail-grid case-detail-grid--overview">
+                        <div class="case-detail-meta-row">
                             <div class="case-detail-item">
                                 <span class="case-detail-label">Client</span>
                                 <strong><?= e(clientFullName($case)) ?></strong>
@@ -157,6 +190,8 @@ require __DIR__ . '/../includes/header.php';
                                 <span class="case-detail-label">Assigned admin</span>
                                 <strong><?= e($case['admin_name'] ?? 'Unassigned') ?></strong>
                             </div>
+                        </div>
+                        <div class="case-detail-grid case-detail-grid--overview">
                             <div class="case-detail-item case-detail-item--billing">
                                 <span class="case-detail-label">Services &amp; fees</span>
                                 <?= CaseService::formatCaseBillingOverviewHtml($case) ?>
@@ -177,27 +212,26 @@ require __DIR__ . '/../includes/header.php';
                             </div>
                         <?php endif; ?>
                         <?php if (!empty($case['client_instructions'])): ?>
-                            <div class="case-description mt-3">
-                                <span class="case-detail-label">Client Instructions</span>
-                                <p><?= nl2br(e($case['client_instructions'])) ?></p>
+                            <div class="case-instructions-box mt-3">
+                                <div class="case-instructions-header">
+                                    <i class="bi bi-info-circle-fill"></i>
+                                    <h3 class="case-instructions-title">Client Instructions</h3>
+                                </div>
+                                <div class="case-instructions-body">
+                                    <?= nl2br(e($case['client_instructions'])) ?>
+                                </div>
                             </div>
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="col-lg-4">
-                    <div class="case-panel">
-                        <h3 class="case-panel-title">Summary</h3>
-                        <ul class="case-summary-list">
-                            <li><i class="bi bi-file-earmark"></i> <?= count($workspace['documents']) ?> Documents</li>
-                            <li><i class="bi bi-receipt"></i> <?= count($workspace['invoices']) ?> Invoices</li>
-                            <li><i class="bi bi-cash-coin"></i> <?= count($workspace['payments']) ?> Payments</li>
-                            <li><i class="bi bi-file-text"></i> <?= count($workspace['proposals']) + count($workspace['quotations']) ?> Quotes & Proposals</li>
-                        </ul>
-                    </div>
-                    <div class="case-panel mt-3">
+                <div class="col-lg-4 d-flex">
+                    <div class="case-panel case-panel--match-height w-100 d-flex flex-column">
                         <h3 class="case-panel-title">Recent Activity</h3>
-                        <div class="case-mini-activity">
-                            <?php foreach (array_slice($workspace['activity'], 0, 5) as $ev): ?>
+                        <div class="case-mini-activity flex-grow-1">
+                            <?php if ($overviewTotalActivity === 0): ?>
+                                <p class="text-muted small mb-0">No activity recorded yet.</p>
+                            <?php else: ?>
+                            <?php foreach ($overviewPagedActivity as $ev): ?>
                                 <div class="case-mini-activity-item">
                                     <i class="bi <?= caseActivityIcon($ev['type']) ?>"></i>
                                     <div>
@@ -207,7 +241,16 @@ require __DIR__ . '/../includes/header.php';
                                     </div>
                                 </div>
                             <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
+                        <?php if ($overviewTotalActivity > 0): ?>
+                            <div class="case-overview-activity-footer">
+                                <small class="text-muted">
+                                    Showing <?= $overviewShowingFrom ?>–<?= $overviewShowingTo ?> of <?= $overviewTotalActivity ?>
+                                </small>
+                                <?= $overviewPaginationHtml ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -957,6 +1000,8 @@ document.addEventListener("DOMContentLoaded", function() {
     var tabAliases = { invoices: "invoices", payments: "invoice-payments" };
     if (hash && tabAliases[hash]) hash = tabAliases[hash];
     var activityPageParam = parseInt(new URLSearchParams(window.location.search).get("activity_page") || "1", 10);
+    var overviewActivityPageParam = parseInt(new URLSearchParams(window.location.search).get("overview_activity_page") || "1", 10);
+    if (!hash && overviewActivityPageParam > 1) hash = "overview";
     if (!hash && activityPageParam > 1) hash = "activity";
     if (hash) {
         var tabBtn = document.querySelector("[data-bs-target=\"#" + hash + "\"]");

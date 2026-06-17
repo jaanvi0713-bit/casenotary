@@ -80,7 +80,17 @@ require __DIR__ . '/../includes/header.php';
                                 <td><?= e($case['service_type']) ?></td>
                                 <td><?= formatCurrency((float) $case['service_fee']) ?></td>
                                 <td>
-                                    <a href="<?= url('pages/case-view.php?id=' . $case['id']) ?>" class="btn btn-soft btn-sm">Open</a>
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a href="<?= url('pages/case-view.php?id=' . $case['id']) ?>" class="btn btn-soft btn-sm">Open</a>
+                                        <?php if ($canManageCases): ?>
+                                            <form method="post" action="<?= url('actions/case-action.php') ?>" class="m-0" onsubmit="return confirm('Delete this case permanently? All documents, invoices, and appointments will be removed.');">
+                                                <?= CSRF::field() ?>
+                                                <input type="hidden" name="action" value="delete_case">
+                                                <input type="hidden" name="case_id" value="<?= (int) $case['id'] ?>">
+                                                <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

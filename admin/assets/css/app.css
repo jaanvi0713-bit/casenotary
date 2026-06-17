@@ -3707,6 +3707,14 @@ a.topbar-btn {
     font-weight: 600;
 }
 
+.appointment-calendar-wrap .fc {
+    --fc-today-bg-color: var(--primary-light);
+}
+
+.appointment-calendar-wrap .fc .fc-day-today {
+    background: var(--primary-light) !important;
+}
+
 .appointment-calendar-wrap .fc-daygrid-day.fc-day-today {
     background: var(--primary-light);
 }
@@ -5480,10 +5488,14 @@ body.page-settings-roles .settings-roles-table-wrap {
 .contact-thread-reply-actions {
     display: flex;
     flex-wrap: wrap;
-    align-items: stretch;
+    align-items: center;
     justify-content: flex-start;
     gap: 0.5rem;
     width: 100%;
+}
+
+.contact-thread-reply-actions .contact-reply-form {
+    margin-left: auto;
 }
 
 .contact-thread-reply-actions .contact-thread-action-btn {

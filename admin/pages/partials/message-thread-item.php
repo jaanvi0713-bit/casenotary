@@ -10,6 +10,7 @@
 $messageBody = (string) ($message['body'] ?? '');
 $messageId   = (int) ($message['id'] ?? 0);
 $editedAt    = (string) ($message['edited_at'] ?? '');
+$threadId    = (int) ($threadId ?? 0);
 ?>
 <div class="message-thread-item <?= $isOutbound ? 'message-thread-item--outbound' : 'message-thread-item--inbound' ?>"
      data-message-id="<?= $messageId ?>">

@@ -142,6 +142,43 @@
 
 .case-tab-content { padding-top: 1.25rem; }
 
+.case-overview-row {
+    align-items: stretch;
+}
+
+.case-panel--match-height {
+    height: 100%;
+}
+
+.case-panel--overview-summary .case-panel-title {
+    margin-bottom: 0.75rem;
+}
+
+.case-summary-list--inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+}
+
+.case-summary-list--inline li {
+    padding: 0;
+}
+
+.case-overview-activity-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f1f5f9;
+}
+
+.case-overview-pagination .pagination {
+    margin-bottom: 0;
+}
+
 .case-panel {
     background: var(--white);
     border: 1px solid #e2e8f0;
@@ -841,13 +878,26 @@ textarea.case-form-control {
     grid-column: 1 / -1;
 }
 
+.case-detail-meta-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
 .case-detail-grid--overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+@media (max-width: 767.98px) {
+    .case-detail-meta-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (min-width: 768px) {
     .case-detail-grid--overview {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

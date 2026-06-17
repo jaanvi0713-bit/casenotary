@@ -32,6 +32,7 @@ $pendingInvoices = getPendingInvoices();
 $overdueInvoices = getOverdueInvoices();
 $stats = getDashboardStats();
 $pageSubtitle = formatCurrency($stats['total_revenue']) . ' total revenue';
+$canManagePayments = Auth::canManage(RoleAccess::PERMISSION_PAYMENTS);
 
 $paymentMonths = paymentHistoryMonthOptions();
 
@@ -171,6 +172,7 @@ require __DIR__ . '/../includes/header.php';
                             <th>Status</th>
                             <th>Paid At</th>
                             <th>Receipt</th>
+                            <?php if ($canManagePayments): ?><th></th><?php endif; ?>
                         </tr>
                     </thead>
                     <tbody>
@@ -205,6 +207,16 @@ require __DIR__ . '/../includes/header.php';
                                         —
                                     <?php endif; ?>
                                 </td>
+                                <?php if ($canManagePayments): ?>
+                                    <td>
+                                        <form method="post" action="<?= url('actions/payment-action.php') ?>" class="m-0" onsubmit="return confirm('Delete this payment? The linked receipt will be removed and the invoice balance will be recalculated.');">
+                                            <?= CSRF::field() ?>
+                                            <input type="hidden" name="action" value="delete_payment">
+                                            <input type="hidden" name="payment_id" value="<?= (int) $payment['id'] ?>">
+                                            <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                                        </form>
+                                    </td>
+                                <?php endif; ?>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -272,6 +284,7 @@ require __DIR__ . '/../includes/header.php';
                             <th>Issued</th>
                             <th>Due Date</th>
                             <th>PDF</th>
+                            <?php if ($canManagePayments): ?><th></th><?php endif; ?>
                         </tr>
                     </thead>
                     <tbody>
@@ -317,6 +330,16 @@ require __DIR__ . '/../includes/header.php';
                                         —
                                     <?php endif; ?>
                                 </td>
+                                <?php if ($canManagePayments): ?>
+                                    <td>
+                                        <form method="post" action="<?= url('actions/payment-action.php') ?>" class="m-0" onsubmit="return confirm('Delete this invoice permanently? All linked payments and receipts will also be removed.');">
+                                            <?= CSRF::field() ?>
+                                            <input type="hidden" name="action" value="delete_invoice">
+                                            <input type="hidden" name="invoice_id" value="<?= (int) $invoice['id'] ?>">
+                                            <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                                        </form>
+                                    </td>
+                                <?php endif; ?>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

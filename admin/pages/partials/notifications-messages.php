@@ -38,6 +38,15 @@
                 </div>
                 <div class="notification-list-actions d-flex gap-2">
                     <a href="<?= url('pages/message-view.php?id=' . (int) $thread['id']) ?>" class="btn btn-soft btn-sm">Open</a>
+                    <form method="post"
+                          action="<?= url('actions/message-action.php') ?>"
+                          class="m-0"
+                          onsubmit="return confirm('Delete this chat from the library? This cannot be undone.');">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="action" value="clear">
+                        <input type="hidden" name="thread_id" value="<?= (int) $thread['id'] ?>">
+                        <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                    </form>
                 </div>
             </div>
         <?php endforeach; ?>
