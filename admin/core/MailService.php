@@ -285,6 +285,79 @@ class MailService
         return self::send($client['email'], ($subjects[$event] ?? 'Appointment: ') . $appointment['title'], $body);
     }
 
+    public static function sendAppointmentReminderEmail(array $client, array $appointment, ?string $calendarUrl = null): bool
+    {
+        $name  = clientFullName($client) ?: 'Client';
+        $start = appointmentStart($appointment);
+        $appointmentId = (int) ($appointment['id'] ?? 0);
+
+        $links = GoogleCalendarService::getCalendarLinks($appointmentId, $appointment, $client, true);
+        if ($calendarUrl !== null && $calendarUrl !== '') {
+            $links['google'] = $calendarUrl;
+        }
+
+        $calendarButtons = '<p style="margin:20px 0;">'
+            . '<a href="' . e($links['google']) . '" style="display:inline-block;background:#3aafa9;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">Add to Google Calendar</a>'
+            . '<a href="' . e($links['outlook']) . '" style="display:inline-block;background:#0078d4;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">Add to Outlook Calendar</a>'
+            . '<a href="' . e($links['ics']) . '" style="display:inline-block;background:#00182c;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">Download Calendar File</a>'
+            . '</p>';
+
+        $body = self::wrapTemplate(
+            'Appointment Reminder',
+            '<p>Dear ' . e($name) . ',</p>'
+            . '<p>This is a friendly reminder of your upcoming appointment.</p>'
+            . '<p><strong>' . e($appointment['title'] ?? 'Appointment') . '</strong><br>'
+            . '<strong>When:</strong> ' . e(formatDateTime($start)) . '<br>'
+            . '<strong>Location:</strong> ' . e($appointment['location'] ?: 'To be confirmed') . '</p>'
+            . (!empty($appointment['description']) ? '<p>' . nl2br(e((string) $appointment['description'])) . '</p>' : '')
+            . $calendarButtons
+            . '<p>Please bring valid photo ID and any documents we have asked you to prepare.</p>'
+            . '<p><a href="' . e(clientUrl('pages/appointments.php')) . '" style="color:#3aafa9;">View in Client Portal</a></p>'
+        );
+
+        return self::send($client['email'], 'Reminder: ' . ($appointment['title'] ?? 'Appointment'), $body);
+    }
+
+    /**
+     * @param array<string, mixed> $case
+     * @param array<string, mixed> $invoice
+     */
+    public static function sendPaymentReminderEmail(array $client, array $case, array $invoice): bool
+    {
+        $name          = clientFullName($client) ?: 'Client';
+        $invoiceNumber = (string) ($invoice['invoice_number'] ?? '');
+        $total         = (float) ($invoice['total'] ?? 0);
+        $remaining     = CaseService::getInvoiceRemainingBalance($invoice);
+        $dueDate       = !empty($invoice['due_date']) ? formatDate($invoice['due_date']) : 'as agreed';
+
+        $payNowBlock = '';
+        if (PaymentGatewayService::invoiceHasPayableLink($invoice)) {
+            $payNowBlock = '<p style="text-align:center;margin:20px 0">'
+                . '<a href="' . e((string) $invoice['payment_link']) . '" style="display:inline-block;padding:14px 32px;background:#3aafa9;color:#fff;text-decoration:none;border-radius:10px;font-weight:700;font-size:16px">'
+                . 'Pay Now — ' . e(formatCurrency($remaining))
+                . '</a></p>';
+        }
+
+        $caseLine = !empty($case['case_number'])
+            ? ' for case <strong>' . e((string) $case['case_number']) . '</strong>'
+            : '';
+
+        $body = self::wrapTemplate(
+            'Payment Reminder — ' . e($invoiceNumber),
+            '<p>Dear ' . e($name) . ',</p>'
+            . '<p>This is a friendly reminder that invoice <strong>' . e($invoiceNumber) . '</strong>'
+            . $caseLine . ' has an outstanding balance.</p>'
+            . '<p><strong>Amount due:</strong> ' . formatCurrency($remaining) . '<br>'
+            . '<strong>Invoice total:</strong> ' . formatCurrency($total) . '<br>'
+            . '<strong>Due date:</strong> ' . e($dueDate) . '</p>'
+            . $payNowBlock
+            . '<p>If you have already paid, please disregard this message.</p>'
+            . '<p><a href="' . e(clientUrl('pages/payments.php')) . '" style="color:#3aafa9;">View invoices in the client portal</a></p>'
+        );
+
+        return self::send($client['email'], 'Payment reminder — ' . $invoiceNumber, $body);
+    }
+
     public static function sendAppointmentRequestEmail(array $client, array $appointment): bool
     {
         $name  = clientFullName($client) ?: 'Client';

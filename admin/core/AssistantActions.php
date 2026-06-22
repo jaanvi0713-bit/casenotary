@@ -56,6 +56,7 @@ class AssistantActions
             'create_client' => self::executeCreateClient($draft['payload']),
             'create_client_and_case' => self::executeCreateClientAndCase($draft['payload'], $adminId),
             'draft_client_letter' => self::executeDraftClientLetter($draft['payload']),
+            'send_reminder' => self::executeSendReminder($draft['payload'], $adminId),
             default => throw new RuntimeException('Unknown draft action.'),
         };
 
@@ -209,7 +210,7 @@ class AssistantActions
         );
     }
 
-    /** @return array{content: string, type: string, draft: array<string, mixed>} */
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
     private static function draftScheduleAppointment(string $message): array
     {
         $extracted = self::extractActionFields($message, [
@@ -225,15 +226,7 @@ class AssistantActions
         if ($clientName === '') {
             $clientName = assistantExtractClientNameFromActionMessage($message);
         }
-
-        $clientId = $clientName !== '' ? assistantResolveClientId($clientName) : null;
-
-        if ($clientId === null) {
-            return [
-                'content' => 'To schedule an appointment I need a **client name** and **date/time**. Example: _Schedule appointment for Marie Curie tomorrow at 2pm — deed signing._',
-                'type' => 'text',
-            ];
-        }
+        $clientName = assistantSanitizeExtractedClientName($clientName);
 
         $scheduleTimes = assistantExtractScheduleTimes($message);
         $startsAt = parseFlexibleDateTime(trim((string) ($extracted['starts_at'] ?? '')));
@@ -243,17 +236,12 @@ class AssistantActions
         if ($startsAt === '') {
             $startsAt = parseFlexibleDateTime($message);
         }
-        if ($startsAt === '') {
-            return [
-                'content' => 'Which **date and time** should I book? Example: _Schedule Jean Dupont on 20 Jun 2026 at 10:00._',
-                'type' => 'text',
-            ];
-        }
 
         $endsAt = parseFlexibleDateTime(trim((string) ($extracted['ends_at'] ?? '')));
         if ($endsAt === '') {
             $endsAt = $scheduleTimes['ends_at'];
         }
+
         $title = trim((string) ($extracted['title'] ?? ''));
         if ($title === '') {
             $title = 'Notary appointment';
@@ -261,6 +249,45 @@ class AssistantActions
 
         $caseRef = trim((string) ($extracted['case_reference'] ?? ''));
         $case = $caseRef !== '' ? assistantFindCaseByReference($caseRef) : null;
+
+        $clientId = $clientName !== '' ? assistantResolveClientId($clientName) : null;
+
+        if ($clientId === null) {
+            if ($startsAt !== '') {
+                $preview = [
+                    'When'  => formatDateTime($startsAt),
+                    'Title' => $title,
+                    'Case'  => $case ? (string) $case['case_number'] : '—',
+                ];
+
+                return AssistantAppointmentSchedule::beginMissingClient([
+                    'title'     => $title,
+                    'starts_at' => $startsAt,
+                    'ends_at'   => $endsAt,
+                    'case_id'   => $case ? (int) $case['id'] : null,
+                ], $preview);
+            }
+
+            return [
+                'content' => 'To schedule an appointment I need a **client name** and **date/time**. Example: _Schedule appointment for Marie Curie tomorrow at 2pm — deed signing._',
+                'type' => 'text',
+            ];
+        }
+
+        if ($startsAt === '') {
+            $client = ClientService::getById($clientId);
+            $preview = [
+                'Client' => clientFullName($client ?? []),
+                'Title'  => $title,
+                'Case'   => $case ? (string) $case['case_number'] : '—',
+            ];
+
+            return AssistantAppointmentSchedule::beginMissingDateTime([
+                'client_id' => $clientId,
+                'title'     => $title,
+                'case_id'   => $case ? (int) $case['id'] : null,
+            ], $preview);
+        }
 
         $status = trim((string) ($extracted['status'] ?? ''));
         if ($status === '') {
@@ -282,18 +309,25 @@ class AssistantActions
         $preview = [
             'Client' => clientFullName($client ?? []),
             'Title' => $title,
-            'Status' => assistantAppointmentStatusLabel($status),
             'Starts' => formatDateTime($startsAt),
             'Ends' => $endsAt !== '' ? formatDateTime($endsAt) : formatDateTime(date('Y-m-d H:i:s', strtotime($startsAt . ' +1 hour'))),
             'Case' => $case ? (string) $case['case_number'] : '—',
         ];
 
-        return self::buildDraftResponse(
-            'schedule_appointment',
-            $payload,
-            $preview,
-            'Appointment draft ready. Click **Confirm** to book on the calendar.'
-        );
+        $explicitStatus = assistantParseAppointmentStatusChoice($message);
+        if ($explicitStatus !== null) {
+            $payload['status'] = $explicitStatus;
+            $preview['Status'] = assistantAppointmentStatusLabel($explicitStatus);
+
+            return self::buildDraftResponse(
+                'schedule_appointment',
+                $payload,
+                $preview,
+                'Appointment draft ready. Click **Confirm** to book on the calendar.'
+            );
+        }
+
+        return AssistantAppointmentSchedule::begin($payload, $preview);
     }
 
     /** @return array{content: string, type: string, draft: array<string, mixed>} */
@@ -526,8 +560,8 @@ class AssistantActions
             $result[$key] = '';
         }
 
-        if (isset($fields['case_reference']) && preg_match('/case[- ]?#?\s*([A-Z0-9-]+)/i', $message, $matches)) {
-            $result['case_reference'] = $matches[1];
+        if (isset($fields['case_reference'])) {
+            $result['case_reference'] = assistantExtractCaseReferenceFromMessage($message);
         }
 
         if (isset($fields['client_name'])) {
@@ -713,6 +747,35 @@ class AssistantActions
     }
 
     /**
+     * @param array<string, mixed> $payload
+     */
+    private static function executeSendReminder(array $payload, int $adminId): string
+    {
+        $type = (string) ($payload['reminder_type'] ?? '');
+
+        $result = match ($type) {
+            AssistantReminders::TYPE_PAYMENT => ReminderService::sendPaymentReminderForInvoice(
+                (int) ($payload['invoice_id'] ?? 0),
+                $adminId
+            ),
+            AssistantReminders::TYPE_APPOINTMENT => ReminderService::sendAppointmentReminderNow(
+                (int) ($payload['appointment_id'] ?? 0)
+            ),
+            AssistantReminders::TYPE_CASE => ReminderService::sendCaseReminderNow(
+                (int) ($payload['case_id'] ?? 0),
+                $adminId
+            ),
+            default => ['success' => false, 'message' => 'Unknown reminder type.'],
+        };
+
+        if (!$result['success']) {
+            throw new RuntimeException($result['message']);
+        }
+
+        return $result['message'];
+    }
+
+    /**
      * @param list<array<string, mixed>> $uploads
      * @return array{content: string, type: string, draft?: array<string, mixed>}
      */
@@ -735,8 +798,8 @@ class AssistantActions
         ]);
 
         $caseRef = trim((string) ($extracted['case_reference'] ?? ''));
-        if ($caseRef === '' && preg_match('/case[- ]?#?\s*([A-Z0-9-]+)/i', $message, $matches)) {
-            $caseRef = $matches[1];
+        if ($caseRef === '') {
+            $caseRef = assistantExtractCaseReferenceFromMessage($message);
         }
 
         $case = $caseRef !== '' ? assistantFindCaseByReference($caseRef) : null;
@@ -965,29 +1028,16 @@ class AssistantActions
         $client = ClientService::getById((int) $case['client_id']);
         $billing = CaseService::getCaseBilling($case);
 
-        $contextBlock = 'Case: ' . ($case['case_number'] ?? '') . "\n"
-            . 'Title: ' . ($case['title'] ?? '') . "\n"
-            . 'Service: ' . ($case['service_type'] ?? '') . "\n"
-            . 'Client: ' . ($client ? clientFullName($client) : '') . "\n"
-            . 'Fee: ' . formatCurrency((float) ($billing['totals']['grand_total'] ?? $case['service_fee'] ?? 0)) . "\n"
-            . 'Description: ' . ($case['description'] ?? '');
-
-        if (OllamaService::isEnabled()) {
-            $aiNotes = trim(OllamaService::chat([
-                [
-                    'role' => 'user',
-                    'content' => "Write 2-3 short HTML paragraphs for a notary engagement letter 'additional_notes' section. Use <p> tags only. Be professional. Case details:\n" . $contextBlock,
-                ],
-            ]));
-            if ($aiNotes !== '') {
-                $sections['additional_notes'] = $aiNotes;
-            }
-        }
-
         if (trim((string) ($sections['additional_notes'] ?? '')) === '') {
+            $fee = formatCurrency((float) ($billing['totals']['grand_total'] ?? $case['service_fee'] ?? 0));
+            $desc = trim((string) ($case['description'] ?? ''));
+            $descSnippet = $desc !== '' ? htmlspecialchars(mb_strimwidth($desc, 0, 280, '…'), ENT_QUOTES, 'UTF-8') : '';
+
             $sections['additional_notes'] = '<p>This engagement relates to <strong>'
                 . htmlspecialchars((string) ($case['title'] ?? 'your matter'), ENT_QUOTES, 'UTF-8')
-                . '</strong> (' . htmlspecialchars((string) ($case['service_type'] ?? 'notarial services'), ENT_QUOTES, 'UTF-8') . ').</p>';
+                . '</strong> (' . htmlspecialchars((string) ($case['service_type'] ?? 'notarial services'), ENT_QUOTES, 'UTF-8') . ').</p>'
+                . '<p>The quoted fee for this matter is <strong>' . htmlspecialchars($fee, ENT_QUOTES, 'UTF-8') . '</strong>.</p>'
+                . ($descSnippet !== '' ? '<p>' . $descSnippet . '</p>' : '');
         }
 
         $preview = [
@@ -1024,12 +1074,9 @@ class AssistantActions
     /** @return ?array<string, mixed> */
     private static function resolveCaseFromMessage(string $message): ?array
     {
-        if (preg_match('/case[- ]?#?\s*([A-Z0-9-]+)/i', $message, $m)) {
-            $ref = trim($m[1]);
-            $row = Database::fetch('SELECT * FROM cases WHERE case_number = ? LIMIT 1', [$ref]);
-            if ($row) {
-                return $row;
-            }
+        $ref = assistantExtractCaseReferenceFromMessage($message);
+        if ($ref !== '') {
+            return assistantFindCaseByReference($ref);
         }
 
         if (preg_match('/\bcase\s+id\s+(\d+)\b/i', $message, $m)) {

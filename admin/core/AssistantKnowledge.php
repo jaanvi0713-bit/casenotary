@@ -706,7 +706,11 @@ class AssistantKnowledge
             return true;
         }
 
-        if (preg_match('/\bwhere (?:is|are|do i)|navigate|find (?:the )?(?:settings|payments|cases|clients)\b/', $lower)) {
+        if (preg_match('/\bwhere (?:is|are|do i)|navigate\b/', $lower)) {
+            return true;
+        }
+
+        if (preg_match('/\bfind (?:the )?(?:settings|payments|cases|clients)(?:\s+(?:page|section|menu|link|in\s+the\s+(?:sidebar|portal)))?\b/', $lower)) {
             return true;
         }
 
@@ -782,25 +786,24 @@ class AssistantKnowledge
 
     public static function outOfScopeMessage(): string
     {
-        return '**I do not have this kind of information.** '
-            . 'I can help with this **admin portal** (clients, cases, appointments, payments), '
-            . '**uploaded documents**, **notarial term definitions**, and **notary practice FAQs**. '
-            . 'Try _what can you do?_ for a full list.';
+        return '**I can help with this portal** — clients, cases, appointments, payments, documents, intake, and notary guidance. '
+            . 'Ask _what can you do?_ for the full list, or try _How many clients do we have?_ / _Schedule appointment for…_';
     }
 
     public static function capabilitiesMessage(): string
     {
         $company = companyBrandName();
 
-        return '**What I can help with in ' . $company . '**' . "\n\n"
-            . "• **Portal & system** — navigation, where to find settings, cases, payments, and appointments\n"
-            . "• **Live data** — _How many clients do we have?_, overdue invoices, upcoming appointments\n"
-            . "• **Actions** — schedule appointments, create/update cases, upload documents to cases, start intake (confirm to apply)\n"
-            . "• **Documents** — attach PDFs/images and ask about amounts, dates, VAT; or ask about files already on a case (e.g. _summarize invoice on case CASE-2026-0001_)\n"
-            . "• **Notary terms** — definitions for jurat, acknowledgment, apostille, POA, certified copy, and many more\n"
-            . "• **Practice FAQs** — ID requirements, witnesses, mobile visits, fees, document preparation\n"
-            . "• **Calculations** — percentages and simple fee math\n\n"
-            . 'For **this software**, ask _how does this system work?_ — for **legal terms**, ask _what is a jurat?_';
+        return '**What I can help with in ' . $company . '** (built-in — no external AI server)' . "\n\n"
+            . "**Chat** — messages, file attachments (PDF/image/HTML), quick prompts, copy/edit messages, Library chats, new chat\n\n"
+            . "**Live data** — client count, active cases, revenue, appointments, payments, overdue invoices, notifications, revenue by month, dashboard overview\n\n"
+            . "**Actions** (draft → **Confirm** to apply) — create/update cases, create clients, schedule/reschedule/cancel/confirm appointments, upload documents to cases, mark notifications read, client intake wizard, **send reminders**, message drafts\n\n"
+            . "**Search** — clients, cases, invoices/payments/receipts, documents\n\n"
+            . "**Documents** — scan/summarize uploads; answer questions about amounts, parties, dates; multi-file and case-file Q&A\n\n"
+            . "**Knowledge** — 50+ notary definitions, practice FAQs (ID, witnesses, fees, RON, mobile notary), portal navigation help, calculations\n\n"
+            . "**Compliance** — flags for minors, representative capacity, and related risks on intake/document text\n\n"
+            . "**Limits** — no auto-save without Confirm; no delete; no invoice/receipt generation from chat; general web chat only for portal/notary topics\n\n"
+            . 'Try _Schedule appointment for Louis Macwell tomorrow at 2pm_, _How many clients do we have?_, or _What is a jurat?_';
     }
 
 
@@ -815,6 +818,10 @@ class AssistantKnowledge
 
         if (AssistantPracticeFaq::matches($message)) {
             return AssistantPracticeFaq::handle($message);
+        }
+
+        if (AssistantRouter::looksLikeSearch($message)) {
+            return null;
         }
 
         if (self::looksLikeSystemQuery($message)) {

@@ -67,6 +67,13 @@ class AssistantCompliance
 
     private static function detectMinor(string $text): ?string
     {
+        if (preg_match(
+            '/\b(?:is\s+a\s+)?minor\b|\bunder\s+18\b|\bunder\s+age\b|\b(?:child|juvenile)\s+signer\b|\bage\s+of\s+minor\b/i',
+            $text
+        )) {
+            return 'Text suggests the signer may be a **minor**. Verify age and valid government ID before notarization.';
+        }
+
         if (!preg_match('/\b(?:dob|date of birth|born(?:\s+on)?|birth\s*date)\b/i', $text)) {
             return null;
         }

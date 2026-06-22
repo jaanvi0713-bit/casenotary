@@ -89,6 +89,9 @@ function assistantIsPlaceholderClientName(string $name): bool
         'me', 'myself', 'us', 'them', 'him', 'her', 'you',
         'a client', 'new client', 'the client', 'my client', 'someone', 'anyone',
         'a new client', 'new case', 'a case', 'the case', 'a matter', 'new matter',
+        'tomorrow', 'today', 'tonight', 'morning', 'afternoon', 'evening',
+        'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+        'next week', 'next month',
     ];
 
     if (in_array($normalized, $placeholders, true)) {
@@ -279,9 +282,9 @@ function assistantExtractClientNameFromActionMessage(string $message): string
     $patterns = [
         '/\bfor\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+)?)\s+for\s+(?:tomorrow|today|next\s+\w)/iu',
         '/\b(?:cancel|confirm|reschedule|complete|mark)\b.*\bfor\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+)?)/iu',
-        '/\b(?:appointment|meeting|case)\s+for\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+)?)\s+(?:for\s+)?(?:tomorrow|today|on\b|at\b|next\b|—|-)/iu',
-        '/\bfor\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+)?)\s+(?:for\s+)?(?:tomorrow|today|on\b|at\b|next\b)/iu',
-        '/\bfor\s+([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+)?)(?:\s+—|\s+-|\s*$)/iu',
+        '/\b(?:appointment|meeting|case)\s+for\s+(?!tomorrow|today|next\b)([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+)?)\s+(?:for\s+)?(?:tomorrow|today|on\b|at\b|next\b|—|-)/iu',
+        '/\bfor\s+(?!tomorrow|today|next\b)([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+)?)\s+(?:for\s+)?(?:tomorrow|today|on\b|at\b|next\b)/iu',
+        '/\bfor\s+(?!tomorrow|today|next\b)([a-z][\w\'-]+(?:\s+[a-z][\w\'-]+)?)(?:\s+—|\s+-|\s*$)/iu',
     ];
 
     foreach ($patterns as $pattern) {
@@ -352,6 +355,35 @@ function assistantExtractScheduleTimes(string $message): array
 function assistantAppointmentStatusLabel(string $status): string
 {
     return ucwords(str_replace('_', ' ', normalizeAppointmentStatus($status)));
+}
+
+function assistantParseAppointmentStatusChoice(string $message): ?string
+{
+    $normalized = strtolower(trim($message));
+    if ($normalized === '') {
+        return null;
+    }
+
+    $choices = [
+        'scheduled'   => '/\bscheduled\b/',
+        'confirmed'   => '/\bconfirmed?\b/',
+        'rescheduled' => '/\brescheduled?\b/',
+        'cancelled'   => '/\b(cancelled|canceled)\b/',
+        'requested'   => '/\brequested\b/',
+    ];
+
+    foreach ($choices as $status => $pattern) {
+        if (preg_match($pattern, $normalized)) {
+            return $status;
+        }
+    }
+
+    $single = str_replace([' ', '-'], '_', $normalized);
+    if (in_array($single, array_keys($choices), true)) {
+        return $single;
+    }
+
+    return null;
 }
 
 function assistantExtractAppointmentStatus(string $message, string $default = 'scheduled', bool $isNewBooking = false): string
@@ -497,6 +529,59 @@ function assistantDescribeAppointments(array $appointments): string
     return implode("\n", $lines);
 }
 
+function assistantNormalizeCaseNumber(string $raw): string
+{
+    $normalized = strtoupper(trim($raw));
+    $normalized = preg_replace('/[\s_]+/', '-', $normalized) ?? $normalized;
+    $normalized = preg_replace('/-+/', '-', $normalized) ?? $normalized;
+
+    return $normalized;
+}
+
+function assistantExtractCaseReferenceFromMessage(string $message): string
+{
+    $message = assistantNormalizeUserMessage($message);
+
+    if (preg_match('/\b(CASE-\d{4}-\d+)\b/i', $message, $matches)) {
+        return assistantNormalizeCaseNumber($matches[1]);
+    }
+
+    if (preg_match('/\bcase[- ]?#?\s*(\d{4}-\d+)\b/i', $message, $matches)) {
+        return assistantNormalizeCaseNumber('CASE-' . $matches[1]);
+    }
+
+    if (preg_match('/\bcase[- ]?#?\s*(\d+)\b/i', $message, $matches)) {
+        return 'CASE-' . date('Y') . '-' . str_pad($matches[1], 4, '0', STR_PAD_LEFT);
+    }
+
+    return '';
+}
+
+/**
+ * @return array<string, mixed>|null
+ */
+function assistantFetchCaseByNumber(string $caseNumber): ?array
+{
+    $caseNumber = assistantNormalizeCaseNumber($caseNumber);
+    if ($caseNumber === '') {
+        return null;
+    }
+
+    $where = ["UPPER(REPLACE(cs.case_number, ' ', '-')) = ?"];
+    $params = [$caseNumber];
+    appendCaseTenantScope($where, $params, 'cs', 'cl');
+    appendAssignedCaseScope($where, $params, 'cs');
+
+    return Database::fetch(
+        'SELECT cs.*, cl.first_name, cl.last_name, cl.company_name
+         FROM cases cs
+         JOIN clients cl ON cl.id = cs.client_id
+         WHERE ' . implode(' AND ', $where) . '
+         LIMIT 1',
+        $params
+    ) ?: null;
+}
+
 /**
  * @return array<string, mixed>|null
  */
@@ -507,42 +592,234 @@ function assistantFindCaseByReference(string $raw): ?array
         return null;
     }
 
-    if (preg_match('/\d+/', $raw, $matches)) {
-        $search = strtoupper(preg_replace('/[^A-Z0-9-]/', '-', $matches[0]));
-        $where = ["UPPER(REPLACE(cs.case_number, ' ', '-')) LIKE ?"];
-        $params = ['%' . $search . '%'];
-        appendCaseTenantScope($where, $params, 'cs', 'cl');
-        appendAssignedCaseScope($where, $params, 'cs');
+    $normalized = assistantNormalizeCaseNumber($raw);
 
-        $case = Database::fetch(
-            'SELECT cs.*, cl.first_name, cl.last_name, cl.company_name
-             FROM cases cs
-             JOIN clients cl ON cl.id = cs.client_id
-             WHERE ' . implode(' AND ', $where) . '
-             ORDER BY cs.updated_at DESC LIMIT 1',
-            $params
-        );
-
-        if ($case) {
+    if (preg_match('/^CASE-\d{4}-\d+$/', $normalized)) {
+        $case = assistantFetchCaseByNumber($normalized);
+        if ($case !== null) {
             return $case;
         }
     }
 
-    if (ctype_digit($raw)) {
-        $where = ['cs.id = ?'];
-        $params = [(int) $raw];
-        appendCaseTenantScope($where, $params, 'cs', 'cl');
-        appendAssignedCaseScope($where, $params, 'cs');
+    if (preg_match('/^(\d{4})-(\d+)$/', $normalized, $matches)) {
+        $case = assistantFetchCaseByNumber(
+            'CASE-' . $matches[1] . '-' . str_pad($matches[2], 4, '0', STR_PAD_LEFT)
+        );
+        if ($case !== null) {
+            return $case;
+        }
+    }
 
-        return Database::fetch(
-            'SELECT cs.*, cl.first_name, cl.last_name, cl.company_name
-             FROM cases cs JOIN clients cl ON cl.id = cs.client_id
-             WHERE ' . implode(' AND ', $where),
-            $params
-        ) ?: null;
+    if (preg_match('/^CASE-(\d{4})-(\d+)$/', $normalized, $matches)) {
+        $case = assistantFetchCaseByNumber(
+            'CASE-' . $matches[1] . '-' . str_pad($matches[2], 4, '0', STR_PAD_LEFT)
+        );
+        if ($case !== null) {
+            return $case;
+        }
+    }
+
+    if (preg_match('/^\d+$/', $normalized)) {
+        $id = (int) $normalized;
+        if ($id > 0 && strlen($normalized) <= 5) {
+            $case = assistantFetchCaseByNumber(
+                'CASE-' . date('Y') . '-' . str_pad($normalized, 4, '0', STR_PAD_LEFT)
+            );
+            if ($case !== null) {
+                return $case;
+            }
+        }
+
+        if ($id > 0) {
+            $where = ['cs.id = ?'];
+            $params = [$id];
+            appendCaseTenantScope($where, $params, 'cs', 'cl');
+            appendAssignedCaseScope($where, $params, 'cs');
+
+            $case = Database::fetch(
+                'SELECT cs.*, cl.first_name, cl.last_name, cl.company_name
+                 FROM cases cs JOIN clients cl ON cl.id = cs.client_id
+                 WHERE ' . implode(' AND ', $where),
+                $params
+            );
+            if ($case) {
+                return $case;
+            }
+        }
+    }
+
+    return assistantFetchCaseByNumber($normalized);
+}
+
+/** @return list<string> */
+function assistantExtractInvoiceReferences(string $message): array
+{
+    $refs = [];
+
+    if (preg_match_all('/\b(INV[-\s]?[A-Z0-9-]+)\b/i', $message, $matches)) {
+        foreach ($matches[1] as $raw) {
+            $ref = strtoupper(preg_replace('/[\s_]+/', '-', trim((string) $raw)));
+            if ($ref !== '') {
+                $refs[] = $ref;
+            }
+        }
+    }
+
+    if (preg_match('/\binvoice\s*#?\s*(\d+)\b/i', $message, $m)) {
+        $refs[] = 'id:' . (int) $m[1];
+    }
+
+    return array_values(array_unique($refs));
+}
+
+/** @return ?array<string, mixed> */
+function assistantFetchInvoiceByReference(string $ref): ?array
+{
+    if (str_starts_with($ref, 'id:')) {
+        return assistantFetchInvoiceScoped('i.id = ?', [(int) substr($ref, 3)]);
+    }
+
+    $normalized = strtoupper(str_replace(' ', '-', trim($ref)));
+
+    $invoice = assistantFetchInvoiceScoped(
+        'UPPER(REPLACE(i.invoice_number, " ", "-")) = ?',
+        [$normalized]
+    );
+    if ($invoice) {
+        return $invoice;
+    }
+
+    $invoice = assistantFetchInvoiceScoped(
+        'UPPER(REPLACE(i.invoice_number, " ", "-")) LIKE ?',
+        ['%' . $normalized . '%']
+    );
+    if ($invoice) {
+        return $invoice;
+    }
+
+    if (!preg_match('/^INV-(.+)$/', $normalized, $m)) {
+        return null;
+    }
+
+    $tail = $m[1];
+    $digits = preg_replace('/\D/', '', $tail) ?? '';
+    $candidates = array_unique(array_filter([
+        $tail,
+        $digits !== '' ? $digits : null,
+        $digits !== '' ? str_pad($digits, 4, '0', STR_PAD_LEFT) : null,
+        $digits !== '' ? (ltrim($digits, '0') ?: '0') : null,
+    ]));
+
+    foreach ($candidates as $candidate) {
+        $candidate = strtoupper((string) $candidate);
+        $invoice = assistantFetchInvoiceScoped(
+            '(UPPER(i.invoice_number) LIKE ? OR UPPER(i.invoice_number) LIKE ?)',
+            ['%-' . $candidate, '%-' . $candidate . '-%']
+        );
+        if ($invoice) {
+            return $invoice;
+        }
+    }
+
+    if (preg_match('/^\d{4}$/', $tail)) {
+        return assistantFetchInvoiceScoped(
+            'UPPER(i.invoice_number) LIKE ?',
+            ['INV-' . $tail . '-%']
+        );
     }
 
     return null;
+}
+
+/**
+ * @param list<mixed> $params
+ * @return ?array<string, mixed>
+ */
+function assistantFetchInvoiceScoped(string $condition, array $params): ?array
+{
+    $where = [$condition];
+    TenantService::appendClientScope($where, $params, 'cl');
+    if (TenantService::isEnabled() && Database::columnExists('invoices', 'company_id')) {
+        TenantService::appendScope($where, $params, 'i', 'company_id');
+    }
+
+    return Database::fetch(
+        'SELECT i.*, cl.first_name, cl.last_name, cl.company_name, cl.email, cs.case_number
+         FROM invoices i
+         JOIN clients cl ON cl.id = i.client_id
+         LEFT JOIN cases cs ON cs.id = i.case_id
+         WHERE ' . implode(' AND ', $where) . '
+         ORDER BY i.created_at DESC LIMIT 1',
+        $params
+    ) ?: null;
+}
+
+/**
+ * @return ?array<string, mixed>
+ */
+function assistantFindInvoiceFromMessage(string $message, bool $unpaidOnly = false): ?array
+{
+    foreach (assistantExtractInvoiceReferences($message) as $ref) {
+        $invoice = assistantFetchInvoiceByReference($ref);
+        if ($invoice !== null) {
+            if (!$unpaidOnly || assistantInvoiceIsOutstanding($invoice)) {
+                return $invoice;
+            }
+        }
+    }
+
+    if (assistantExtractInvoiceReferences($message) !== []) {
+        return null;
+    }
+
+    if (assistantExtractCaseReferenceFromMessage($message) !== '') {
+        $case = assistantFindCaseByReferenceFromMessage($message);
+        if ($case !== null) {
+            $invoice = assistantFetchLatestOutstandingInvoiceForCase((int) $case['id']);
+            if ($invoice) {
+                return $invoice;
+            }
+        }
+    }
+
+    $clientName = assistantExtractClientNameFromActionMessage($message);
+    $clientId = $clientName !== '' ? assistantResolveClientId($clientName) : null;
+    if ($clientId !== null) {
+        return assistantFetchLatestOutstandingInvoiceForClient($clientId);
+    }
+
+    return null;
+}
+
+/** @param array<string, mixed> $invoice */
+function assistantInvoiceIsOutstanding(array $invoice): bool
+{
+    $status = invoiceStatusValue($invoice);
+
+    return in_array($status, ['pending', 'overdue', 'partially_paid', 'failed'], true)
+        || CaseService::getInvoiceRemainingBalance($invoice) > 0.009;
+}
+
+/** @return ?array<string, mixed> */
+function assistantFetchLatestOutstandingInvoiceForCase(int $caseId): ?array
+{
+    $statusCol = invoiceStatusColumn();
+
+    return assistantFetchInvoiceScoped(
+        "i.case_id = ? AND i.{$statusCol} IN ('pending', 'overdue', 'partially_paid')",
+        [$caseId]
+    );
+}
+
+/** @return ?array<string, mixed> */
+function assistantFetchLatestOutstandingInvoiceForClient(int $clientId): ?array
+{
+    $statusCol = invoiceStatusColumn();
+
+    return assistantFetchInvoiceScoped(
+        "i.client_id = ? AND i.{$statusCol} IN ('pending', 'overdue', 'partially_paid')",
+        [$clientId]
+    );
 }
 
 function assistantNormalizeUserMessage(string $message): string

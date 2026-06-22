@@ -1,5 +1,5 @@
 /**
- * Browser-side OCR for screenshots and photos (no Ollama vision required).
+ * Browser-side OCR for screenshots and photos.
  */
 (function () {
     "use strict";

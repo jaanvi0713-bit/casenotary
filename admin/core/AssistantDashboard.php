@@ -13,6 +13,7 @@ class AssistantDashboard
             'upcoming_appointments' => self::upcomingAppointments(),
             'recent_payments' => self::recentPayments(),
             'overdue_invoices' => self::overdueInvoices(),
+            'outstanding_balance' => self::outstandingBalance(),
             'unread_notifications' => self::unreadNotifications(),
             'revenue_by_month' => self::revenueByMonth(),
             'overview' => self::overview(),
@@ -187,6 +188,22 @@ class AssistantDashboard
     }
 
     /** @return array{content: string} */
+    private static function outstandingBalance(): array
+    {
+        $stats = getDashboardStats();
+        $balance = (float) ($stats['outstanding_balance'] ?? 0);
+        $pending = (int) ($stats['pending_invoices'] ?? 0);
+        $overdue = (int) ($stats['overdue_invoices'] ?? 0);
+
+        return [
+            'content' => "**Outstanding balance:** " . formatCurrency($balance) . "\n\n"
+                . '• Pending invoices: **' . $pending . "**\n"
+                . '• Overdue invoices: **' . $overdue . "**\n\n"
+                . assistantAdminLink('pages/payments.php', 'Open payments'),
+        ];
+    }
+
+    /** @return array{content: string} */
     private static function unreadNotifications(): array
     {
         $userId = Auth::id();
@@ -248,6 +265,7 @@ class AssistantDashboard
                 . '• Active cases: **' . (int) ($stats['active_cases'] ?? 0) . "**\n"
                 . '• Total revenue: **' . formatCurrency((float) ($stats['total_revenue'] ?? 0)) . "**\n"
                 . '• Monthly revenue: **' . formatCurrency((float) ($stats['monthly_revenue'] ?? 0)) . "**\n"
+                . '• Outstanding balance: **' . formatCurrency((float) ($stats['outstanding_balance'] ?? 0)) . "**\n"
                 . '• Pending invoices: **' . (int) ($stats['pending_invoices'] ?? 0) . "**\n"
                 . '• Overdue invoices: **' . (int) ($stats['overdue_invoices'] ?? 0) . "**\n"
                 . '• Upcoming appointments: **' . (int) ($stats['upcoming_appointments'] ?? 0) . "**\n\n"

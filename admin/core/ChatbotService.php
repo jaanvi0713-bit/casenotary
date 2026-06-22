@@ -364,12 +364,6 @@ class ChatbotService
             return false;
         }
 
-        $provider = strtolower((string) ($config['provider'] ?? 'openai'));
-
-        if ($provider === 'ollama') {
-            return true;
-        }
-
         return trim($config['api_key'] ?? '') !== '';
     }
 
@@ -569,13 +563,8 @@ class ChatbotService
             return null;
         }
 
-        $provider = strtolower((string) ($config['provider'] ?? 'openai'));
         $systemPrompt = self::buildSystemPrompt();
         $messages = self::buildLlmMessages($systemPrompt, $message);
-
-        if ($provider === 'ollama') {
-            return self::callOllamaChat($messages, $config);
-        }
 
         $apiKey = trim($config['api_key'] ?? '');
         if ($apiKey === '') {
@@ -618,47 +607,6 @@ class ChatbotService
         return $messages;
     }
 
-    /**
-     * @param list<array{role: string, content: string}> $messages
-     * @param array<string, mixed> $config
-     */
-    private static function callOllamaChat(array $messages, array $config): ?string
-    {
-        $baseUrl = rtrim((string) ($config['ollama_url'] ?? 'http://127.0.0.1:11434'), '/');
-        $model   = (string) ($config['ollama_model'] ?? 'llama3.2');
-
-        $ch = curl_init($baseUrl . '/api/chat');
-        if ($ch === false) {
-            return null;
-        }
-
-        curl_setopt_array($ch, [
-            CURLOPT_POST           => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_POSTFIELDS     => json_encode([
-                'model'    => $model,
-                'messages' => $messages,
-                'stream'   => false,
-            ]),
-            CURLOPT_TIMEOUT        => 120,
-            CURLOPT_CONNECTTIMEOUT => 3,
-        ]);
-
-        $response = curl_exec($ch);
-        $status   = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if (!is_string($response) || $response === '' || $status < 200 || $status >= 300) {
-            return null;
-        }
-
-        $decoded = json_decode($response, true);
-        $content = trim((string) ($decoded['message']['content'] ?? ''));
-
-        return $content !== '' ? $content : null;
-    }
-
     public static function replyViaLlmWithAttachments(string $message, array $attachments, string $textContext = ''): ?string
     {
         $config = self::aiConfig();
@@ -668,13 +616,6 @@ class ChatbotService
 
         $systemPrompt = self::buildSystemPrompt();
         $userContent  = self::buildLlmUserContent($message, $attachments, $textContext);
-        $provider     = strtolower((string) ($config['provider'] ?? 'openai'));
-
-        if ($provider === 'ollama') {
-            $messages = self::buildLlmMessages($systemPrompt, $userContent);
-
-            return self::callOllamaChat($messages, $config);
-        }
 
         $apiKey = trim($config['api_key'] ?? '');
         if ($apiKey === '') {

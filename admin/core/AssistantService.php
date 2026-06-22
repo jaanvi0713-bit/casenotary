@@ -96,6 +96,7 @@ class AssistantService
         AssistantDocuments::clearCachedDocumentText();
         AssistantActions::clearDrafts();
         AssistantIntake::clear();
+        AssistantAppointmentSchedule::clear();
     }
 
     /**
@@ -215,6 +216,10 @@ class AssistantService
         $clientDocumentText = assistantSanitizeUtf8(trim($clientDocumentText));
         $documentSource = trim($documentSource);
 
+        if (self::messageOverridesActiveWizards($message)) {
+            self::clearActiveWizards();
+        }
+
         if ($uploads === [] && $upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
             $uploads = [$upload];
         }
@@ -236,6 +241,38 @@ class AssistantService
             $caseDocAnswer['type'] = 'text';
 
             return $caseDocAnswer;
+        }
+
+        if (AssistantAppointmentSchedule::isActive()) {
+            if (preg_match('/\b(cancel|stop|never mind|nevermind|abort)\b/i', strtolower($message))) {
+                AssistantAppointmentSchedule::clear();
+
+                return [
+                    'content' => 'Appointment scheduling cancelled. Say **schedule appointment for…** when you are ready.',
+                    'type' => 'text',
+                ];
+            }
+
+            $scheduleResult = AssistantAppointmentSchedule::handle($message);
+            $scheduleResult['type'] = $scheduleResult['type'] ?? 'text';
+
+            return $scheduleResult;
+        }
+
+        $sendReminderType = AssistantReminders::detectType($message);
+        if ($sendReminderType !== null) {
+            $reminderResult = AssistantReminders::handle($sendReminderType, $message);
+            $reminderResult['type'] = $reminderResult['type'] ?? 'text';
+
+            return $reminderResult;
+        }
+
+        $messageDraftType = AssistantMessageDrafts::detectType($message);
+        if ($messageDraftType !== null) {
+            $draftResult = AssistantMessageDrafts::handle($messageDraftType, $message);
+            $draftResult['type'] = $draftResult['type'] ?? 'text';
+
+            return $draftResult;
         }
 
         $directAnswer = AssistantKnowledge::tryAnswer($message);
@@ -348,11 +385,16 @@ class AssistantService
             AssistantRouter::INTENT_CLIENT_CREATE => AssistantClientCreate::handle($message),
             AssistantRouter::INTENT_COMPLIANCE => AssistantCompliance::handle($message),
             AssistantRouter::INTENT_KNOWLEDGE => AssistantKnowledge::handle($route['topic'], $message),
+            AssistantRouter::INTENT_MESSAGE_DRAFT => AssistantMessageDrafts::handle($route['topic'], $message),
+            AssistantRouter::INTENT_SEND_REMINDER => AssistantReminders::handle($route['topic'], $message),
+            AssistantRouter::INTENT_APPOINTMENT_SCHEDULE => AssistantAppointmentSchedule::handle($message),
             default => $route['topic'] === 'intake_cancelled'
                 ? ['content' => 'Client intake cancelled. You can say **start intake** again anytime, or ask for dashboard metrics, searches, or system actions.']
                 : ($route['topic'] === 'client_create_cancelled'
                     ? ['content' => 'New client setup cancelled. Say **create new client** or **create a new case for me** to try again.']
-                    : self::tryGeneralChat($message)),
+                    : ($route['topic'] === 'appointment_schedule_cancelled'
+                        ? ['content' => 'Appointment scheduling cancelled. Say **schedule appointment for…** when you are ready.']
+                        : self::tryGeneralChat($message))),
         };
 
         $result['type'] = $result['type'] ?? 'text';
@@ -497,17 +539,16 @@ class AssistantService
         }
     }
 
-    /** @return array{enabled: bool, model: string, online: bool, ollama_online: bool} */
+    /** @return array{enabled: bool, portal_enabled: bool, online: bool} */
     public static function status(): array
     {
-        $ollamaEnabled = OllamaService::isEnabled();
+        $config = require __DIR__ . '/../config/config.php';
+        $enabled = (bool) ($config['assistant']['enabled'] ?? true);
 
         return [
-            'enabled'        => $ollamaEnabled,
+            'enabled'        => $enabled,
             'portal_enabled' => true,
-            'model'          => OllamaService::configuredModelName(),
             'online'         => true,
-            'ollama_online'  => $ollamaEnabled ? OllamaService::isReachable() : false,
         ];
     }
 
@@ -532,6 +573,8 @@ class AssistantService
     /** @return list<array{label: string, prompt: string, icon: string}> */
     public static function quickPrompts(): array
     {
+        $scheduleClient = self::quickPromptScheduleClientName();
+
         return [
             ['icon' => 'bi-people', 'label' => 'Client count', 'prompt' => 'How many clients do we have?'],
             ['icon' => 'bi-briefcase', 'label' => 'Active cases', 'prompt' => 'List active cases'],
@@ -541,8 +584,9 @@ class AssistantService
             ['icon' => 'bi-exclamation-circle', 'label' => 'Overdue invoices', 'prompt' => 'Show overdue invoices'],
             ['icon' => 'bi-bell', 'label' => 'Notifications', 'prompt' => 'How many unread notifications?'],
             ['icon' => 'bi-bar-chart-line', 'label' => 'Revenue by month', 'prompt' => 'Revenue by month'],
+            ['icon' => 'bi-grid', 'label' => 'Dashboard overview', 'prompt' => 'Dashboard overview'],
             ['icon' => 'bi-person-plus', 'label' => 'Start intake', 'prompt' => 'Start client intake'],
-            ['icon' => 'bi-calendar-plus', 'label' => 'Schedule visit', 'prompt' => 'Schedule appointment for Louis Macwell tomorrow at 2pm'],
+            ['icon' => 'bi-calendar-plus', 'label' => 'Schedule visit', 'prompt' => 'Schedule appointment for ' . $scheduleClient . ' tomorrow at 2pm confirmed'],
             ['icon' => 'bi-book', 'label' => 'What is a jurat?', 'prompt' => 'What is a jurat?'],
             ['icon' => 'bi-file-earmark-check', 'label' => 'Docs to notarize', 'prompt' => 'Which documents require notarization?'],
             ['icon' => 'bi-person-badge', 'label' => 'Accepted ID', 'prompt' => 'What forms of identification are legally accepted?'],
@@ -550,6 +594,94 @@ class AssistantService
             ['icon' => 'bi-currency-pound', 'label' => 'Notary fees', 'prompt' => 'What are the standard State Notary Fees?'],
             ['icon' => 'bi-clipboard-check', 'label' => 'Prepare document', 'prompt' => 'How do I prepare my document before the appointment?'],
         ];
+    }
+
+    public static function clearActiveWizards(): void
+    {
+        AssistantAppointmentSchedule::clear();
+        AssistantIntake::clear();
+        AssistantClientCreate::clear();
+    }
+
+    public static function messageOverridesActiveWizards(string $message): bool
+    {
+        $message = assistantNormalizeUserMessage($message);
+        if ($message === '') {
+            return false;
+        }
+
+        foreach (self::quickPrompts() as $prompt) {
+            if (strcasecmp($message, (string) ($prompt['prompt'] ?? '')) === 0) {
+                return true;
+            }
+        }
+
+        if (AssistantRouter::matchDashboardTopic($message) !== null) {
+            return true;
+        }
+
+        if (AssistantRouter::looksLikeSearch($message)) {
+            return true;
+        }
+
+        if (AssistantKnowledge::looksLikeCapabilitiesQuery($message)) {
+            return true;
+        }
+
+        if (AssistantPracticeFaq::matches($message)) {
+            return true;
+        }
+
+        if (AssistantKnowledge::looksLikeDefinitionQuery($message)) {
+            return true;
+        }
+
+        if (AssistantCalculations::looksLikeCalculationQuery($message)) {
+            return true;
+        }
+
+        if (AssistantReminders::detectType($message) !== null) {
+            return true;
+        }
+
+        if (AssistantMessageDrafts::detectType($message) !== null) {
+            return true;
+        }
+
+        if (preg_match('/\b(start intake|client intake|begin onboarding)\b/i', $message)) {
+            return true;
+        }
+
+        if (AssistantRouter::actionTopic($message) === 'schedule_appointment'
+            && preg_match('/\b(schedule|book)\b.*\b(appointment|meeting)\b/i', $message)) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\b(how many|how much|list|show|find|search|what is|what are|which|revenue|notifications?|overdue|unread|active cases?|total revenue|upcoming appointments?|recent payments?|dashboard overview|outstanding balance)\b/i',
+            $message
+        )) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static function quickPromptScheduleClientName(): string
+    {
+        $where = [];
+        $params = [];
+        TenantService::appendClientScope($where, $params, 'cl');
+
+        $whereSql = $where === [] ? '' : (' WHERE ' . implode(' AND ', $where));
+        $row = Database::fetch(
+            'SELECT cl.first_name, cl.last_name FROM clients cl' . $whereSql . ' ORDER BY cl.updated_at DESC LIMIT 1',
+            $params
+        );
+
+        $name = $row ? trim(trim((string) ($row['first_name'] ?? '')) . ' ' . trim((string) ($row['last_name'] ?? ''))) : '';
+
+        return $name !== '' ? $name : 'Louis Macwell';
     }
 
     /** @return array{content: string, type: string} */
@@ -571,42 +703,7 @@ class AssistantService
         }
 
         return [
-            'content' => AssistantKnowledge::outOfScopeMessage(),
-            'type' => 'text',
-        ];
-    }
-
-    /** @return array{content: string, type: string} */
-    private static function generalChat(string $message): array
-    {
-        $history = array_slice(self::history(), -6);
-        $chatHistory = [];
-        foreach ($history as $turn) {
-            $role = (string) ($turn['role'] ?? 'user');
-            if ($role !== 'user' && $role !== 'assistant') {
-                continue;
-            }
-
-            $content = trim((string) ($turn['content'] ?? ''));
-            if ($content === '') {
-                continue;
-            }
-
-            if (mb_strlen($content) > 600) {
-                $content = mb_substr($content, 0, 600) . '…';
-            }
-
-            $chatHistory[] = ['role' => $role, 'content' => $content];
-        }
-
-        $messages = array_merge(
-            [['role' => 'system', 'content' => self::systemPrompt()]],
-            $chatHistory,
-            [['role' => 'user', 'content' => $message]]
-        );
-
-        return [
-            'content' => OllamaService::chat($messages),
+            'content' => AssistantBuiltin::smartFallback($message),
             'type' => 'text',
         ];
     }

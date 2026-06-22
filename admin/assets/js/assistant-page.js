@@ -313,6 +313,26 @@
             });
         }
 
+        if (/\.(html?|htm)$/i.test(file.name || "") || (file.type || "").indexOf("text/html") === 0) {
+            return new Promise(function (resolve) {
+                var reader = new FileReader();
+                reader.onload = function () {
+                    var html = String(reader.result || "");
+                    var text = html
+                        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                        .replace(/<[^>]+>/g, " ")
+                        .replace(/\s+/g, " ")
+                        .trim();
+                    resolve(Object.assign({}, entry, { documentText: text, status: "ready" }));
+                };
+                reader.onerror = function () {
+                    resolve(Object.assign({}, entry, { status: "ready" }));
+                };
+                reader.readAsText(file);
+            });
+        }
+
         return Promise.resolve(Object.assign({}, entry, { status: "ready" }));
     }
 
@@ -505,7 +525,7 @@
         var summarySplit = body.split(/\n\*\*Summary\*\*\n*/i);
         if (summarySplit.length > 1) {
             var afterSummary = summarySplit.slice(1).join("\n**Summary**\n");
-            var restSplit = afterSummary.split(/\n\*\*(?:Key details extracted|Extracted text)\*\*\n*/i);
+            var restSplit = afterSummary.split(/\n\*\*(?:Key details extracted|Invoice details|Notable clauses|Extracted text)\*\*\n*/i);
             summaryPart = (restSplit[0] || "").trim();
             detailsPart = restSplit.length > 1 ? restSplit.slice(1).join("\n").trim() : "";
         }
@@ -534,7 +554,7 @@
         var fields = [];
         detailsPart.split(/\n/).forEach(function (line) {
             line = line.trim();
-            if (!line || /^\*\*Key details extracted\*\*$/i.test(line)) {
+            if (!line || /^\*\*(?:Key details extracted|Invoice details)\*\*$/i.test(line)) {
                 return;
             }
 
@@ -591,13 +611,32 @@
         }
 
         if (fields.length) {
+            var detailsTitle = /\*\*Invoice details\*\*/i.test(body) ? "Invoice details" : "Key details";
             html += '<div class="assistant-doc-card__section">';
-            html += '<h4 class="assistant-doc-card__section-title">Key details</h4>';
+            html += '<h4 class="assistant-doc-card__section-title">' + detailsTitle + '</h4>';
             html += '<dl class="assistant-doc-card__fields">';
             fields.forEach(function (field) {
+                if (field.label === "Line items") {
+                    html += '<div class="assistant-doc-row assistant-doc-row--list">';
+                    html += "<dt>" + escapeHtml(field.label) + "</dt>";
+                    html += '<dd><ul class="assistant-doc-line-items">';
+                    field.value.split("\n").forEach(function (item) {
+                        item = item.trim();
+                        if (item) {
+                            html += "<li>" + escapeHtml(item) + "</li>";
+                        }
+                    });
+                    html += "</ul></dd></div>";
+                    return;
+                }
+
+                if (field.label === "Document type") {
+                    return;
+                }
+
                 html += '<div class="assistant-doc-row">';
                 html += "<dt>" + escapeHtml(field.label) + "</dt>";
-                html += "<dd>" + escapeHtml(field.value) + "</dd>";
+                html += "<dd>" + escapeHtml(field.value).replace(/\n/g, "<br>") + "</dd>";
                 html += "</div>";
             });
             html += "</dl></div>";
@@ -1229,9 +1268,7 @@
             return;
         }
 
-        // Portal queries (dashboard, search, intake) work even when Ollama is offline.
-        // Only hard-disable when the assistant is turned off in config.
-        var hardDisabled = status.enabled === false && status.portal_enabled === false;
+        var hardDisabled = status.enabled === false;
         if (hardDisabled) {
             sendBtn.setAttribute("data-offline", "1");
             input.disabled = true;
@@ -1429,7 +1466,14 @@
 
         var hasPending = pendingAttachments.length > 0;
 
-
+        if (hasPending && pendingAttachments.some(function (entry) {
+            return entry.status === "reading" || entry.status === "pending";
+        })) {
+            appendAssistantTurn({
+                content: "Please wait until attached files finish **reading** before sending."
+            });
+            return;
+        }
 
         if (!text && !hasPending) {
 
@@ -1668,6 +1712,13 @@
                     })
                     .finally(function () {
                         setBusy(false);
+                        if (plainText.trim()) {
+                            if (typeof form.requestSubmit === "function") {
+                                form.requestSubmit();
+                            } else {
+                                form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+                            }
+                        }
                     });
             }
 
@@ -2079,7 +2130,11 @@
 
         btn.addEventListener("click", function () {
 
-            if (busy || readOnly || sendBtn.disabled) {
+            if (busy || readOnly) {
+                return;
+            }
+
+            if (sendBtn.hasAttribute("data-offline")) {
                 return;
             }
 
@@ -2095,7 +2150,11 @@
                 messages.innerHTML = "";
             }
 
-            form.requestSubmit();
+            if (typeof form.requestSubmit === "function") {
+                form.requestSubmit();
+            } else {
+                form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+            }
 
         });
 
@@ -2148,12 +2207,10 @@
     }
 
     var initialEnabled = form.getAttribute("data-enabled");
-    var initialOllamaOnline = form.getAttribute("data-ollama-online");
-    if (initialEnabled !== null || initialOllamaOnline !== null) {
+    if (initialEnabled !== null) {
         updateAssistantAvailability({
             enabled: initialEnabled !== "0",
-            portal_enabled: true,
-            ollama_online: initialOllamaOnline !== "0"
+            portal_enabled: true
         });
     }
 

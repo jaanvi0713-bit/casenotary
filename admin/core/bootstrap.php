@@ -56,10 +56,10 @@ require_once __DIR__ . '/TenantService.php';
 require_once __DIR__ . '/CompanyService.php';
 
 require_once __DIR__ . '/AssistantHelpers.php';
-require_once __DIR__ . '/OllamaService.php';
 require_once __DIR__ . '/AssistantRouter.php';
 require_once __DIR__ . '/AssistantDashboard.php';
 require_once __DIR__ . '/AssistantActions.php';
+require_once __DIR__ . '/AssistantAppointmentSchedule.php';
 require_once __DIR__ . '/AssistantSearch.php';
 require_once __DIR__ . '/AssistantDocuments.php';
 require_once __DIR__ . '/AssistantIntake.php';
@@ -68,6 +68,10 @@ require_once __DIR__ . '/AssistantCompliance.php';
 require_once __DIR__ . '/AssistantCalculations.php';
 require_once __DIR__ . '/AssistantPracticeFaq.php';
 require_once __DIR__ . '/AssistantKnowledge.php';
+require_once __DIR__ . '/AssistantMessageDrafts.php';
+require_once __DIR__ . '/AssistantReminders.php';
+require_once __DIR__ . '/AssistantBuiltin.php';
+require_once __DIR__ . '/ChatbotQueries.php';
 require_once __DIR__ . '/AssistantChatStore.php';
 require_once __DIR__ . '/AssistantService.php';
 

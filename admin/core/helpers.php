@@ -3442,6 +3442,11 @@ function appendCaseTenantScope(array &$where, array &$params, string $caseAlias 
     $params[] = $companyId;
 }
 
+function chatbotAppendCaseScope(array &$where, array &$params, string $caseAlias = 'cs', string $clientAlias = 'cl'): void
+{
+    appendCaseTenantScope($where, $params, $caseAlias, $clientAlias);
+}
+
 function countCases(?string $search = null): int
 {
     $search = normalizeSearchTerm($search);

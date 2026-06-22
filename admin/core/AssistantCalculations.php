@@ -11,6 +11,10 @@ class AssistantCalculations
             return false;
         }
 
+        if (self::containsBusinessReference($message)) {
+            return false;
+        }
+
         if (preg_match('/\bcase[- ]?#?\s*[a-z0-9-]+/i', $message)) {
             return false;
         }
@@ -27,7 +31,11 @@ class AssistantCalculations
             return true;
         }
 
-        if (preg_match('/\d+(?:\.\d+)?\s*([+\-*\/×÷^()]|\bplus\b|\bminus\b|\btimes\b|\bdivided\s+by\b|\bpower\b|\^)\s*\d+/i', $message)) {
+        if (preg_match('#\d+(?:\.\d+)?\s*([+*/×÷^()]|\bplus\b|\btimes\b|\bdivided\s+by\b|\bpower\b|\^)\s*\d+#i', $message)) {
+            return true;
+        }
+
+        if (preg_match('/\d+(?:\.\d+)?\s+-\s+\d+(?:\.\d+)?/i', $message)) {
             return true;
         }
 
@@ -36,6 +44,18 @@ class AssistantCalculations
         }
 
         return preg_match('/\b(revenue|outstanding|balance)\b/i', $message) && preg_match('/\d/', $message);
+    }
+
+    private static function containsBusinessReference(string $message): bool
+    {
+        if (preg_match('/\b(?:INV|CASE|QUO|PRO|PAY|RCP)-[A-Z0-9-]+\b/i', $message)) {
+            return true;
+        }
+
+        return (bool) preg_match(
+            '/\b(?:write|draft|compose|prepare|remind|reminder|follow[- ]?up)\b.*\b(?:invoice|payment|client|case|appointment|document|quotation|quote)\b/i',
+            $message
+        );
     }
 
     /** @return array{content: string} */
@@ -233,6 +253,10 @@ class AssistantCalculations
 
     private static function extractExpression(string $message): ?string
     {
+        if (self::containsBusinessReference($message)) {
+            return null;
+        }
+
         $normalized = strtolower($message);
         $normalized = preg_replace('/\bdivided\s+by\b/', '/', $normalized) ?? $normalized;
         $normalized = preg_replace('/\bplus\b/', '+', $normalized) ?? $normalized;

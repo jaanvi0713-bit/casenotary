@@ -64,20 +64,9 @@ return [
         'company_id'   => 1,
     ],
 
-    // Local AI assistant via Ollama.
+    // Built-in AI assistant (rule-based portal intelligence — no external LLM required).
     'assistant' => [
-        'enabled'      => filter_var(getenv('ASSISTANT_ENABLED') ?: 'true', FILTER_VALIDATE_BOOLEAN),
-        'base_url'     => getenv('OLLAMA_URL') ?: 'http://127.0.0.1:11434',
-        'model'        => getenv('OLLAMA_MODEL') ?: 'qwen3.5:9b',
-        'vision_model' => getenv('OLLAMA_VISION_MODEL') ?: 'llava',
-        'timeout'      => (int) (getenv('OLLAMA_TIMEOUT') ?: 60),
-        'chat_timeout' => (int) (getenv('OLLAMA_CHAT_TIMEOUT') ?: 60),
-        'ping_timeout' => (int) (getenv('OLLAMA_PING_TIMEOUT') ?: 3),
-        'keep_alive'   => getenv('OLLAMA_KEEP_ALIVE') ?: '15m',
-        'num_predict'  => (int) (getenv('OLLAMA_NUM_PREDICT') ?: 384),
-        // Document upload/Q&A: false = instant structured summary (recommended). true = also call Ollama (slower).
-        'document_use_ai' => filter_var(getenv('ASSISTANT_DOCUMENT_AI') ?: 'false', FILTER_VALIDATE_BOOLEAN),
-        'document_chat_timeout' => (int) (getenv('OLLAMA_DOCUMENT_TIMEOUT') ?: 20),
+        'enabled' => filter_var(getenv('ASSISTANT_ENABLED') ?: 'true', FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

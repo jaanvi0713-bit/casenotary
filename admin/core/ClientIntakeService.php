@@ -97,21 +97,19 @@ class ClientIntakeService
         }
 
         $checklist = CaseChecklistService::previewChecklistForService($best['service']);
-        $notes = '';
+        $notes = 'Based on your description, we recommend a **' . $best['service'] . '** matter';
 
-        if (OllamaService::isEnabled() && $description !== '') {
-            $ai = OllamaService::chat([
-                [
-                    'role' => 'user',
-                    'content' => 'A client described their notary need. In 2 short sentences, explain what they likely need and any ID/witness requirements. Description: ' . $description,
-                ],
-            ]);
-            $notes = trim($ai);
+        $lower = strtolower(trim($description));
+        if (preg_match('/\b(witness|witnesses)\b/', $lower)) {
+            $notes .= '. Witness requirements may apply — we will confirm when you book';
         }
-
-        if ($notes === '') {
-            $notes = 'Based on your description, we recommend a **' . $best['service'] . '** matter. Please bring valid photo ID and any original documents related to your request.';
+        if (preg_match('/\b(abroad|overseas|foreign|apostille|legali[sz]ation)\b/', $lower)) {
+            $notes .= '. For documents used abroad, mention this at booking so we can advise on apostille or legalisation';
         }
+        if (preg_match('/\b(urgent|rush|asap|today|tomorrow)\b/', $lower)) {
+            $notes .= '. You mentioned urgency — ask about our soonest available appointment when you call or book online';
+        }
+        $notes .= '. Please bring valid photo ID and any original documents related to your request.';
 
         return [
             'service'   => $best['service'],

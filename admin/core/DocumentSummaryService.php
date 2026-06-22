@@ -60,19 +60,6 @@ class DocumentSummaryService
 
         $excerpt = mb_substr($text, 0, 6000);
 
-        if (OllamaService::isEnabled() && OllamaService::useAiForDocuments()) {
-            $ai = OllamaService::chat([
-                [
-                    'role' => 'user',
-                    'content' => "Summarize this document in 3-5 bullet points for a notary case file. Be factual. Document name: {$originalName}\n\n" . $excerpt,
-                ],
-            ]);
-            $ai = trim($ai);
-            if ($ai !== '') {
-                return $ai;
-            }
-        }
-
         return self::heuristicSummary($originalName, $excerpt);
     }
 

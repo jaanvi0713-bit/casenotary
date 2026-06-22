@@ -12,6 +12,9 @@ class AssistantRouter
     public const INTENT_CLIENT_CREATE = 'client_create';
     public const INTENT_COMPLIANCE = 'compliance';
     public const INTENT_KNOWLEDGE = 'knowledge';
+    public const INTENT_MESSAGE_DRAFT = 'message_draft';
+    public const INTENT_SEND_REMINDER = 'send_reminder';
+    public const INTENT_APPOINTMENT_SCHEDULE = 'appointment_schedule';
     public const INTENT_GENERAL = 'general';
 
     public static function route(string $message): array
@@ -21,6 +24,20 @@ class AssistantRouter
 
         if ($normalized === '') {
             return ['intent' => self::INTENT_GENERAL, 'topic' => 'empty', 'message' => $message];
+        }
+
+        if (AssistantAppointmentSchedule::isActive()) {
+            if (preg_match('/\b(cancel|stop|never mind|nevermind|abort)\b/i', $normalized)) {
+                AssistantAppointmentSchedule::clear();
+
+                return [
+                    'intent' => self::INTENT_GENERAL,
+                    'topic' => 'appointment_schedule_cancelled',
+                    'message' => $message,
+                ];
+            }
+
+            return ['intent' => self::INTENT_APPOINTMENT_SCHEDULE, 'topic' => 'wizard', 'message' => $message];
         }
 
         if (AssistantClientCreate::isActive()) {
@@ -73,11 +90,19 @@ class AssistantRouter
             return ['intent' => self::INTENT_DOCUMENT, 'topic' => 'scan', 'message' => $message];
         }
 
+        if ($topic = AssistantReminders::detectType($message)) {
+            return ['intent' => self::INTENT_SEND_REMINDER, 'topic' => $topic, 'message' => $message];
+        }
+
+        if ($topic = AssistantMessageDrafts::detectType($message)) {
+            return ['intent' => self::INTENT_MESSAGE_DRAFT, 'topic' => $topic, 'message' => $message];
+        }
+
         if (AssistantCalculations::looksLikeCalculationQuery($normalized)) {
             return ['intent' => self::INTENT_KNOWLEDGE, 'topic' => 'calculation', 'message' => $message];
         }
 
-        if ($topic = self::matchDashboardTopic($normalized)) {
+        if ($topic = self::matchDashboardTopicRules($normalized)) {
             return ['intent' => self::INTENT_DASHBOARD, 'topic' => $topic, 'message' => $message];
         }
 
@@ -219,26 +244,34 @@ class AssistantRouter
         return (bool) preg_match('/\b(what does (?:this|the) (?:doc|document|pdf|letter) say)\b/', $message);
     }
 
-    private static function looksLikeSearch(string $message): bool
+    public static function looksLikeSearch(string $message): bool
     {
+        $lower = strtolower(assistantNormalizeUserMessage($message));
+
         return (bool) preg_match(
             '/\b(find|search|look up|lookup|show me|list|who is|where is)\b/',
-            $message
+            $lower
         ) && (bool) preg_match(
-            '/\b(client|case|invoice|receipt|payment|document|upload)\b/',
-            $message
+            '/\b(clients?|cases?|invoices?|receipts?|payments?|documents?|uploads?)\b/',
+            $lower
         );
     }
 
-    private static function matchDashboardTopic(string $message): ?string
+    public static function matchDashboardTopic(string $message): ?string
+    {
+        return self::matchDashboardTopicRules(strtolower(assistantNormalizeUserMessage($message)));
+    }
+
+    private static function matchDashboardTopicRules(string $message): ?string
     {
         $rules = [
             'client_count' => '/\b(how many|number of|total|count of)\s+clients?\b|\bclient count\b|\bclients?\s+(?:do\s+we\s+have|count)\b/',
             'active_cases' => '/\bactive cases?\b|\b(open|in[- ]progress) cases?\b|\bcases? (?:open|in progress)\b|\blist active cases?\b/',
-            'total_revenue' => '/\b(total revenue|our revenue|overall earnings|total earnings|how much (?:have we )?earned|what is our (?:total )?revenue)\b/',
+            'total_revenue' => '/\b(total revenue|our revenue|(?:what about|how is|how\'s)\s+(?:our\s+)?revenue|overall earnings|total earnings|how much (?:have we )?earned|what is our (?:total )?revenue)\b/',
             'upcoming_appointments' => '/\b(upcoming appointments?|next appointments?|appointment schedule|calendar schedule|show upcoming appointments?)\b/',
             'recent_payments' => '/\b(recent payments?|latest payments?|last payments?|list recent payments?)\b/',
-            'overdue_invoices' => '/\b(overdue invoices?|outstanding invoices?|unpaid invoices? past due|show overdue invoices?)\b/',
+            'overdue_invoices' => '/\b(overdue invoices?|unpaid invoices? past due|show overdue invoices?)\b/',
+            'outstanding_balance' => '/\b(outstanding balance|accounts receivable|how much (?:is )?outstanding|total outstanding)\b/',
             'unread_notifications' => '/\b(unread notifications?|new alerts?|unread alerts?|how many unread notifications?)\b/',
             'revenue_by_month' => '/\b(revenue by month|monthly revenue|month[- ]by[- ]month|financial breakdown)\b/',
         ];
@@ -300,7 +333,12 @@ class AssistantRouter
         }
         if (preg_match('/\b(schedule|book|set up|create|make)\b.*\b(appointment|meeting|slot)\b/', $message)
             || preg_match('/\b(appointment|meeting)\b.*\b(schedule|book|set up|create|make)\b/', $message)
+            || preg_match('/\b(can|could)\s+(?:you|u)\s+schedule\b.*\b(appointment|meeting)\b/', $message)
             || preg_match('/\bbook\b.*\bfor\b.+\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}[:\/]|\d{1,2}\s*(?:am|pm))\b/i', $message)) {
+            if (AssistantAppointmentSchedule::isActive()) {
+                AssistantAppointmentSchedule::clear();
+            }
+
             return 'schedule_appointment';
         }
         if (preg_match('/\b(mark|clear|dismiss)\b.*\b(notifications?|alerts?)\b.*\b(read|all)?\b/', $message)

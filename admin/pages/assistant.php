@@ -126,7 +126,7 @@ require __DIR__ . '/../includes/header.php';
 
             <div class="assistant-input-area">
 
-                <form id="assistantForm" class="assistant-form" enctype="multipart/form-data" data-no-global-loading data-read-only="<?= Auth::isReadOnly() ? '1' : '0' ?>" data-enabled="<?= !empty($status['enabled']) ? '1' : '0' ?>" data-ollama-online="<?= !empty($status['ollama_online']) ? '1' : '0' ?>">
+                <form id="assistantForm" class="assistant-form" enctype="multipart/form-data" data-no-global-loading data-read-only="<?= Auth::isReadOnly() ? '1' : '0' ?>" data-enabled="<?= !empty($status['enabled']) ? '1' : '0' ?>">
 
                     <?= CSRF::field() ?>
 
@@ -173,14 +173,6 @@ require __DIR__ . '/../includes/header.php';
                     <p class="assistant-input-hint mb-0 mt-2">
 
                         The AI assistant is disabled in settings.
-
-                    </p>
-
-                <?php elseif (!$status['ollama_online']): ?>
-
-                    <p class="assistant-input-hint mb-0 mt-2">
-
-                        Open-ended chat needs the AI model online. Dashboard, search, calculations, and actions still work.
 
                     </p>
 
