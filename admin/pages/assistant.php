@@ -23,6 +23,8 @@ $status = AssistantService::status();
 $history = AssistantService::history();
 
 $quickPrompts = AssistantService::quickPrompts();
+$promptsPerPage = 9;
+$promptPages = array_chunk($quickPrompts, $promptsPerPage);
 
 $library = AssistantService::library();
 
@@ -203,10 +205,12 @@ require __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="saas-card-body">
-            <div class="assistant-prompt-grid">
-                <?php foreach ($quickPrompts as $prompt): ?>
+            <div class="assistant-prompt-grid" id="assistantPromptGrid">
+                <?php foreach ($promptPages as $pageIndex => $pagePrompts): ?>
+                    <?php foreach ($pagePrompts as $prompt): ?>
                     <button type="button"
-                            class="assistant-prompt-btn"
+                            class="assistant-prompt-btn<?= $pageIndex > 0 ? ' d-none' : '' ?>"
+                            data-page="<?= (int) $pageIndex ?>"
                             data-prompt="<?= e($prompt['prompt']) ?>">
                         <span class="assistant-prompt-btn__icon" aria-hidden="true">
                             <i class="bi <?= e($prompt['icon']) ?>"></i>
@@ -214,8 +218,20 @@ require __DIR__ . '/../includes/header.php';
                         <span class="assistant-prompt-btn__text"><?= e($prompt['label']) ?></span>
                         <i class="bi bi-arrow-right assistant-prompt-btn__arrow" aria-hidden="true"></i>
                     </button>
+                    <?php endforeach; ?>
                 <?php endforeach; ?>
             </div>
+            <?php if (count($promptPages) > 1): ?>
+            <div class="assistant-prompt-pagination" id="assistantPromptPagination">
+                <button type="button" class="assistant-prompt-page-btn" id="assistantPromptPrev" disabled aria-label="Previous prompts">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                </button>
+                <span class="assistant-prompt-page-label" id="assistantPromptPageLabel" aria-live="polite">1 / <?= count($promptPages) ?></span>
+                <button type="button" class="assistant-prompt-page-btn" id="assistantPromptNext" aria-label="Next prompts">
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+            <?php endif; ?>
         </div>
 
     </div>

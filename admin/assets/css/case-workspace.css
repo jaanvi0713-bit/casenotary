@@ -560,16 +560,33 @@
     white-space: nowrap;
 }
 
+.checklist-item-main {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.checklist-item-label {
+    min-width: 0;
+}
+
+.checklist-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.checklist-item-actions .checklist-action-btn {
+    min-width: 7.25rem;
+    justify-content: center;
+    text-align: center;
+}
+
 .checklist-required-badge {
-    display: inline-block;
-    padding: 0.2rem 0.5rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    line-height: 1.25;
-    border-radius: 6px;
-    vertical-align: middle;
-    background: color-mix(in srgb, var(--primary) 14%, transparent);
-    color: var(--primary);
+    pointer-events: none;
+    cursor: default;
 }
 
 .checklist-progress {
@@ -1048,10 +1065,34 @@ textarea.case-form-control {
 .client-letter-actions {
     padding-top: 0.5rem;
     border-top: 1px solid var(--gray-200);
+    align-items: stretch;
 }
 
+.client-letter-actions .client-letter-action-btn,
 .client-letter-actions .case-action-btn {
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.client-letter-actions .btn.btn-soft.client-letter-action-btn,
+.client-letter-actions a.btn.btn-soft.client-letter-action-btn,
+.client-letter-actions .btn.btn-soft.case-action-btn,
+.client-letter-actions a.btn.btn-soft.case-action-btn {
+    background: var(--primary-light);
+    color: var(--primary);
+    border: none;
+    font-weight: 600;
+}
+
+.client-letter-actions .btn.btn-soft.client-letter-action-btn:hover,
+.client-letter-actions a.btn.btn-soft.client-letter-action-btn:hover,
+.client-letter-actions .btn.btn-soft.case-action-btn:hover,
+.client-letter-actions a.btn.btn-soft.case-action-btn:hover {
+    background: var(--primary);
+    color: var(--white);
 }
 
 .client-letter-actions .case-action-btn:disabled,

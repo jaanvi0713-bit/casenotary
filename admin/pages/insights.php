@@ -219,7 +219,7 @@ document.addEventListener("DOMContentLoaded", function() {
             type: "bar",
             data: {
                 labels: ' . json_encode($cohortChartData['labels']) . ',
-                datasets: [{ label: "New clients", data: ' . json_encode($cohortChartData['data']) . ', backgroundColor: "#3b82f6", borderRadius: 6 }]
+                datasets: [{ label: "New clients", data: ' . json_encode($cohortChartData['data']) . ', backgroundColor: primary, hoverBackgroundColor: "#2d9a94", borderRadius: 6 }]
             },
             options: {
                 responsive: true,

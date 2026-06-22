@@ -2160,6 +2160,61 @@
 
     });
 
+    (function initPromptPagination() {
+        var grid = document.getElementById("assistantPromptGrid");
+        var pagination = document.getElementById("assistantPromptPagination");
+        var prevBtn = document.getElementById("assistantPromptPrev");
+        var nextBtn = document.getElementById("assistantPromptNext");
+        var label = document.getElementById("assistantPromptPageLabel");
+        if (!grid || !pagination || !prevBtn || !nextBtn || !label) {
+            return;
+        }
+
+        var buttons = grid.querySelectorAll(".assistant-prompt-btn");
+        var pages = {};
+        buttons.forEach(function (btn) {
+            var page = parseInt(btn.getAttribute("data-page") || "0", 10);
+            if (!pages[page]) {
+                pages[page] = [];
+            }
+            pages[page].push(btn);
+        });
+
+        var pageNums = Object.keys(pages).map(Number).sort(function (a, b) {
+            return a - b;
+        });
+        var totalPages = pageNums.length;
+        if (totalPages <= 1) {
+            pagination.classList.add("d-none");
+            return;
+        }
+
+        var currentPage = 0;
+
+        function showPage(page) {
+            currentPage = page;
+            buttons.forEach(function (btn) {
+                var btnPage = parseInt(btn.getAttribute("data-page") || "0", 10);
+                btn.classList.toggle("d-none", btnPage !== page);
+            });
+            label.textContent = (page + 1) + " / " + totalPages;
+            prevBtn.disabled = page <= 0;
+            nextBtn.disabled = page >= totalPages - 1;
+        }
+
+        prevBtn.addEventListener("click", function () {
+            if (currentPage > 0) {
+                showPage(currentPage - 1);
+            }
+        });
+
+        nextBtn.addEventListener("click", function () {
+            if (currentPage < totalPages - 1) {
+                showPage(currentPage + 1);
+            }
+        });
+    })();
+
 
 
     document.querySelectorAll(".assistant-bubble-rich[data-rich]").forEach(function (bubble) {

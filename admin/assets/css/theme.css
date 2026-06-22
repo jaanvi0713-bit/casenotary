@@ -1625,6 +1625,22 @@
     border-top-color: var(--border-default);
 }
 
+[data-theme="dark"] .client-letter-actions .btn.btn-soft.client-letter-action-btn,
+[data-theme="dark"] .client-letter-actions a.btn.btn-soft.client-letter-action-btn,
+[data-theme="dark"] .client-letter-actions .btn.btn-soft.case-action-btn,
+[data-theme="dark"] .client-letter-actions a.btn.btn-soft.case-action-btn {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    color: color-mix(in srgb, var(--primary) 72%, white);
+}
+
+[data-theme="dark"] .client-letter-actions .btn.btn-soft.client-letter-action-btn:hover,
+[data-theme="dark"] .client-letter-actions a.btn.btn-soft.client-letter-action-btn:hover,
+[data-theme="dark"] .client-letter-actions .btn.btn-soft.case-action-btn:hover,
+[data-theme="dark"] .client-letter-actions a.btn.btn-soft.case-action-btn:hover {
+    background: var(--primary);
+    color: var(--white);
+}
+
 [data-theme="dark"] .case-billing-overview-section-rate {
     background: var(--surface);
     border-color: var(--border-default);
@@ -1649,8 +1665,8 @@
 }
 
 [data-theme="dark"] .case-workspace .checklist-required-badge {
-    background: color-mix(in srgb, var(--primary) 22%, transparent);
-    color: color-mix(in srgb, var(--primary) 72%, white);
+    background: var(--danger-light);
+    color: var(--danger);
 }
 
 [data-theme="dark"] .case-workspace .checklist-progress {

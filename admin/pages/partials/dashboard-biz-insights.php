@@ -63,7 +63,7 @@
                         <span class="biz-kpi-sub">All completed payments</span>
                     </div>
 
-                    <div class="biz-kpi">
+                    <div class="biz-kpi biz-kpi--violet">
                         <div class="biz-kpi-head">
                             <span class="biz-kpi-icon"><i class="bi bi-receipt"></i></span>
                             <span class="biz-kpi-label">Avg Invoice</span>
@@ -90,19 +90,19 @@
                         </div>
                     </div>
                     <div class="biz-chart-stats">
-                        <div class="biz-chart-stat">
+                        <div class="biz-chart-stat biz-chart-stat--teal">
                             <span class="biz-chart-stat-label">Week payments</span>
                             <strong class="biz-chart-stat-value"><?= formatCurrency($weekPayTotal) ?></strong>
                         </div>
-                        <div class="biz-chart-stat">
+                        <div class="biz-chart-stat biz-chart-stat--indigo">
                             <span class="biz-chart-stat-label">Week invoiced</span>
                             <strong class="biz-chart-stat-value"><?= formatCurrency($weekInvTotal) ?></strong>
                         </div>
-                        <div class="biz-chart-stat">
+                        <div class="biz-chart-stat biz-chart-stat--amber">
                             <span class="biz-chart-stat-label">Peak day</span>
                             <strong class="biz-chart-stat-value"><?= $peakPayAmt > 0 ? e($peakPayDay) . ' · ' . formatCurrency($peakPayAmt) : '—' ?></strong>
                         </div>
-                        <div class="biz-chart-stat">
+                        <div class="biz-chart-stat biz-chart-stat--blue">
                             <span class="biz-chart-stat-label">Daily avg</span>
                             <strong class="biz-chart-stat-value"><?= formatCurrency($avgDailyPay) ?></strong>
                         </div>
@@ -212,7 +212,7 @@
                             <?php endif; ?>
 
                             <?php if ($stats['cases_deadline_soon'] > 0): ?>
-                            <a href="<?= url('pages/cases.php') ?>" class="biz-kpi biz-kpi--slate biz-kpi--link">
+                            <a href="<?= url('pages/cases.php') ?>" class="biz-kpi biz-kpi--amber biz-kpi--link">
                                 <div class="biz-kpi-head">
                                     <span class="biz-kpi-icon"><i class="bi bi-hourglass-split"></i></span>
                                     <span class="biz-kpi-label">Due This Week</span>
@@ -221,7 +221,7 @@
                                 <span class="biz-kpi-sub">Deadline in next 7 days <i class="bi bi-arrow-right-short biz-kpi-arrow"></i></span>
                             </a>
                             <?php else: ?>
-                            <div class="biz-kpi">
+                            <div class="biz-kpi biz-kpi--amber">
                                 <div class="biz-kpi-head">
                                     <span class="biz-kpi-icon"><i class="bi bi-calendar-check"></i></span>
                                     <span class="biz-kpi-label">Due This Week</span>
@@ -231,7 +231,7 @@
                             </div>
                             <?php endif; ?>
 
-                            <div class="biz-kpi">
+                            <div class="biz-kpi biz-kpi--indigo">
                                 <div class="biz-kpi-head">
                                     <span class="biz-kpi-icon"><i class="bi bi-stack"></i></span>
                                     <span class="biz-kpi-label">Total Cases</span>

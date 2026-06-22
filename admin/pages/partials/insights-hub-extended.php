@@ -50,15 +50,15 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
                     <span class="biz-ai-stat-label">Worst</span>
                     <strong class="biz-ai-stat-value" data-ai-scenario="worst" data-value="<?= (float) ($prediction['worst'] ?? 0) ?>"><?= formatCurrency((float) ($prediction['worst'] ?? 0)) ?></strong>
                 </div>
-                <div class="biz-ai-stat">
+                <div class="biz-ai-stat biz-ai-stat--indigo">
                     <span class="biz-ai-stat-label">MTD revenue</span>
                     <strong class="biz-ai-stat-value" data-ai-metric="monthly_revenue"><?= formatCurrency((float) ($stats['monthly_revenue'] ?? 0)) ?></strong>
                 </div>
-                <div class="biz-ai-stat">
+                <div class="biz-ai-stat biz-ai-stat--blue">
                     <span class="biz-ai-stat-label">Active cases</span>
                     <strong class="biz-ai-stat-value" data-ai-metric="active_cases"><?= number_format((int) ($stats['active_cases'] ?? 0)) ?></strong>
                 </div>
-                <div class="biz-ai-stat">
+                <div class="biz-ai-stat biz-ai-stat--green">
                     <span class="biz-ai-stat-label">Collection</span>
                     <strong class="biz-ai-stat-value" data-ai-metric="collection_rate"><?= number_format((float) ($stats['collection_rate'] ?? 0), 1) ?>%</strong>
                 </div>
@@ -85,8 +85,9 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
 
     <p class="biz-section-label">Data sources</p>
     <div class="biz-source-grid">
-        <?php foreach ($hub['data_sources'] ?? [] as $src): ?>
-        <div class="biz-source-card">
+        <?php $srcColors = ['teal', 'blue', 'indigo', 'violet', 'amber', 'green']; ?>
+        <?php foreach ($hub['data_sources'] ?? [] as $i => $src): ?>
+        <div class="biz-source-card biz-source-card--<?= e($srcColors[$i % count($srcColors)]) ?>">
             <i class="bi <?= e($src['icon']) ?>"></i>
             <span><?= e($src['name']) ?></span>
             <span class="biz-source-badge biz-source-badge--<?= e($src['status']) ?>"><?= $src['status'] === 'live' ? 'Connected' : 'Connect' ?></span>
@@ -120,7 +121,7 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
             <span class="biz-kpi-value"><?= ucfirst((string) ($forecast['trend_direction'] ?? 'flat')) ?></span>
             <span class="biz-kpi-sub">Month-over-month direction</span>
         </div>
-        <div class="biz-kpi">
+        <div class="biz-kpi biz-kpi--rose">
             <div class="biz-kpi-head"><span class="biz-kpi-icon"><i class="bi bi-shield-check"></i></span><span class="biz-kpi-label">Confidence</span></div>
             <span class="biz-kpi-value"><?= ucfirst((string) ($forecast['confidence'] ?? 'low')) ?></span>
             <span class="biz-kpi-sub">More history improves accuracy</span>
@@ -129,8 +130,9 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
 
     <p class="biz-section-label">Prediction drivers</p>
     <div class="biz-driver-grid">
-        <?php foreach ($prediction['drivers'] ?? [] as $driver): ?>
-        <div class="biz-driver-card">
+        <?php $driverColors = ['primary', 'blue', 'teal', 'indigo', 'violet', 'amber']; ?>
+        <?php foreach ($prediction['drivers'] ?? [] as $i => $driver): ?>
+        <div class="biz-driver-card biz-driver-card--<?= e($driverColors[$i % count($driverColors)]) ?>">
             <span><?= e($driver['label']) ?></span>
             <strong><?= e($driver['value']) ?></strong>
             <i class="bi bi-arrow-<?= ($driver['direction'] ?? 'flat') === 'down' ? 'down' : 'up' ?>-right-short"></i>
@@ -243,9 +245,10 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
 
     <p class="biz-section-label">Case pipeline funnel</p>
     <div class="biz-funnel">
-        <?php foreach ($hub['case_funnel'] ?? [] as $step): ?>
+        <?php $funnelColors = ['#14b8a6', '#3b82f6', '#6366f1', '#f59e0b', '#10b981']; ?>
+        <?php foreach ($hub['case_funnel'] ?? [] as $i => $step): ?>
         <div class="biz-funnel-step">
-            <div class="biz-funnel-bar" style="width: <?= max(8, (int) $step['pct']) ?>%"></div>
+            <div class="biz-funnel-bar" style="width: <?= max(8, (int) $step['pct']) ?>%; background: <?= e($funnelColors[$i % count($funnelColors)]) ?>"></div>
             <span class="biz-funnel-label"><?= e($step['stage']) ?></span>
             <span class="biz-funnel-val"><?= (int) $step['count'] ?> (<?= (int) $step['pct'] ?>%)</span>
         </div>
@@ -274,7 +277,7 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
             <span class="biz-kpi-value"><?= number_format($stats['total_clients']) ?></span>
             <span class="biz-kpi-sub">Registered <i class="bi bi-arrow-right-short biz-kpi-arrow"></i></span>
         </a>
-        <div class="biz-kpi biz-kpi--blue">
+        <div class="biz-kpi biz-kpi--teal">
             <div class="biz-kpi-head"><span class="biz-kpi-icon"><i class="bi bi-person-plus"></i></span><span class="biz-kpi-label">New this month</span></div>
             <span class="biz-kpi-value"><?= number_format($stats['new_clients_month']) ?></span>
         </div>

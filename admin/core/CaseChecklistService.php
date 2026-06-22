@@ -60,7 +60,31 @@ class CaseChecklistService
                 'UPDATE cases SET checklist_json = ?, updated_at = NOW() WHERE id = ?',
                 [json_encode($items, JSON_UNESCAPED_UNICODE), $caseId]
             );
+        } else {
+            $items = self::normalizeChecklist($items, $serviceType !== '' ? $serviceType : (string) ($row['service_type'] ?? ''));
         }
+
+        return $items;
+    }
+
+    private static function normalizeChecklist(array $items, string $serviceType): array
+    {
+        $defaults = [];
+        foreach (self::defaultChecklistForService($serviceType) as $default) {
+            $defaults[(string) ($default['key'] ?? '')] = $default;
+        }
+
+        foreach ($items as &$item) {
+            $key = (string) ($item['key'] ?? '');
+            if (!isset($defaults[$key])) {
+                continue;
+            }
+            $item['required'] = $defaults[$key]['required'];
+            if (($item['label'] ?? '') === '') {
+                $item['label'] = $defaults[$key]['label'];
+            }
+        }
+        unset($item);
 
         return $items;
     }
@@ -136,7 +160,7 @@ class CaseChecklistService
             ['key' => 'client_id', 'label' => 'Client identity verified', 'required' => true, 'completed' => false],
             ['key' => 'source_docs', 'label' => 'Source documents received', 'required' => true, 'completed' => false],
             ['key' => 'invoice_sent', 'label' => 'Invoice sent to client', 'required' => true, 'completed' => false],
-            ['key' => 'payment_received', 'label' => 'Payment received', 'required' => false, 'completed' => false],
+            ['key' => 'payment_received', 'label' => 'Payment received', 'required' => true, 'completed' => false],
             ['key' => 'final_delivery', 'label' => 'Final documents delivered', 'required' => true, 'completed' => false],
         ];
 

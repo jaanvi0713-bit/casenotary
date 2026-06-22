@@ -39,7 +39,7 @@ require __DIR__ . '/../includes/header.php';
     <!-- Stat cards -->
     <div class="dashboard-kpi-row mb-4">
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= url('pages/clients.php') ?>" class="dash-stat-card">
+            <a href="<?= url('pages/clients.php') ?>" class="dash-stat-card dash-stat-card--blue">
                 <div class="dash-stat-icon"><i class="bi bi-people"></i></div>
                 <div class="dash-stat-content">
                     <span class="dash-stat-label">Total Clients</span>
@@ -52,7 +52,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= url('pages/payments.php') ?>" class="dash-stat-card">
+            <a href="<?= url('pages/payments.php') ?>" class="dash-stat-card dash-stat-card--green">
                 <div class="dash-stat-icon"><i class="bi bi-briefcase"></i></div>
                 <div class="dash-stat-content">
                     <span class="dash-stat-label">Total Payments</span>
@@ -65,7 +65,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= url('pages/payments.php') ?>" class="dash-stat-card">
+            <a href="<?= url('pages/payments.php') ?>" class="dash-stat-card dash-stat-card--amber">
                 <div class="dash-stat-icon"><i class="bi bi-calendar"></i></div>
                 <div class="dash-stat-content">
                     <span class="dash-stat-label">Pending Invoices</span>
@@ -78,7 +78,7 @@ require __DIR__ . '/../includes/header.php';
             </a>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <a href="<?= url('pages/cases.php') ?>" class="dash-stat-card">
+            <a href="<?= url('pages/cases.php') ?>" class="dash-stat-card dash-stat-card--indigo">
                 <div class="dash-stat-icon"><i class="bi bi-chat-dots"></i></div>
                 <div class="dash-stat-content">
                     <span class="dash-stat-label">Active Cases</span>
