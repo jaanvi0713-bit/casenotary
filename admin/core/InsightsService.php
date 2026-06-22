@@ -71,6 +71,20 @@ class InsightsService
             ];
         }
 
+        $overdueDeadlines = array_filter(
+            CaseDeadlineService::upcomingAlerts(20),
+            static fn(array $d): bool => ($d['status'] ?? '') === 'overdue'
+        );
+        if ($overdueDeadlines !== []) {
+            $alerts[] = [
+                'type'    => 'danger',
+                'icon'    => 'bi-alarm',
+                'title'   => 'Overdue case deadlines',
+                'message' => count($overdueDeadlines) . ' statutory/filing deadline(s) are past due.',
+                'link'    => url('pages/cases.php'),
+            ];
+        }
+
         if ((float) ($stats['collection_rate'] ?? 100) < 60 && ((int) ($stats['paid_invoices'] ?? 0) + (int) ($stats['pending_invoices'] ?? 0)) > 0) {
             $alerts[] = [
                 'type'    => 'warning',
@@ -372,23 +386,52 @@ class InsightsService
                 $staffParams[] = TenantService::id();
             }
             $staffRows = Database::fetchAll(
-                "SELECT u.first_name, u.last_name, COUNT(*) AS case_count,
-                        SUM(CASE WHEN cs.status IN ('completed','closed') THEN 1 ELSE 0 END) AS completed
+                "SELECT u.id, u.first_name, u.last_name,
+                        COUNT(*) AS case_count,
+                        SUM(CASE WHEN cs.status IN ('completed','closed') THEN 1 ELSE 0 END) AS completed,
+                        SUM(CASE WHEN cs.status IN ('pending','in_progress','waiting_for_client') THEN 1 ELSE 0 END) AS open_cases,
+                        SUM(CASE WHEN cs.priority IN ('urgent','high') AND cs.status NOT IN ('completed','closed') THEN 1 ELSE 0 END) AS urgent_open,
+                        SUM(CASE WHEN cs.deadline IS NOT NULL AND cs.deadline < CURDATE() AND cs.status NOT IN ('completed','closed') THEN 1 ELSE 0 END) AS overdue_deadline
                  FROM cases cs
                  JOIN users u ON u.id = cs.assigned_admin_id
                  WHERE " . implode(' AND ', $staffWhere) . "
                  GROUP BY u.id, u.first_name, u.last_name
-                 ORDER BY case_count DESC
-                 LIMIT 5",
+                 ORDER BY open_cases DESC, case_count DESC
+                 LIMIT 8",
                 $staffParams
             );
+
+            foreach ($staffRows as &$staffRow) {
+                $uid = (int) ($staffRow['id'] ?? 0);
+                $apptParams = [$uid];
+                $apptWhere = 'cs.assigned_admin_id = ? AND a.status IN (\'scheduled\', \'confirmed\', \'rescheduled\')';
+                $apptWhere .= ' AND a.start_time >= CURDATE() AND a.start_time < DATE_ADD(CURDATE(), INTERVAL 7 DAY)';
+                if (TenantService::isEnabled()) {
+                    $apptWhere .= ' AND cs.company_id = ?';
+                    $apptParams[] = TenantService::id();
+                }
+                try {
+                    $staffRow['appointments_week'] = (int) (Database::fetch(
+                        "SELECT COUNT(*) AS c FROM appointments a
+                         INNER JOIN cases cs ON cs.id = a.case_id
+                         WHERE {$apptWhere}",
+                        $apptParams
+                    )['c'] ?? 0);
+                } catch (Throwable $e) {
+                    $staffRow['appointments_week'] = 0;
+                }
+            }
+            unset($staffRow);
         }
+
+        $deadlineAlerts = CaseDeadlineService::upcomingAlerts(5);
 
         return [
             'avg_case_days'     => $avgDays !== null ? round((float) $avgDays, 1) : null,
             'completion_rate'   => $completionRate,
             'total_cases'       => $totalCases,
             'staff_workload'    => $staffRows,
+            'deadline_alerts'   => $deadlineAlerts,
         ];
     }
 

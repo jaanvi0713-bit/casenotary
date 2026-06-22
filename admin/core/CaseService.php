@@ -1045,6 +1045,9 @@ class CaseService
             'receipts'        => self::getReceipts($caseId),
             'client_letters'  => ClientLetterService::listForCase($caseId, false),
             'checklist'       => CaseChecklistService::getChecklist($caseId, (string) ($case['service_type'] ?? '')),
+            'deadlines'       => CaseDeadlineService::listForCase($caseId),
+            'document_requests' => CaseDocumentRequestService::listForCase($caseId),
+            'document_summaries' => DocumentSummaryService::summariesForCase($caseId),
             'status_history'  => self::getStatusHistory($caseId),
             'notes'           => self::getNotes($caseId, true),
             'activity'        => self::getActivity($caseId),
@@ -1383,12 +1386,15 @@ class CaseService
         $row[documentExtensionColumn()] = $ext;
 
         try {
-            insertTableRow('documents', $row);
+            $docId = insertTableRow('documents', $row);
         } catch (Throwable $e) {
             error_log('[CaseService] Document insert failed: ' . $e->getMessage());
 
             return ['success' => false, 'message' => 'Could not save document record. Please contact support.'];
         }
+
+        CaseDocumentRequestService::tryFulfillFromUpload($caseId, $docId, $originalName);
+        DocumentSummaryService::summarizeAfterUpload($docId, $caseId, $relativePath, $originalName);
 
         $label = $source === 'client' ? 'Client uploaded a document' : 'New document uploaded';
         self::notifyCaseEvent($caseId, 'document', $label, $originalName, 'pages/case-view.php?id=' . $caseId . '#documents');
@@ -2215,6 +2221,26 @@ class CaseService
         return array_slice($events, 0, $limit);
     }
 
+    /** Client-safe timeline (no internal notes). */
+    public static function getClientActivity(int $caseId, int $limit = 30): array
+    {
+        $hidden = ['note'];
+        $events = array_values(array_filter(
+            self::getActivity($caseId, $limit + 20),
+            static fn(array $ev): bool => !in_array($ev['type'] ?? '', $hidden, true)
+        ));
+
+        foreach ($events as &$ev) {
+            if (($ev['type'] ?? '') === 'document' && str_contains((string) ($ev['title'] ?? ''), 'uploaded')) {
+                $ev['title'] = 'Document added';
+            }
+            unset($ev['actor']);
+        }
+        unset($ev);
+
+        return array_slice($events, 0, $limit);
+    }
+
     private static function auditLogToActivityEvent(string $action, array $details, ?string $actor): ?array
     {
         if ($action === 'status_changed') {
@@ -2236,6 +2262,42 @@ class CaseService
                 'type'   => 'note',
                 'title'  => $completed ? 'Checklist item completed' : 'Checklist item reopened',
                 'detail' => $item,
+                'actor'  => $actor,
+            ];
+        }
+
+        if ($action === 'deadline_added') {
+            return [
+                'type'   => 'deadline',
+                'title'  => 'Deadline set',
+                'detail' => ($details['label'] ?? 'Deadline') . ' · due ' . formatDate((string) ($details['due_date'] ?? '')),
+                'actor'  => $actor,
+            ];
+        }
+
+        if ($action === 'deadline_completed') {
+            return [
+                'type'   => 'deadline',
+                'title'  => 'Deadline completed',
+                'detail' => (string) ($details['label'] ?? ''),
+                'actor'  => $actor,
+            ];
+        }
+
+        if ($action === 'document_requested') {
+            return [
+                'type'   => 'document',
+                'title'  => 'Document requested from client',
+                'detail' => (string) ($details['label'] ?? ''),
+                'actor'  => $actor,
+            ];
+        }
+
+        if ($action === 'document_summarized') {
+            return [
+                'type'   => 'document',
+                'title'  => 'Document summary added',
+                'detail' => (string) ($details['document'] ?? ''),
                 'actor'  => $actor,
             ];
         }

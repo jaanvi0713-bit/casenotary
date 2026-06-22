@@ -76,32 +76,52 @@ class AssistantIntake
         $data = $_SESSION[self::SESSION_KEY]['data'] ?? [];
         self::clear();
 
+        $matterText = trim(
+            ($data['document_type'] ?? '') . '. '
+            . ($data['signing_capacity'] ?? '') . '. '
+            . ($data['notes'] ?? '')
+        );
+        $analysis = ClientIntakeService::analyze($matterText !== '' ? $matterText : (string) ($data['document_type'] ?? 'notary'));
+
         $summaryText = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) ?: '';
         $alerts = array_merge($alerts, AssistantCompliance::screenText($summaryText));
+
+        $feeBand = formatCurrency($analysis['fee_min']) . ' – ' . formatCurrency($analysis['fee_max']);
+        $checklistPreview = array_slice(array_map(
+            static fn(array $item): string => (string) ($item['label'] ?? ''),
+            $analysis['checklist']
+        ), 0, 4);
 
         $lines = [
             '**Intake complete.** Here is the structured summary:',
             '',
             '• **Name:** ' . ($data['full_name'] ?? '—'),
             '• **Document:** ' . ($data['document_type'] ?? '—'),
+            '• **Suggested service:** ' . $analysis['service'],
+            '• **Estimated fee band:** ' . $feeBand,
+            '• **Likely checklist:** ' . ($checklistPreview !== [] ? implode('; ', $checklistPreview) : '—'),
             '• **ID available:** ' . ($data['id_available'] ?? '—'),
             '• **Witness:** ' . ($data['witness_status'] ?? '—'),
             '• **Capacity:** ' . ($data['signing_capacity'] ?? '—'),
             '• **Notes:** ' . ($data['notes'] ?? '—'),
+            '',
+            $analysis['notes'],
         ];
 
         $clientId = !empty($data['full_name']) ? assistantResolveClientId((string) $data['full_name']) : null;
         if ($clientId) {
             $payload = [
-                'title' => ucfirst((string) ($data['document_type'] ?? 'Notary matter')),
+                'title' => ucfirst((string) ($data['document_type'] ?? $analysis['service'])),
                 'description' => 'Intake notes: ' . json_encode($data, JSON_UNESCAPED_UNICODE),
                 'client_id' => $clientId,
-                'service_type' => (string) ($data['document_type'] ?? 'Notarization'),
-                'service_fee' => 0,
+                'service_type' => $analysis['service'],
+                'service_fee' => $analysis['fee_min'],
             ];
             $preview = [
                 'Client' => (string) $data['full_name'],
                 'Document' => (string) ($data['document_type'] ?? '—'),
+                'Service' => $analysis['service'],
+                'Fee band' => $feeBand,
                 'Capacity' => (string) ($data['signing_capacity'] ?? '—'),
                 'ID' => (string) ($data['id_available'] ?? '—'),
             ];
@@ -126,8 +146,8 @@ class AssistantIntake
 
         $response = AssistantClientCreate::begin([
             'create_case'  => true,
-            'title'        => ucfirst((string) ($data['document_type'] ?? 'Notary matter')),
-            'service_type' => (string) ($data['document_type'] ?? 'Notarization'),
+            'title'        => ucfirst((string) ($data['document_type'] ?? $analysis['service'])),
+            'service_type' => $analysis['service'],
             'description'  => 'Intake notes: ' . json_encode($data, JSON_UNESCAPED_UNICODE),
         ], (string) ($data['full_name'] ?? ''));
         $response['content'] = implode("\n", $lines) . "\n\n" . $response['content'];

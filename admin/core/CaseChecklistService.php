@@ -125,6 +125,11 @@ class CaseChecklistService
         return is_array($decoded) ? $decoded : [];
     }
 
+    public static function previewChecklistForService(string $serviceType): array
+    {
+        return self::defaultChecklistForService($serviceType);
+    }
+
     private static function defaultChecklistForService(string $serviceType): array
     {
         $base = [

@@ -4800,6 +4800,7 @@ function caseActivityIcon(string $type): string
         'note'         => 'bi-journal-text',
         'status'       => 'bi-arrow-repeat',
         'appointment'  => 'bi-calendar-event',
+        'deadline'     => 'bi-alarm',
         'update'       => 'bi-pencil-square',
     ];
 
@@ -4818,6 +4819,7 @@ function caseActivityTone(string $type): string
         'note'         => 'tone-gray',
         'status'       => 'tone-indigo',
         'appointment'  => 'tone-blue',
+        'deadline'     => 'tone-orange',
         'update'       => 'tone-gray',
     ];
 

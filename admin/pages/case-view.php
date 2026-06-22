@@ -155,6 +155,7 @@ require __DIR__ . '/../includes/header.php';
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoices" type="button">Invoices</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoice-payments" type="button">Invoice & Payments</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#checklist" type="button">Checklist</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#deadlines" type="button">Deadlines</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#notes" type="button">Notes</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#activity" type="button">Activity</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#client-letter" type="button">Client Letter</button></li>
@@ -270,6 +271,75 @@ require __DIR__ . '/../includes/header.php';
                     </form>
                 </div>
                 <p class="case-panel-hint">PDF, DOC, DOCX, JPG, PNG, ZIP — max 10MB</p>
+
+                <div class="case-panel case-panel--nested mb-3">
+                    <div class="case-panel-header">
+                        <h4 class="case-panel-title mb-0 h6">Requested from client</h4>
+                        <button type="button" class="btn btn-soft btn-sm" data-bs-toggle="collapse" data-bs-target="#docRequestForm"><i class="bi bi-plus"></i> Add request</button>
+                    </div>
+                    <div class="collapse<?= empty($workspace['document_requests']) ? ' show' : '' ?>" id="docRequestForm">
+                        <form method="post" action="<?= url('actions/case-action.php') ?>" class="row g-2 align-items-end p-2 border-bottom">
+                            <?= CSRF::field() ?>
+                            <input type="hidden" name="action" value="add_document_request">
+                            <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                            <div class="col-md-4">
+                                <label class="form-label small mb-0">Document</label>
+                                <input type="text" name="label" class="form-control form-control-sm" placeholder="e.g. Passport copy" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small mb-0">Instructions (optional)</label>
+                                <input type="text" name="description" class="form-control form-control-sm" placeholder="Must be in colour">
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" name="required" value="1" id="docReqRequired" checked>
+                                    <label class="form-check-label small" for="docReqRequired">Required</label>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary btn-sm w-100">Add</button>
+                            </div>
+                        </form>
+                    </div>
+                    <?php $docRequests = $workspace['document_requests'] ?? []; ?>
+                    <?php if ($docRequests === []): ?>
+                        <p class="text-muted small px-2 py-3 mb-0">No document requests yet. Add items the client should upload.</p>
+                    <?php else: ?>
+                        <ul class="case-doc-request-list mb-0">
+                            <?php foreach ($docRequests as $req): ?>
+                                <li class="case-doc-request-item case-doc-request-item--<?= e($req['status']) ?>">
+                                    <div>
+                                        <strong><?= e($req['label']) ?></strong>
+                                        <?php if (!empty($req['required'])): ?><span class="checklist-required-badge">Required</span><?php endif; ?>
+                                        <?php if (!empty($req['description'])): ?><small class="d-block text-muted"><?= e($req['description']) ?></small><?php endif; ?>
+                                        <?php if ($req['status'] === 'uploaded' && !empty($req['document_name'])): ?>
+                                            <small class="d-block text-success"><i class="bi bi-check-circle"></i> <?= e($req['document_name']) ?></small>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="d-flex gap-1">
+                                        <?php if ($req['status'] === 'pending'): ?>
+                                            <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
+                                                <?= CSRF::field() ?>
+                                                <input type="hidden" name="action" value="waive_document_request">
+                                                <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                <input type="hidden" name="request_id" value="<?= (int) $req['id'] ?>">
+                                                <button type="submit" class="btn btn-soft btn-sm">Waive</button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Remove this request?');">
+                                            <?= CSRF::field() ?>
+                                            <input type="hidden" name="action" value="delete_document_request">
+                                            <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                            <input type="hidden" name="request_id" value="<?= (int) $req['id'] ?>">
+                                            <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                                        </form>
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+
                 <?php if (!empty($workspace['documents'])): ?>
                 <div class="case-toolbar">
                     <div class="case-toolbar-search">
@@ -292,7 +362,11 @@ require __DIR__ . '/../includes/header.php';
                             <tbody>
                                 <?php foreach ($workspace['documents'] as $doc): ?>
                                     <tr data-source="<?= e($doc['upload_source'] ?? 'admin') ?>">
-                                        <td><span class="table-primary"><?= e($doc['original_name'] ?? $doc['file_name']) ?></span><small class="d-block text-muted"><?= strtoupper(e($doc['file_type'] ?? '')) ?> · <?= number_format(($doc['file_size'] ?? 0) / 1024, 1) ?> KB</small></td>
+                                        <td><span class="table-primary"><?= e($doc['original_name'] ?? $doc['file_name']) ?></span><small class="d-block text-muted"><?= strtoupper(e($doc['file_type'] ?? '')) ?> · <?= number_format(($doc['file_size'] ?? 0) / 1024, 1) ?> KB</small>
+                                        <?php if (!empty($doc['ai_summary'])): ?>
+                                            <details class="doc-ai-summary mt-1"><summary class="small text-primary">AI summary</summary><div class="small text-muted mt-1"><?= nl2br(e($doc['ai_summary'])) ?></div></details>
+                                        <?php endif; ?>
+                                        </td>
                                         <td><span class="status-badge badge-<?= ($doc['upload_source'] ?? 'admin') === 'client' ? 'scheduled' : 'default' ?>"><?= ucfirst($doc['upload_source'] ?? 'admin') ?></span></td>
                                         <td><?= e($doc['uploader_name'] ?? 'System') ?></td>
                                         <td class="text-muted"><?= formatDateTime($doc['created_at']) ?></td>
@@ -573,6 +647,81 @@ require __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
+        <!-- Deadlines -->
+        <div class="tab-pane fade" id="deadlines">
+            <div class="case-panel">
+                <div class="case-panel-header">
+                    <h3 class="case-panel-title mb-0">Deadlines &amp; limitations</h3>
+                </div>
+                <form method="post" action="<?= url('actions/case-action.php') ?>" class="row g-2 align-items-end mb-3 pb-3 border-bottom">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="add_deadline">
+                    <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                    <div class="col-md-3">
+                        <label class="form-label small">Label</label>
+                        <input type="text" name="label" class="form-control form-control-sm" placeholder="Filing deadline" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Type</label>
+                        <select name="deadline_type" class="form-select form-select-sm">
+                            <?php foreach (CaseDeadlineService::TYPES as $dtype): ?>
+                                <option value="<?= e($dtype) ?>"><?= e(CaseDeadlineService::typeLabel($dtype)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Due date</label>
+                        <input type="date" name="due_date" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Notes</label>
+                        <input type="text" name="notes" class="form-control form-control-sm" placeholder="Optional">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">Add deadline</button>
+                    </div>
+                </form>
+                <?php $deadlines = $workspace['deadlines'] ?? []; ?>
+                <?php if ($deadlines === []): ?>
+                    <p class="text-muted small mb-0">No deadlines tracked for this case.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table saas-table mb-0">
+                            <thead><tr><th>Deadline</th><th>Type</th><th>Due</th><th>Status</th><th></th></tr></thead>
+                            <tbody>
+                                <?php foreach ($deadlines as $dl): ?>
+                                    <tr>
+                                        <td><strong><?= e($dl['label']) ?></strong><?php if (!empty($dl['notes'])): ?><small class="d-block text-muted"><?= e($dl['notes']) ?></small><?php endif; ?></td>
+                                        <td><?= e(CaseDeadlineService::typeLabel((string) $dl['deadline_type'])) ?></td>
+                                        <td><?= formatDate($dl['due_date']) ?></td>
+                                        <td><span class="status-badge badge-<?= $dl['status'] === 'completed' ? 'completed' : ($dl['status'] === 'overdue' ? 'overdue' : 'pending') ?>"><?= ucfirst(e($dl['status'])) ?></span></td>
+                                        <td class="text-end">
+                                            <?php if ($dl['status'] !== 'completed'): ?>
+                                                <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline">
+                                                    <?= CSRF::field() ?>
+                                                    <input type="hidden" name="action" value="complete_deadline">
+                                                    <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                    <input type="hidden" name="deadline_id" value="<?= (int) $dl['id'] ?>">
+                                                    <button type="submit" class="btn btn-soft btn-sm">Complete</button>
+                                                </form>
+                                            <?php endif; ?>
+                                            <form method="post" action="<?= url('actions/case-action.php') ?>" class="d-inline" onsubmit="return confirm('Remove this deadline?');">
+                                                <?= CSRF::field() ?>
+                                                <input type="hidden" name="action" value="delete_deadline">
+                                                <input type="hidden" name="case_id" value="<?= $caseId ?>">
+                                                <input type="hidden" name="deadline_id" value="<?= (int) $dl['id'] ?>">
+                                                <button type="submit" class="btn btn-soft-danger btn-sm">Delete</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
         <!-- Notes -->
         <div class="tab-pane fade" id="notes">
             <div class="case-panel">
@@ -624,6 +773,7 @@ require __DIR__ . '/../includes/header.php';
                         <option value="status">Status changes</option>
                         <option value="note">Notes</option>
                         <option value="appointment">Appointments</option>
+                        <option value="deadline">Deadlines</option>
                     </select>
                     <?php endif; ?>
                 </div>

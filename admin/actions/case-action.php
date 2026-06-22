@@ -145,6 +145,61 @@ try {
             redirectCase($caseId, 'checklist');
             break;
 
+        case 'add_deadline':
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
+            CaseDeadlineService::add($caseId, $_POST, Auth::id());
+            flash('success', 'Deadline added.');
+            redirectCase($caseId, 'deadlines');
+            break;
+
+        case 'complete_deadline':
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
+            $deadlineId = (int) ($_POST['deadline_id'] ?? 0);
+            CaseDeadlineService::complete($deadlineId, $caseId, Auth::id());
+            flash('success', 'Deadline marked complete.');
+            redirectCase($caseId, 'deadlines');
+            break;
+
+        case 'delete_deadline':
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
+            CaseDeadlineService::delete((int) ($_POST['deadline_id'] ?? 0), $caseId);
+            flash('success', 'Deadline removed.');
+            redirectCase($caseId, 'deadlines');
+            break;
+
+        case 'add_document_request':
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
+            CaseDocumentRequestService::add($caseId, $_POST, Auth::id());
+            flash('success', 'Document request added.');
+            redirectCase($caseId, 'documents');
+            break;
+
+        case 'waive_document_request':
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
+            CaseDocumentRequestService::waive((int) ($_POST['request_id'] ?? 0), $caseId, Auth::id());
+            flash('success', 'Document request waived.');
+            redirectCase($caseId, 'documents');
+            break;
+
+        case 'delete_document_request':
+            if ($isClient) {
+                throw new RuntimeException('Access denied.');
+            }
+            CaseDocumentRequestService::delete((int) ($_POST['request_id'] ?? 0), $caseId);
+            flash('success', 'Document request removed.');
+            redirectCase($caseId, 'documents');
+            break;
+
         case 'generate_quotation':            CaseService::generateQuotation($caseId, $_POST);
             flash('success', 'Quotation generated.');
             redirectCase($caseId, 'quotations');

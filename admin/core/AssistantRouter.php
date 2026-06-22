@@ -307,6 +307,10 @@ class AssistantRouter
             || preg_match('/\bmark all (?:notifications?|alerts?) read\b/', $message)) {
             return 'mark_notifications_read';
         }
+        if (preg_match('/\b(draft|generate|write|prepare)\b.*\b(client letter|engagement letter|letter)\b/', $message)
+            || preg_match('/\b(client letter|engagement letter)\b.*\b(for|on)\b.*\bcase\b/', $message)) {
+            return 'draft_client_letter';
+        }
 
         return null;
     }

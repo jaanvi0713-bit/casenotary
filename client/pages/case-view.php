@@ -15,6 +15,8 @@ if (!$case) {
 
 $workspace = CaseService::getWorkspace($caseId);
 $publishedLetters = ClientLetterService::getPublishedForClientCase($caseId, $clientId);
+$clientTimeline = CaseService::getClientActivity($caseId);
+$docRequests = CaseDocumentRequestService::listForCase($caseId);
 $company = getCompanySettings();
 $pageTitle = $case['case_number'];
 $pageSubtitle = $case['title'] ?? '';
@@ -35,6 +37,7 @@ require __DIR__ . '/../includes/header.php';
 
     <ul class="nav nav-tabs case-tabs" role="tablist">
         <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button">Overview</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#progress" type="button">Progress</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#documents" type="button">Documents</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#quotations" type="button">Quotations</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#invoices" type="button">Invoices</button></li>
@@ -70,8 +73,57 @@ require __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         </div>
 
+        <div class="tab-pane fade" id="progress">
+            <div class="case-panel">
+                <h3 class="case-panel-title">Case progress</h3>
+                <?php if ($clientTimeline === []): ?>
+                    <p class="text-muted small mb-0">Updates will appear here as your case moves forward.</p>
+                <?php else: ?>
+                    <ul class="case-timeline">
+                        <?php
+                        $lastGroup = '';
+                        foreach ($clientTimeline as $ev):
+                            $group = caseActivityDateLabel($ev['time']);
+                            if ($group !== $lastGroup):
+                                $lastGroup = $group;
+                        ?>
+                            <li class="case-timeline-group"><?= e($group) ?></li>
+                        <?php endif; ?>
+                            <li class="case-timeline-item">
+                                <div class="case-timeline-icon <?= caseActivityTone($ev['type']) ?>"><i class="bi <?= caseActivityIcon($ev['type']) ?>"></i></div>
+                                <div class="case-timeline-body">
+                                    <strong><?= e($ev['title']) ?></strong>
+                                    <?php if (!empty($ev['detail'])): ?><span><?= e($ev['detail']) ?></span><?php endif; ?>
+                                    <div class="case-timeline-meta"><time><?= formatDateTime($ev['time']) ?></time></div>
+                                </div>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
+
         <div class="tab-pane fade" id="documents">
             <div class="case-panel">
+                <?php if ($docRequests !== []): ?>
+                <div class="case-doc-request-client mb-4">
+                    <h3 class="case-panel-title h6">Documents we need from you</h3>
+                    <ul class="case-doc-request-list">
+                        <?php foreach ($docRequests as $req): ?>
+                            <li class="case-doc-request-item case-doc-request-item--<?= e($req['status']) ?>">
+                                <div>
+                                    <strong><?= e($req['label']) ?></strong>
+                                    <?php if (!empty($req['required'])): ?><span class="checklist-required-badge">Required</span><?php endif; ?>
+                                    <?php if (!empty($req['description'])): ?><small class="d-block text-muted"><?= e($req['description']) ?></small><?php endif; ?>
+                                </div>
+                                <span class="status-badge badge-<?= $req['status'] === 'uploaded' ? 'completed' : ($req['status'] === 'waived' ? 'default' : 'pending') ?>">
+                                    <?= $req['status'] === 'uploaded' ? 'Received' : ($req['status'] === 'waived' ? 'Waived' : 'Pending') ?>
+                                </span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
                 <div class="case-panel-header">
                     <h3 class="case-panel-title mb-0">Documents</h3>
                     <form method="post" action="<?= adminUrl('actions/case-action.php') ?>" enctype="multipart/form-data" class="case-upload-form">

@@ -5,6 +5,7 @@ $company = getCompanySettings();
 $navItems = [
     ['icon' => 'bi-grid', 'label' => 'Dashboard', 'href' => 'pages/dashboard.php', 'page' => 'dashboard'],
     ['icon' => 'bi-briefcase', 'label' => 'Cases', 'href' => 'pages/cases.php', 'page' => 'cases'],
+    ['icon' => 'bi-chat-square-text', 'label' => 'Request Service', 'href' => 'pages/intake.php', 'page' => 'intake'],
     ['icon' => 'bi-credit-card', 'label' => 'Payments', 'href' => 'pages/payments.php', 'page' => 'payments'],
     ['icon' => 'bi-calendar3', 'label' => 'Appointments', 'href' => 'pages/appointments.php', 'page' => 'appointments'],
     ['icon' => 'bi-envelope', 'label' => 'Contact', 'href' => 'pages/contact.php', 'page' => 'contact'],

@@ -209,12 +209,15 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
     <p class="biz-section-label">Team workload</p>
     <div class="table-responsive biz-table-wrap">
         <table class="table saas-table mb-0">
-            <thead><tr><th>Staff</th><th>Assigned cases</th><th>Completed</th><th>Efficiency</th></tr></thead>
+            <thead><tr><th>Staff</th><th>Open</th><th>Urgent</th><th>Appts (7d)</th><th>Total</th><th>Completed</th><th>Efficiency</th></tr></thead>
             <tbody>
                 <?php foreach ($operational['staff_workload'] as $row): ?>
                 <?php $eff = (int) $row['case_count'] > 0 ? round((int) $row['completed'] / (int) $row['case_count'] * 100) : 0; ?>
                 <tr>
                     <td><?= e(trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''))) ?></td>
+                    <td><?= (int) ($row['open_cases'] ?? 0) ?></td>
+                    <td><?= (int) ($row['urgent_open'] ?? 0) ?></td>
+                    <td><?= (int) ($row['appointments_week'] ?? 0) ?></td>
                     <td><?= (int) $row['case_count'] ?></td>
                     <td><?= (int) $row['completed'] ?></td>
                     <td><div class="biz-bar-track" style="max-width:120px;display:inline-block;vertical-align:middle;width:80px"><div class="biz-bar-fill" style="width:<?= $eff ?>%"></div></div> <?= $eff ?>%</td>
@@ -223,6 +226,19 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
             </tbody>
         </table>
     </div>
+    <?php if (!empty($operational['deadline_alerts'])): ?>
+    <p class="biz-section-label mt-3">Upcoming deadlines</p>
+    <ul class="biz-alert-list mb-0">
+        <?php foreach ($operational['deadline_alerts'] as $dl): ?>
+        <li class="biz-alert-list__item">
+            <a href="<?= url('pages/case-view.php?id=' . (int) $dl['case_id'] . '#deadlines') ?>">
+                <strong><?= e($dl['label']) ?></strong> — <?= e($dl['case_number']) ?> · due <?= formatDate($dl['due_date']) ?>
+                <?php if (($dl['status'] ?? '') === 'overdue'): ?><span class="text-danger">(overdue)</span><?php endif; ?>
+            </a>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
     <?php endif; ?>
 
     <p class="biz-section-label">Case pipeline funnel</p>

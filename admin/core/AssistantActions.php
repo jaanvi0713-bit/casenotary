@@ -21,8 +21,9 @@ class AssistantActions
             'mark_notifications_read' => self::draftMarkNotificationsRead(),
             'upload_case_document' => self::draftUploadCaseDocument($message, $uploads),
             'create_client' => self::draftCreateClient($message),
+            'draft_client_letter' => self::draftClientLetter($message),
             default => [
-                'content' => 'I could not determine which system action you want. Try **create a case**, **create new client**, **update case status**, **schedule appointment**, **upload document to case**, **confirm/cancel/reschedule appointment**, or **mark notifications read**.',
+                'content' => 'I could not determine which system action you want. Try **create a case**, **create new client**, **draft client letter**, **update case status**, **schedule appointment**, **upload document to case**, **confirm/cancel/reschedule appointment**, or **mark notifications read**.',
                 'type' => 'text',
             ],
         };
@@ -54,6 +55,7 @@ class AssistantActions
             'upload_case_document' => self::executeUploadCaseDocument($draft['payload'], $adminId),
             'create_client' => self::executeCreateClient($draft['payload']),
             'create_client_and_case' => self::executeCreateClientAndCase($draft['payload'], $adminId),
+            'draft_client_letter' => self::executeDraftClientLetter($draft['payload']),
             default => throw new RuntimeException('Unknown draft action.'),
         };
 
@@ -945,5 +947,95 @@ class AssistantActions
 
             $_SESSION[self::DRAFT_SESSION_KEY][(string) $draft['id']] = $draft;
         }
+    }
+
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftClientLetter(string $message): array
+    {
+        $case = self::resolveCaseFromMessage($message);
+        if ($case === null) {
+            return [
+                'content' => 'Specify which case — e.g. **draft client letter for case CASE-2026-ABC12**.',
+                'type' => 'text',
+            ];
+        }
+
+        $caseId = (int) $case['id'];
+        $sections = ClientLetterService::getSectionsForCase($caseId);
+        $client = ClientService::getById((int) $case['client_id']);
+        $billing = CaseService::getCaseBilling($case);
+
+        $contextBlock = 'Case: ' . ($case['case_number'] ?? '') . "\n"
+            . 'Title: ' . ($case['title'] ?? '') . "\n"
+            . 'Service: ' . ($case['service_type'] ?? '') . "\n"
+            . 'Client: ' . ($client ? clientFullName($client) : '') . "\n"
+            . 'Fee: ' . formatCurrency((float) ($billing['totals']['grand_total'] ?? $case['service_fee'] ?? 0)) . "\n"
+            . 'Description: ' . ($case['description'] ?? '');
+
+        if (OllamaService::isEnabled()) {
+            $aiNotes = trim(OllamaService::chat([
+                [
+                    'role' => 'user',
+                    'content' => "Write 2-3 short HTML paragraphs for a notary engagement letter 'additional_notes' section. Use <p> tags only. Be professional. Case details:\n" . $contextBlock,
+                ],
+            ]));
+            if ($aiNotes !== '') {
+                $sections['additional_notes'] = $aiNotes;
+            }
+        }
+
+        if (trim((string) ($sections['additional_notes'] ?? '')) === '') {
+            $sections['additional_notes'] = '<p>This engagement relates to <strong>'
+                . htmlspecialchars((string) ($case['title'] ?? 'your matter'), ENT_QUOTES, 'UTF-8')
+                . '</strong> (' . htmlspecialchars((string) ($case['service_type'] ?? 'notarial services'), ENT_QUOTES, 'UTF-8') . ').</p>';
+        }
+
+        $preview = [
+            'Case' => (string) ($case['case_number'] ?? ''),
+            'Client' => $client ? clientFullName($client) : '—',
+            'Service' => (string) ($case['service_type'] ?? '—'),
+        ];
+
+        return self::buildDraftResponse(
+            'draft_client_letter',
+            ['case_id' => $caseId, 'sections' => $sections],
+            $preview,
+            'Client letter draft prepared from case data. **Confirm** to save sections to the Client Letter tab (you can edit before generating PDF).'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeDraftClientLetter(array $payload): string
+    {
+        $caseId = (int) ($payload['case_id'] ?? 0);
+        $sections = $payload['sections'] ?? [];
+        if ($caseId <= 0 || !is_array($sections)) {
+            throw new RuntimeException('Invalid letter draft.');
+        }
+
+        ClientLetterService::saveCaseSections($caseId, $sections);
+        CaseService::logCaseEvent($caseId, 'letter_drafted', ['via' => 'assistant'], Auth::id());
+
+        $case = CaseService::getCaseById($caseId);
+
+        return 'Client letter sections saved for case **' . ($case['case_number'] ?? $caseId) . '**. Open the **Client Letter** tab to review and generate the PDF.';
+    }
+
+    /** @return ?array<string, mixed> */
+    private static function resolveCaseFromMessage(string $message): ?array
+    {
+        if (preg_match('/case[- ]?#?\s*([A-Z0-9-]+)/i', $message, $m)) {
+            $ref = trim($m[1]);
+            $row = Database::fetch('SELECT * FROM cases WHERE case_number = ? LIMIT 1', [$ref]);
+            if ($row) {
+                return $row;
+            }
+        }
+
+        if (preg_match('/\bcase\s+id\s+(\d+)\b/i', $message, $m)) {
+            return CaseService::getCaseById((int) $m[1]);
+        }
+
+        return null;
     }
 }
