@@ -187,7 +187,7 @@ require __DIR__ . '/../includes/header.php';
                 <?php else: ?>
 
                     <p class="assistant-input-tip mb-0 mt-2">
-                        <span><strong>Tip:</strong> Attach one or more PDFs, screenshots, or photos — text is read in your browser, then analyzed.</span>
+                        <span><strong>Tip:</strong> Attach one or more PDFs, screenshots, or photos.</span>
                     </p>
 
                 <?php endif; ?>
