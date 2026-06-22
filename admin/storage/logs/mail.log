@@ -534,6 +534,7 @@ Payment receivedHi Gary Coll,Payment received£ 3,400.00 for INV-2026-SRET6Open 
 Subject: Payment received
 Payment receivedHi Max Holly,Payment received£ 3,400.00 for INV-2026-SRET6Open in portalYou can change notification preferences under Settings → Notification Preferences.
 ------------------------------------------------------------
+<<<<<<< Updated upstream
 2026-06-17 08:51:59 | To: admin@admin.com
 Subject: Invoice generated
 Invoice generatedHi Admin User,Invoice generatedINV-2026-SXKWL — £ 15,630.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
@@ -605,3 +606,64 @@ Invoice overdueHi Gary Coll,Invoice overdueINV-2026-XF2B3 — due Jun 17, 2026Op
 2026-06-22 02:42:52 | To: max@gmail.com
 Subject: Invoice overdue
 Invoice overdueHi Max Holly,Invoice overdueINV-2026-XF2B3 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+=======
+2026-06-19 12:28:17 | To: Louismac@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi there,Invoice overdueINV-2026-0005 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: admin@admin.com
+Subject: Invoice overdue
+Invoice overdueHi Admin User,Invoice overdueINV-2026-0005 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: avi@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Avi Avi,Invoice overdueINV-2026-0005 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: fran@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Francis Barber,Invoice overdueINV-2026-0005 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: max@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Max Holly,Invoice overdueINV-2026-0005 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: Louismac@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi there,Invoice overdueINV-2026-0006 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: admin@admin.com
+Subject: Invoice overdue
+Invoice overdueHi Admin User,Invoice overdueINV-2026-0006 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: avi@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Avi Avi,Invoice overdueINV-2026-0006 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: fran@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Francis Barber,Invoice overdueINV-2026-0006 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: max@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Max Holly,Invoice overdueINV-2026-0006 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: Louismac@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi there,Invoice overdueINV-2026-0007 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: admin@admin.com
+Subject: Invoice overdue
+Invoice overdueHi Admin User,Invoice overdueINV-2026-0007 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: avi@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Avi Avi,Invoice overdueINV-2026-0007 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: fran@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Francis Barber,Invoice overdueINV-2026-0007 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-19 12:28:17 | To: max@gmail.com
+Subject: Invoice overdue
+Invoice overdueHi Max Holly,Invoice overdueINV-2026-0007 — due Jun 17, 2026Open in portalYou can change notification preferences under Settings → Notification Preferences.
+>>>>>>> Stashed changes
