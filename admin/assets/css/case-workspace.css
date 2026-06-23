@@ -1337,24 +1337,6 @@ textarea.case-form-control {
     cursor: pointer;
 }
 
-.client-intake-card {
-    background: var(--gray-50);
-    border: 1px solid var(--gray-200);
-    border-radius: 10px;
-    padding: 1rem;
-    height: 100%;
-}
-
-.client-intake-card__label {
-    display: block;
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    margin-bottom: 0.35rem;
-}
-
 .biz-alert-list {
     list-style: none;
     margin: 0;
