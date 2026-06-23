@@ -2921,7 +2921,7 @@ body.page-assistant .assistant-layout {
     margin-bottom: 1rem;
 }
 
-.assistant-message-user { align-items: flex-end; }
+.assistant-message-user { align-items: flex-end; width: 100%; }
 .assistant-message-bot { align-items: flex-start; }
 
 .assistant-message__content {
@@ -2931,7 +2931,11 @@ body.page-assistant .assistant-layout {
 }
 
 .assistant-message-user .assistant-message__content {
-    align-items: flex-end;
+    display: block;
+    width: auto;
+    max-width: min(80%, 42rem);
+    margin-left: auto;
+    text-align: right;
 }
 
 .assistant-message-bot .assistant-message__content {
@@ -2999,13 +3003,25 @@ body.page-assistant .assistant-layout {
     padding: 0.75rem 1rem;
     border-radius: 14px;
     line-height: 1.5;
-    word-break: break-word;
+    overflow-wrap: break-word;
+    word-break: normal;
 }
 
 .assistant-message-user .assistant-bubble {
     background: var(--primary);
     color: #fff;
     border-bottom-right-radius: 4px;
+    display: inline-block;
+    width: auto;
+    max-width: 100%;
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: normal;
+    overflow-wrap: break-word;
+}
+
+.assistant-message-user .assistant-message__actions {
+    justify-content: flex-end;
 }
 
 .assistant-message-bot .assistant-bubble {
