@@ -667,6 +667,11 @@ class AssistantService
         return false;
     }
 
+    public static function exampleClientName(): string
+    {
+        return self::quickPromptScheduleClientName();
+    }
+
     private static function quickPromptScheduleClientName(): string
     {
         $where = [];

@@ -2,6 +2,8 @@
 
 /** @var array<string, mixed> $company */
 
+$assistantExampleClient = AssistantService::exampleClientName();
+
 ?>
 
 <div class="assistant-message assistant-message-bot assistant-welcome">
@@ -20,15 +22,9 @@
 
         </p>
 
-        <p class="assistant-welcome__text mb-2">
-
-            Built-in assistant — no external AI server required. Ask for **dashboard metrics**, **search** clients or cases, **schedule appointments**, **create cases/clients**, **client intake**, **document scan &amp; Q&amp;A**, **send reminders** (confirm to send), **message drafts**, or **notary definitions &amp; FAQs**.
-
-        </p>
-
         <p class="assistant-welcome__text mb-0">
 
-            Select a quick prompt below, type _what can you do?_, or start with e.g. _Schedule appointment for Louis Macwell tomorrow at 2pm_.
+            From this unified space, you can instantly view dashboard metrics, search clients or cases, scan documents for quick Q&amp;As, handle client intake, schedule appointments, and draft messages or reminders. To get started, select a quick prompt below or try typing a command like: &ldquo;Schedule appointment for <?= e($assistantExampleClient) ?> tomorrow at 2pm.&rdquo;
 
         </p>
 

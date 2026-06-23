@@ -635,7 +635,7 @@ require __DIR__ . '/../includes/header.php';
                                     <strong class="checklist-item-label"><?= e((string) ($item['label'] ?? '')) ?></strong>
                                 </div>
                                 <div class="checklist-item-actions">
-                                    <?php if (!empty($item['required'])): ?>
+                                    <?php if (!empty($item['required']) && empty($item['completed'])): ?>
                                         <span class="btn btn-sm btn-soft-danger checklist-action-btn checklist-required-badge">Required</span>
                                     <?php endif; ?>
                                     <button type="submit" class="btn btn-sm btn-soft checklist-action-btn">
