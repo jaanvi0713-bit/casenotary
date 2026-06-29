@@ -693,6 +693,10 @@
     color: var(--text-label);
 }
 
+[data-theme="dark"] .stat-card-value {
+    color: #fff;
+}
+
 /* Soft buttons */
 [data-theme="dark"] .btn-soft {
     background: var(--primary-light);
@@ -1723,6 +1727,31 @@
 [data-theme="dark"] .contact-info-card {
     background: var(--surface) !important;
     border-color: var(--border-default);
+}
+
+[data-theme="dark"] .contact-page .contact-info-term,
+[data-theme="dark"] .contact-quick-tile-title {
+    color: #fff !important;
+}
+
+[data-theme="dark"] .contact-quick-tile {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .contact-quick-tile:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    color: inherit;
+}
+
+[data-theme="dark"] .contact-quick-tile-footer {
+    border-top-color: var(--border-subtle);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .contact-thread-link strong {
+    color: #fff !important;
 }
 
 /* Full page chatbot layout */

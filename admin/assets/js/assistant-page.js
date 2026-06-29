@@ -1466,15 +1466,6 @@
 
         var hasPending = pendingAttachments.length > 0;
 
-        if (hasPending && pendingAttachments.some(function (entry) {
-            return entry.status === "reading" || entry.status === "pending";
-        })) {
-            appendAssistantTurn({
-                content: "Please wait until attached files finish **reading** before sending."
-            });
-            return;
-        }
-
         if (!text && !hasPending) {
 
             return;
