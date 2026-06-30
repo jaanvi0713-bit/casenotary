@@ -243,6 +243,11 @@ class AssistantService
             return $result;
         }
 
+        $interruptAction = self::tryInterruptingAction($message, $uploads);
+        if ($interruptAction !== null) {
+            return $interruptAction;
+        }
+
         $caseInfo = AssistantCaseInfo::tryAnswer($message);
         if ($caseInfo !== null) {
             $caseInfo['type'] = $caseInfo['type'] ?? 'text';
@@ -677,6 +682,45 @@ class AssistantService
         AssistantAppointmentSchedule::clear();
         AssistantIntake::clear();
         AssistantClientCreate::clear();
+    }
+
+    /**
+     * @param list<array<string, mixed>> $uploads
+     * @return array{content: string, type: string, draft?: array<string, mixed>, alerts?: list<array<string, string>>}|null
+     */
+    private static function tryInterruptingAction(string $message, array $uploads): ?array
+    {
+        $topic = AssistantRouter::actionTopic($message);
+        if ($topic === null) {
+            return null;
+        }
+
+        $interruptTopics = [
+            'delete_case',
+            'delete_document',
+            'delete_payment',
+            'delete_invoice',
+            'create_case',
+            'create_client',
+            'update_case',
+            'record_payment',
+            'generate_invoice',
+            'send_invoice',
+            'add_case_note',
+        ];
+
+        if (!in_array($topic, $interruptTopics, true)) {
+            return null;
+        }
+
+        if (AssistantClientCreate::isActive() || AssistantAppointmentSchedule::isActive() || AssistantIntake::isActive()) {
+            self::clearActiveWizards();
+        }
+
+        $result = AssistantActions::handle($topic, $message, $uploads);
+        $result['type'] = $result['type'] ?? (isset($result['draft']) ? 'draft' : 'text');
+
+        return $result;
     }
 
     public static function messageOverridesActiveWizards(string $message): bool

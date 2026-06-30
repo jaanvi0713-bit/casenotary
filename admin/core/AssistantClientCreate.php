@@ -70,6 +70,13 @@ class AssistantClientCreate
         $prefillName = trim($prefillName);
         $caseContext = self::normalizeCaseContext($caseContext);
 
+        if ($prefillName !== '' && self::wantsCase($caseContext)) {
+            $clientId = assistantResolveClientId($prefillName);
+            if ($clientId !== null) {
+                return self::beginCaseForExistingClient($clientId, $caseContext);
+            }
+        }
+
         if ($prefillName !== '') {
             $names = assistantSplitPersonName($prefillName);
             if ($names['first_name'] !== '' && $names['last_name'] !== '') {
@@ -90,6 +97,81 @@ class AssistantClientCreate
     }
 
     /**
+     * @param array<string, mixed> $caseContext
+     * @return array{content: string, type: string, draft?: array<string, mixed>, alerts?: list<array<string, string>>}
+     */
+    public static function beginCaseForExistingClient(int $clientId, array $caseContext = []): array
+    {
+        $client = ClientService::getById($clientId);
+        if (!$client) {
+            return [
+                'content' => 'I could not load that client record. Try **create a case for [client name]** again.',
+                'type'    => 'text',
+            ];
+        }
+
+        $caseContext = self::normalizeCaseContext(array_merge($caseContext, [
+            'create_case'      => true,
+            'client_id'        => $clientId,
+            'existing_client'  => true,
+        ]));
+
+        $_SESSION[self::SESSION_KEY] = [
+            'active' => true,
+            'step'   => 0,
+            'data'   => [],
+            'case'   => $caseContext,
+            'steps'  => self::CASE_STEPS,
+        ];
+
+        $response = self::promptForStep(0, $caseContext, false);
+        $response['content'] = 'I found **' . clientFullName($client) . '** on file. '
+            . "I'll only need the **case details** — no need to re-enter client info.\n\n"
+            . ($response['content'] ?? '');
+
+        return $response;
+    }
+
+    /**
+     * @return array{content: string, type: string, draft?: array<string, mixed>, alerts?: list<array<string, string>>}|null
+     */
+    private static function tryInterruptForExistingClient(string $message): ?array
+    {
+        $state = $_SESSION[self::SESSION_KEY] ?? [];
+        $caseContext = is_array($state['case'] ?? null) ? self::normalizeCaseContext($state['case']) : [];
+
+        if (preg_match('/\b(delete|remove|drop)\b/i', $message)
+            && assistantExtractCaseReferenceFromMessage($message) !== '') {
+            self::clear();
+
+            return AssistantActions::handle('delete_case', $message);
+        }
+
+        if (!self::wantsCase($caseContext)) {
+            return null;
+        }
+
+        if (!preg_match('/\b(create|open|start|make)\b.*\b(case|matter)\b/i', $message)
+            && !preg_match('/\bnew\s+(?:case|matter)\s+for\b/i', $message)) {
+            return null;
+        }
+
+        $name = assistantExtractClientNameForCreateCase($message);
+        if ($name === '') {
+            return null;
+        }
+
+        $clientId = assistantResolveClientId($name);
+        if ($clientId === null) {
+            return null;
+        }
+
+        self::clear();
+
+        return AssistantActions::handle('create_case', $message);
+    }
+
+    /**
      * @return array{content: string, type: string, draft?: array<string, mixed>, alerts?: list<array<string, string>>}
      */
     public static function handle(string $message): array
@@ -97,6 +179,11 @@ class AssistantClientCreate
         $state = $_SESSION[self::SESSION_KEY] ?? null;
         if (!is_array($state) || empty($state['active'])) {
             return self::begin();
+        }
+
+        $interrupt = self::tryInterruptForExistingClient($message);
+        if ($interrupt !== null) {
+            return $interrupt;
         }
 
         $step = (int) ($state['step'] ?? 0);
@@ -147,6 +234,10 @@ class AssistantClientCreate
      */
     private static function buildStepPlan(array $caseContext, array $data): array
     {
+        if (!empty($caseContext['existing_client'])) {
+            return self::CASE_STEPS;
+        }
+
         $steps = self::CLIENT_STEPS;
 
         if (!self::wantsCase($caseContext)) {
@@ -277,9 +368,13 @@ class AssistantClientCreate
             ? $state['steps']
             : self::buildStepPlan($caseContext, is_array($state['data'] ?? null) ? $state['data'] : []);
         $wantsCase = self::wantsCase($caseContext);
-        $intro = $wantsCase
-            ? "**Let’s set up the new client first, then the case.** All fields are required.\n\n"
-            : "**Let’s add a new client.** All fields below are required.\n\n";
+        if (!empty($caseContext['existing_client'])) {
+            $intro = "**Case setup for an existing client.**\n\n";
+        } elseif ($wantsCase) {
+            $intro = "**Let’s set up the new client first, then the case.** All fields are required.\n\n";
+        } else {
+            $intro = "**Let’s add a new client.** All fields below are required.\n\n";
+        }
 
         if ($namePrefilled && $step === 1) {
             $name = (string) ($_SESSION[self::SESSION_KEY]['data']['full_name'] ?? '');
@@ -326,6 +421,10 @@ class AssistantClientCreate
         $data = is_array($state['data'] ?? null) ? $state['data'] : [];
         $caseContext = is_array($state['case'] ?? null) ? self::normalizeCaseContext($state['case']) : [];
         self::clear();
+
+        if (!empty($caseContext['existing_client']) && !empty($caseContext['client_id'])) {
+            return self::completeCaseOnlyWizard($alerts, $data, $caseContext);
+        }
 
         $names = assistantSplitPersonName((string) ($data['full_name'] ?? ''));
         $clientPayload = [
@@ -408,6 +507,66 @@ class AssistantClientCreate
                 'Review the new **client** below. Edit any field in the draft or say _change country to UK_ before you click **Confirm**.'
             );
         }
+
+        if ($alerts !== []) {
+            $response['alerts'] = $alerts;
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $caseContext
+     * @param list<array<string, string>> $alerts
+     * @return array{content: string, type: string, draft?: array<string, mixed>, alerts?: list<array<string, string>>}
+     */
+    private static function completeCaseOnlyWizard(array $alerts, array $data, array $caseContext): array
+    {
+        $clientId = (int) ($caseContext['client_id'] ?? 0);
+        $client = ClientService::getById($clientId);
+        if (!$client) {
+            return [
+                'content' => 'Client record not found. Say **create a case for [client name]** to try again.',
+                'type'    => 'text',
+            ];
+        }
+
+        $title = trim((string) ($data['case_title'] ?? $caseContext['title'] ?? ''));
+        $serviceType = trim((string) ($data['service_type'] ?? $caseContext['service_type'] ?? ''));
+        $description = array_key_exists('case_description', $data)
+            ? (string) $data['case_description']
+            : trim((string) ($caseContext['description'] ?? ''));
+
+        if ($title === '' || $serviceType === '') {
+            return [
+                'content' => 'Case **title** and **service type** are required. Say **create a case for ' . clientFullName($client) . '** to start again.',
+                'type'    => 'text',
+            ];
+        }
+
+        $payload = [
+            'title'        => $title,
+            'description'  => $description,
+            'client_id'    => $clientId,
+            'service_type' => $serviceType,
+            'service_fee'  => 0,
+        ];
+
+        $preview = [
+            'Client'      => clientFullName($client),
+            'Title'       => $title,
+            'Service'     => $serviceType,
+            'Description' => $description !== '' ? $description : '—',
+            'Status'      => 'Pending (new)',
+        ];
+
+        $response = self::storeDraft(
+            'create_case',
+            $payload,
+            $preview,
+            'Review the new **case** for **' . clientFullName($client) . '**. Edit any field or click **Confirm** to create it.'
+        );
 
         if ($alerts !== []) {
             $response['alerts'] = $alerts;

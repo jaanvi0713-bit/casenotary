@@ -135,6 +135,14 @@ class AssistantActions
             ];
         }
 
+        if ($title === '' || $serviceType === '') {
+            return AssistantClientCreate::beginCaseForExistingClient($clientId, [
+                'title'        => $title,
+                'service_type' => $serviceType,
+                'description'  => $description,
+            ]);
+        }
+
         if ($title === '' && $serviceType !== '') {
             $title = ucfirst($serviceType) . ($clientName !== '' ? ' — ' . $clientName : '');
         }
@@ -1330,6 +1338,10 @@ class AssistantActions
     /** @param array<string, mixed> $payload */
     private static function executeDeleteCase(array $payload): string
     {
+        if (!Auth::canManage(RoleAccess::PERMISSION_CASES)) {
+            throw new RuntimeException('You do not have permission to delete cases.');
+        }
+
         $caseId = (int) ($payload['case_id'] ?? 0);
         $case = CaseService::getCaseById($caseId);
         if (!$case) {

@@ -70,9 +70,47 @@ function assistantFindClients(string $term, int $limit = 8): array
 
 function assistantResolveClientId(string $name): ?int
 {
-    $clients = assistantFindClients($name, 5);
+    $name = trim(preg_replace('/\s+/', ' ', $name));
+    if ($name === '' || assistantIsPlaceholderClientName($name)) {
+        return null;
+    }
+
+    $names = assistantSplitPersonName($name);
+    if ($names['first_name'] !== '' && $names['last_name'] !== '') {
+        $where = ['LOWER(TRIM(c.first_name)) = LOWER(?) AND LOWER(TRIM(c.last_name)) = LOWER(?)'];
+        $params = [$names['first_name'], $names['last_name']];
+        TenantService::appendClientScope($where, $params, 'c');
+        $exact = Database::fetch(
+            'SELECT c.id FROM clients c WHERE ' . implode(' AND ', $where) . ' ORDER BY c.updated_at DESC LIMIT 1',
+            $params
+        );
+        if (is_array($exact) && !empty($exact['id'])) {
+            return (int) $exact['id'];
+        }
+    }
+
+    $clients = assistantFindClients($name, 10);
     if ($clients === []) {
         return null;
+    }
+
+    $needle = strtolower($name);
+    foreach ($clients as $client) {
+        $fullName = strtolower(trim(clientFullName($client)));
+        if ($fullName === $needle) {
+            return (int) ($client['id'] ?? 0) ?: null;
+        }
+    }
+
+    if (count($clients) === 1) {
+        return (int) ($clients[0]['id'] ?? 0) ?: null;
+    }
+
+    foreach ($clients as $client) {
+        $fullName = strtolower(trim(clientFullName($client)));
+        if (str_starts_with($fullName, $needle) || str_contains($fullName, $needle)) {
+            return (int) ($client['id'] ?? 0) ?: null;
+        }
     }
 
     return (int) ($clients[0]['id'] ?? 0) ?: null;

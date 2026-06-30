@@ -42,8 +42,7 @@ class AssistantRouter
         }
 
         if (AssistantClientCreate::isActive()) {
-            if (preg_match('/\b(cancel|stop|exit|end|abort)\b.*\b(client|wizard)\b/', $normalized)
-                || preg_match('/\b(cancel client|stop client)\b/', $normalized)
+            if (preg_match('/\b(cancel|stop|never mind|nevermind|abort)\b/i', $normalized)
                 || preg_match('/^(cancel|stop|never mind|nevermind)$/i', $normalized)) {
                 AssistantClientCreate::clear();
 
@@ -52,6 +51,12 @@ class AssistantRouter
                     'topic' => 'client_create_cancelled',
                     'message' => $message,
                 ];
+            }
+
+            if ($topic = self::matchActionTopic($normalized)) {
+                AssistantClientCreate::clear();
+
+                return ['intent' => self::INTENT_ACTION, 'topic' => $topic, 'message' => $message];
             }
 
             return ['intent' => self::INTENT_CLIENT_CREATE, 'topic' => 'wizard', 'message' => $message];
@@ -324,6 +329,12 @@ class AssistantRouter
 
     private static function matchActionTopic(string $message): ?string
     {
+        if (preg_match('/\b(delete|remove|drop)\b/i', $message)
+            && assistantExtractCaseReferenceFromMessage($message) !== ''
+            && !preg_match('/\b(document|file|invoice|payment)\b/i', $message)) {
+            return 'delete_case';
+        }
+
         if (preg_match('/\b(delete|remove)\b.*\bpayment\b/i', $message)) {
             return 'delete_payment';
         }

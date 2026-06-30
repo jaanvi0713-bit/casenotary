@@ -79,7 +79,8 @@ class AssistantCaseInfo
         }
 
         if (assistantExtractCaseReferenceFromMessage($message) !== ''
-            && preg_match('/\b(case|matter)\b/i', $message)) {
+            && preg_match('/\b(case|matter)\b/i', $message)
+            && !preg_match('/\b(delete|remove|drop|cancel)\b/i', $message)) {
             return true;
         }
 

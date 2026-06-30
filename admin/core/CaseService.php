@@ -2557,6 +2557,40 @@ class CaseService
             }
         }
 
+        foreach ([
+            'case_notes',
+            'case_status_history',
+            'case_deadlines',
+            'case_document_requests',
+            'case_client_letters',
+            'documents',
+            'proposals',
+            'quotations',
+        ] as $table) {
+            if (!Database::tableExists($table) || !Database::columnExists($table, 'case_id')) {
+                continue;
+            }
+
+            Database::query("DELETE FROM {$table} WHERE case_id = ?", [$caseId]);
+        }
+
+        if (Database::tableExists('invoices') && Database::columnExists('invoices', 'case_id')) {
+            $invoices = Database::fetchAll('SELECT id FROM invoices WHERE case_id = ?', [$caseId]);
+            foreach ($invoices as $invoice) {
+                $invoiceId = (int) ($invoice['id'] ?? 0);
+                if ($invoiceId <= 0) {
+                    continue;
+                }
+                if (Database::tableExists('payments')) {
+                    Database::query('DELETE FROM payments WHERE invoice_id = ?', [$invoiceId]);
+                }
+                if (Database::tableExists('receipts')) {
+                    Database::query('DELETE FROM receipts WHERE invoice_id = ?', [$invoiceId]);
+                }
+                Database::query('DELETE FROM invoices WHERE id = ?', [$invoiceId]);
+            }
+        }
+
         Database::query('DELETE FROM cases WHERE id = ?', [$caseId]);
     }
 
