@@ -71,6 +71,7 @@ require_once __DIR__ . '/AssistantPracticeFaq.php';
 require_once __DIR__ . '/AssistantKnowledge.php';
 require_once __DIR__ . '/AssistantMessageDrafts.php';
 require_once __DIR__ . '/AssistantReminders.php';
+require_once __DIR__ . '/AssistantCaseInfo.php';
 require_once __DIR__ . '/AssistantBuiltin.php';
 require_once __DIR__ . '/ChatbotQueries.php';
 require_once __DIR__ . '/AssistantChatStore.php';

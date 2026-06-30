@@ -236,6 +236,20 @@ class AssistantService
         $hasClientItems = $clientDocumentItems !== [];
         $isMultiDocumentRequest = count($uploads) > 1 || count($clientDocumentItems) > 1;
 
+        if ($hasUpload && AssistantRouter::shouldUploadToCase($message, true)) {
+            $result = AssistantActions::handle('upload_case_document', $message, $uploads);
+            $result['type'] = $result['type'] ?? 'text';
+
+            return $result;
+        }
+
+        $caseInfo = AssistantCaseInfo::tryAnswer($message);
+        if ($caseInfo !== null) {
+            $caseInfo['type'] = $caseInfo['type'] ?? 'text';
+
+            return $caseInfo;
+        }
+
         $caseDocAnswer = AssistantDocuments::tryIngestCaseDocument($message);
         if ($caseDocAnswer !== null) {
             $caseDocAnswer['type'] = 'text';
@@ -282,7 +296,7 @@ class AssistantService
             return $directAnswer;
         }
 
-        if ($hasUpload && AssistantRouter::looksLikeCaseDocumentUpload($message)) {
+        if ($hasUpload && AssistantRouter::shouldUploadToCase($message, true)) {
             $result = AssistantActions::handle('upload_case_document', $message, $uploads);
             $result['type'] = $result['type'] ?? 'text';
 
@@ -323,6 +337,13 @@ class AssistantService
         }
 
         if ($hasUpload || $hasClientItems) {
+            if ($hasUpload && AssistantRouter::shouldUploadToCase($message, true)) {
+                $result = AssistantActions::handle('upload_case_document', $message, $uploads);
+                $result['type'] = $result['type'] ?? 'text';
+
+                return $result;
+            }
+
             if (!$isMultiDocumentRequest
                 && count($uploads) + count($clientDocumentItems) === 1
                 && trim($message) !== ''
@@ -388,6 +409,7 @@ class AssistantService
             AssistantRouter::INTENT_MESSAGE_DRAFT => AssistantMessageDrafts::handle($route['topic'], $message),
             AssistantRouter::INTENT_SEND_REMINDER => AssistantReminders::handle($route['topic'], $message),
             AssistantRouter::INTENT_APPOINTMENT_SCHEDULE => AssistantAppointmentSchedule::handle($message),
+            AssistantRouter::INTENT_CASE_INFO => AssistantCaseInfo::tryAnswer($message) ?? ['content' => 'Specify a case number or client name.'],
             default => $route['topic'] === 'intake_cancelled'
                 ? ['content' => 'Client intake cancelled. You can say **start intake** again anytime, or ask for dashboard metrics, searches, or system actions.']
                 : ($route['topic'] === 'client_create_cancelled'
@@ -585,6 +607,11 @@ class AssistantService
             ['icon' => 'bi-bell', 'label' => 'Notifications', 'prompt' => 'How many unread notifications?'],
             ['icon' => 'bi-bar-chart-line', 'label' => 'Revenue by month', 'prompt' => 'Revenue by month'],
             ['icon' => 'bi-grid', 'label' => 'Dashboard overview', 'prompt' => 'Dashboard overview'],
+            ['icon' => 'bi-search', 'label' => 'What can you do?', 'prompt' => 'What can you do?'],
+            ['icon' => 'bi-journal-text', 'label' => 'Case summary', 'prompt' => 'Summarize case ' . self::quickPromptCaseReference()],
+            ['icon' => 'bi-list-check', 'label' => 'Case checklist', 'prompt' => 'What\'s missing on case ' . self::quickPromptCaseReference()],
+            ['icon' => 'bi-credit-card', 'label' => 'Record payment', 'prompt' => 'Record payment for the latest overdue invoice'],
+            ['icon' => 'bi-file-earmark-plus', 'label' => 'Generate invoice', 'prompt' => 'Generate invoice for case ' . self::quickPromptCaseReference()],
             ['icon' => 'bi-person-plus', 'label' => 'Start intake', 'prompt' => 'Start client intake'],
             ['icon' => 'bi-calendar-plus', 'label' => 'Schedule visit', 'prompt' => 'Schedule appointment for ' . $scheduleClient . ' tomorrow at 2pm confirmed'],
             ['icon' => 'bi-book', 'label' => 'What is a jurat?', 'prompt' => 'What is a jurat?'],
@@ -658,7 +685,7 @@ class AssistantService
         }
 
         if (preg_match(
-            '/\b(how many|how much|list|show|find|search|what is|what are|which|revenue|notifications?|overdue|unread|active cases?|total revenue|upcoming appointments?|recent payments?|dashboard overview|outstanding balance)\b/i',
+            '/\b(how many|how much|list|show|find|search|what is|what are|which|revenue|notifications?|overdue|unread|active cases?|total revenue|upcoming appointments?|recent payments?|dashboard overview|outstanding balance|summarize case|what.?s missing|record payment|generate invoice|what can you do)\b/i',
             $message
         )) {
             return true;
@@ -687,6 +714,25 @@ class AssistantService
         $name = $row ? trim(trim((string) ($row['first_name'] ?? '')) . ' ' . trim((string) ($row['last_name'] ?? ''))) : '';
 
         return $name !== '' ? $name : 'Louis Macwell';
+    }
+
+    private static function quickPromptCaseReference(): string
+    {
+        $where = ["cs.status IN ('pending', 'in_progress', 'waiting_for_client')"];
+        $params = [];
+        appendCaseTenantScope($where, $params, 'cs', 'cl');
+        appendAssignedCaseScope($where, $params, 'cs');
+
+        $row = Database::fetch(
+            'SELECT cs.case_number FROM cases cs
+             JOIN clients cl ON cl.id = cs.client_id
+             WHERE ' . implode(' AND ', $where) . '
+             ORDER BY cs.updated_at DESC
+             LIMIT 1',
+            $params
+        );
+
+        return $row ? (string) $row['case_number'] : 'CASE-' . date('Y') . '-0001';
     }
 
     /** @return array{content: string, type: string} */

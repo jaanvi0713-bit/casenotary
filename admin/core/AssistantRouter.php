@@ -15,6 +15,7 @@ class AssistantRouter
     public const INTENT_MESSAGE_DRAFT = 'message_draft';
     public const INTENT_SEND_REMINDER = 'send_reminder';
     public const INTENT_APPOINTMENT_SCHEDULE = 'appointment_schedule';
+    public const INTENT_CASE_INFO = 'case_info';
     public const INTENT_GENERAL = 'general';
 
     public static function route(string $message): array
@@ -110,6 +111,10 @@ class AssistantRouter
             return ['intent' => self::INTENT_ACTION, 'topic' => $topic, 'message' => $message];
         }
 
+        if (AssistantCaseInfo::looksLikeQuery($message)) {
+            return ['intent' => self::INTENT_CASE_INFO, 'topic' => 'query', 'message' => $message];
+        }
+
         if (self::looksLikeSearch($normalized)) {
             return ['intent' => self::INTENT_SEARCH, 'topic' => 'universal', 'message' => $message];
         }
@@ -150,7 +155,34 @@ class AssistantRouter
 
     public static function looksLikeCaseDocumentUpload(string $message): bool
     {
-        return self::actionTopic($message) === 'upload_case_document';
+        return self::matchActionTopic(assistantMatchText($message)) === 'upload_case_document';
+    }
+
+    public static function shouldUploadToCase(string $message, bool $hasUpload): bool
+    {
+        if (!$hasUpload) {
+            return false;
+        }
+
+        if (self::looksLikeCaseDocumentUpload($message)) {
+            return true;
+        }
+
+        if (assistantExtractCaseReferenceFromMessage($message) === '') {
+            return false;
+        }
+
+        if (preg_match(
+            '/\b(scan|ocr|read|extract|analy[sz]e|summarize|summary|what does|what is in|how much|who is billed)\b/i',
+            $message
+        )) {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/\b(upload|attach|add|save|store|put|send|file|copy|move|this|it|these|them|that|to|for|on|into)\b/i',
+            $message
+        );
     }
 
     private static function looksLikeIntakeStart(string $message): bool
@@ -214,8 +246,9 @@ class AssistantRouter
             return false;
         }
 
-        if (preg_match('/\b(upload|attach|save|store)\b.*\b(case|matter)\b/', $message)
-            || preg_match('/\b(case|matter)\b.*\b(upload|attach|save|store)\b/', $message)) {
+        if (preg_match('/\b(upload|attach|save|store)\b.*\b(case|matter)\b/i', $message)
+            || preg_match('/\b(case|matter)\b.*\b(upload|attach|save|store)\b/i', $message)
+            || AssistantRouter::looksLikeCaseDocumentUpload($message)) {
             return false;
         }
 
@@ -291,10 +324,51 @@ class AssistantRouter
 
     private static function matchActionTopic(string $message): ?string
     {
-        if (preg_match('/\b(upload|attach|add|save|store|put)\b.*\b(document|file|pdf|letter)\b.*\b(case|matter)\b/', $message)
-            || preg_match('/\b(case|matter)\b.*\b(upload|attach|add|save|store)\b.*\b(document|file|pdf)\b/', $message)
-            || preg_match('/\bupload\b.*\bto\s+(?:the\s+)?case\b/', $message)
-            || preg_match('/\bsave\b.*\b(?:to|on)\s+(?:the\s+)?case\b/', $message)) {
+        if (preg_match('/\b(delete|remove)\b.*\bpayment\b/i', $message)) {
+            return 'delete_payment';
+        }
+        if (preg_match('/\b(delete|remove)\b.*\binvoice\b/i', $message)) {
+            return 'delete_invoice';
+        }
+        if (preg_match('/\b(delete|remove)\b.*\b(document|file)\b/i', $message)) {
+            return 'delete_document';
+        }
+        if (preg_match('/\b(delete|remove)\b.*\bcase\b/i', $message)) {
+            return 'delete_case';
+        }
+
+        if (preg_match('/\b(record|log|enter|post)\b.*\bpayment\b/i', $message)
+            || preg_match('/\bpayment\b.*\b(for|on|against)\b/i', $message)) {
+            return 'record_payment';
+        }
+        if (preg_match('/\b(send|email)\b.*\binvoice\b/i', $message)) {
+            return 'send_invoice';
+        }
+        if (preg_match('/\b(generate|create|issue|make)\b.*\binvoice\b/i', $message)) {
+            return 'generate_invoice';
+        }
+        if (preg_match('/\b(add|save|write|post)\b.*\b(note|comment)\b/i', $message)
+            || preg_match('/\bcase\b.*\b(note|comment)\b/i', $message)) {
+            return 'add_case_note';
+        }
+
+        if (assistantExtractCaseReferenceFromMessage($message) !== ''
+            && preg_match('/\b(upload|attach|add|save|store|put|send|file|copy|move)\b/i', $message)) {
+            return 'upload_case_document';
+        }
+
+        if (preg_match(
+            '/\b(upload|attach|add|save|store|put)\b.*\b(this|it|these|them|that|document|file|pdf|letter|docx?|image|photo|attachment|scan)\b.*\b(case|matter)\b/i',
+            $message
+        )
+            || preg_match(
+                '/\b(case|matter)\b.*\b(upload|attach|add|save|store|put)\b.*\b(document|file|pdf|letter|docx?|image|photo|attachment)\b/i',
+                $message
+            )
+            || preg_match('/\b(upload|attach|add|save|store|put)\b.*\b(to|onto|into)\b.*\b(case|matter)\b/i', $message)
+            || preg_match('/\bupload\b.*\bto\s+(?:the\s+)?case\b/i', $message)
+            || preg_match('/\bsave\b.*\b(?:to|on)\s+(?:the\s+)?case\b/i', $message)
+            || preg_match('/\bfile\b.*\b(?:to|on|into)\b.*\b(case|matter)\b/i', $message)) {
             return 'upload_case_document';
         }
         if (self::looksLikeClientCreateStart($message)) {

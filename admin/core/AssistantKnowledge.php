@@ -797,12 +797,13 @@ class AssistantKnowledge
         return '**What I can help with in ' . $company . '** (built-in — no external AI server)' . "\n\n"
             . "**Chat** — messages, file attachments (PDF/image/HTML), quick prompts, copy/edit messages, Library chats, new chat\n\n"
             . "**Live data** — client count, active cases, revenue, appointments, payments, overdue invoices, notifications, revenue by month, dashboard overview\n\n"
-            . "**Actions** (draft → **Confirm** to apply) — create/update cases, create clients, schedule/reschedule/cancel/confirm appointments, upload documents to cases, mark notifications read, client intake wizard, **send reminders**, message drafts\n\n"
+            . "**Actions** (draft → **Confirm** to apply) — create/update/delete cases & documents; create clients; schedule/reschedule/cancel/confirm appointments; **record/delete payments**; **generate/send/delete invoices**; upload documents; add case notes; draft client letters; mark notifications read; intake wizard; **send reminders**; message drafts\n\n"
+            . "**Case intelligence** — summarize a case, what's missing, list documents, billing overview\n\n"
             . "**Search** — clients, cases, invoices/payments/receipts, documents\n\n"
             . "**Documents** — scan/summarize uploads; answer questions about amounts, parties, dates; multi-file and case-file Q&A\n\n"
             . "**Knowledge** — 50+ notary definitions, practice FAQs (ID, witnesses, fees, RON, mobile notary), portal navigation help, calculations\n\n"
             . "**Compliance** — flags for minors, representative capacity, and related risks on intake/document text\n\n"
-            . "**Limits** — no auto-save without Confirm; no delete; no invoice/receipt generation from chat; general web chat only for portal/notary topics\n\n"
+            . "**Limits** — destructive actions require **Confirm**; email sending needs SMTP; no bulk data import from chat\n\n"
             . 'Try _Schedule appointment for Louis Macwell tomorrow at 2pm_, _How many clients do we have?_, or _What is a jurat?_';
     }
 

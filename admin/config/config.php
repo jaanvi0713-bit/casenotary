@@ -48,7 +48,7 @@ return [
 
     'upload' => [
         'max_size'      => 10 * 1024 * 1024,
-        'allowed_types' => ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip'],
+        'allowed_types' => ['pdf', 'doc', 'docx', 'rtf', 'txt', 'htm', 'html', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'tif', 'tiff', 'csv', 'xls', 'xlsx', 'zip'],
         'path'          => __DIR__ . '/../uploads/',
     ],
 

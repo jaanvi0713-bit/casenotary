@@ -554,6 +554,44 @@ function assistantExtractCaseReferenceFromMessage(string $message): string
         return 'CASE-' . date('Y') . '-' . str_pad($matches[1], 4, '0', STR_PAD_LEFT);
     }
 
+    if (preg_match('/\bmatter[- ]?#?\s*(\d{4}-\d+)\b/i', $message, $matches)) {
+        return assistantNormalizeCaseNumber('CASE-' . $matches[1]);
+    }
+
+    if (preg_match('/\bmatter[- ]?#?\s*(\d+)\b/i', $message, $matches)) {
+        return 'CASE-' . date('Y') . '-' . str_pad($matches[1], 4, '0', STR_PAD_LEFT);
+    }
+
+    return '';
+}
+
+function assistantExtractMoneyAmount(string $message): ?float
+{
+    if (preg_match('/[£$€]\s*([\d,]+(?:\.\d{1,2})?)/', $message, $matches)) {
+        return (float) str_replace(',', '', $matches[1]);
+    }
+
+    if (preg_match('/\b([\d,]+(?:\.\d{1,2})?)\s*(?:gbp|pounds?|usd|dollars?|eur|euros?)\b/i', $message, $matches)) {
+        return (float) str_replace(',', '', $matches[1]);
+    }
+
+    if (preg_match('/\b(?:amount|pay(?:ment)?|paid?|of)\s*([\d,]+(?:\.\d{1,2})?)/i', $message, $matches)) {
+        return (float) str_replace(',', '', $matches[1]);
+    }
+
+    return null;
+}
+
+function assistantExtractNoteBody(string $message): string
+{
+    if (preg_match('/\b(?:note|comment)\s*(?:saying|that says|:)\s*(.+)$/iu', $message, $matches)) {
+        return trim($matches[1]);
+    }
+
+    if (preg_match('/\bnote\b.*?:\s*(.+)$/iu', $message, $matches)) {
+        return trim($matches[1]);
+    }
+
     return '';
 }
 

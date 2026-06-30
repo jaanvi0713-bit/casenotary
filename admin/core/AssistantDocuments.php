@@ -1513,6 +1513,10 @@ class AssistantDocuments
     {
         $lower = strtolower(trim($message));
 
+        if (AssistantRouter::looksLikeCaseDocumentUpload($message)) {
+            return true;
+        }
+
         if (AssistantCalculations::looksLikeCalculationQuery($message)) {
             return true;
         }

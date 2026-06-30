@@ -22,8 +22,16 @@ class AssistantActions
             'upload_case_document' => self::draftUploadCaseDocument($message, $uploads),
             'create_client' => self::draftCreateClient($message),
             'draft_client_letter' => self::draftClientLetter($message),
+            'record_payment' => self::draftRecordPayment($message),
+            'generate_invoice' => self::draftGenerateInvoice($message),
+            'send_invoice' => self::draftSendInvoice($message),
+            'add_case_note' => self::draftAddCaseNote($message),
+            'delete_case' => self::draftDeleteCase($message),
+            'delete_document' => self::draftDeleteDocument($message),
+            'delete_payment' => self::draftDeletePayment($message),
+            'delete_invoice' => self::draftDeleteInvoice($message),
             default => [
-                'content' => 'I could not determine which system action you want. Try **create a case**, **create new client**, **draft client letter**, **update case status**, **schedule appointment**, **upload document to case**, **confirm/cancel/reschedule appointment**, or **mark notifications read**.',
+                'content' => 'I could not determine which system action you want. Try **create a case**, **record payment**, **generate invoice**, **upload document to case**, **case summary**, **schedule appointment**, or _what can you do?_',
                 'type' => 'text',
             ],
         };
@@ -57,6 +65,14 @@ class AssistantActions
             'create_client_and_case' => self::executeCreateClientAndCase($draft['payload'], $adminId),
             'draft_client_letter' => self::executeDraftClientLetter($draft['payload']),
             'send_reminder' => self::executeSendReminder($draft['payload'], $adminId),
+            'record_payment' => self::executeRecordPayment($draft['payload'], $adminId),
+            'generate_invoice' => self::executeGenerateInvoice($draft['payload']),
+            'send_invoice' => self::executeSendInvoice($draft['payload']),
+            'add_case_note' => self::executeAddCaseNote($draft['payload'], $adminId),
+            'delete_case' => self::executeDeleteCase($draft['payload']),
+            'delete_document' => self::executeDeleteDocument($draft['payload']),
+            'delete_payment' => self::executeDeletePayment($draft['payload']),
+            'delete_invoice' => self::executeDeleteInvoice($draft['payload']),
             default => throw new RuntimeException('Unknown draft action.'),
         };
 
@@ -797,12 +813,15 @@ class AssistantActions
             'client_name' => 'client name if case not specified',
         ]);
 
-        $caseRef = trim((string) ($extracted['case_reference'] ?? ''));
-        if ($caseRef === '') {
-            $caseRef = assistantExtractCaseReferenceFromMessage($message);
+        $case = assistantFindCaseByReferenceFromMessage($message);
+
+        if ($case === null) {
+            $caseRef = trim((string) ($extracted['case_reference'] ?? ''));
+            if ($caseRef !== '') {
+                $case = assistantFindCaseByReference($caseRef);
+            }
         }
 
-        $case = $caseRef !== '' ? assistantFindCaseByReference($caseRef) : null;
         if ($case === null) {
             $clientName = trim((string) ($extracted['client_name'] ?? ''));
             if ($clientName === '') {
@@ -816,7 +835,6 @@ class AssistantActions
                      FROM cases cs
                      JOIN clients cl ON cl.id = cs.client_id
                      WHERE cs.client_id = ?
-                       AND cs.status IN ('pending', 'in_progress', 'waiting_for_client')
                      ORDER BY cs.updated_at DESC
                      LIMIT 1",
                     [$clientId]
@@ -1071,9 +1089,435 @@ class AssistantActions
         return 'Client letter sections saved for case **' . ($case['case_number'] ?? $caseId) . '**. Open the **Client Letter** tab to review and generate the PDF.';
     }
 
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftRecordPayment(string $message): array
+    {
+        if (!Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+            return ['content' => 'Your role cannot record payments.', 'type' => 'text'];
+        }
+
+        $invoice = assistantFindInvoiceFromMessage($message);
+        if ($invoice === null) {
+            return [
+                'content' => 'Which invoice should I record payment for? Example: _Record £500 payment for invoice INV-'
+                    . date('Y') . '-0001_ or _Record payment for case CASE-2026-0006_.',
+                'type' => 'text',
+            ];
+        }
+
+        $remaining = CaseService::getInvoiceRemainingBalance($invoice);
+        if ($remaining <= 0) {
+            return [
+                'content' => 'Invoice **' . ($invoice['invoice_number'] ?? '') . '** is already fully paid.',
+                'type' => 'text',
+            ];
+        }
+
+        $amount = assistantExtractMoneyAmount($message) ?? $remaining;
+        $method = 'bank_transfer';
+        if (preg_match('/\b(cash|card|stripe|cheque|check|bank|transfer)\b/i', $message, $matches)) {
+            $method = strtolower($matches[1]);
+            if ($method === 'check') {
+                $method = 'cheque';
+            }
+            if ($method === 'transfer') {
+                $method = 'bank_transfer';
+            }
+        }
+
+        $preview = [
+            'Invoice' => (string) ($invoice['invoice_number'] ?? ''),
+            'Client' => clientFullName($invoice),
+            'Amount' => formatCurrency($amount),
+            'Method' => ucwords(str_replace('_', ' ', $method)),
+            'Balance before' => formatCurrency($remaining),
+        ];
+
+        return self::buildDraftResponse(
+            'record_payment',
+            [
+                'invoice_id' => (int) $invoice['id'],
+                'amount' => $amount,
+                'payment_method' => $method,
+            ],
+            $preview,
+            'Payment draft ready. **Confirm** to record payment and generate a receipt.'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeRecordPayment(array $payload, int $adminId): string
+    {
+        $invoiceId = (int) ($payload['invoice_id'] ?? 0);
+        $result = CaseService::recordPayment($invoiceId, [
+            'amount' => $payload['amount'] ?? null,
+            'payment_method' => $payload['payment_method'] ?? 'bank_transfer',
+        ], $adminId);
+
+        if (empty($result['success'])) {
+            throw new RuntimeException((string) ($result['message'] ?? 'Could not record payment.'));
+        }
+
+        $invoice = Database::fetch('SELECT invoice_number, case_id FROM invoices WHERE id = ?', [$invoiceId]);
+
+        return '**Payment recorded** for invoice **' . ($invoice['invoice_number'] ?? $invoiceId) . '**. '
+            . assistantAdminLink(
+                'pages/case-view.php?id=' . (int) ($invoice['case_id'] ?? 0) . '#invoice-payments',
+                'View case billing'
+            );
+    }
+
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftGenerateInvoice(string $message): array
+    {
+        if (!Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+            return ['content' => 'Your role cannot generate invoices.', 'type' => 'text'];
+        }
+
+        $case = self::resolveCaseFromMessage($message);
+        if ($case === null) {
+            return [
+                'content' => 'Which case should I invoice? Example: _Generate invoice for case CASE-2026-0006_.',
+                'type' => 'text',
+            ];
+        }
+
+        $billing = CaseService::getCaseBilling($case);
+        $total = (float) ($billing['totals']['grand_total'] ?? 0);
+        $withLink = (bool) preg_match('/\b(payment link|pay link|online pay)\b/i', $message);
+
+        $preview = [
+            'Case' => (string) ($case['case_number'] ?? ''),
+            'Client' => clientFullName($case),
+            'Amount' => formatCurrency($total),
+            'Due' => date('Y-m-d', strtotime('+14 days')),
+            'Payment link' => $withLink ? 'Yes' : 'No',
+        ];
+
+        return self::buildDraftResponse(
+            'generate_invoice',
+            [
+                'case_id' => (int) $case['id'],
+                'generate_payment_link' => $withLink,
+            ],
+            $preview,
+            'Invoice draft ready from case billing. **Confirm** to generate the invoice PDF.'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeGenerateInvoice(array $payload): string
+    {
+        $caseId = (int) ($payload['case_id'] ?? 0);
+        $invoiceId = CaseService::generateInvoice($caseId, [
+            'generate_payment_link' => !empty($payload['generate_payment_link']),
+        ]);
+        $invoice = Database::fetch('SELECT invoice_number FROM invoices WHERE id = ?', [$invoiceId]);
+
+        return '**Invoice generated:** **' . ($invoice['invoice_number'] ?? $invoiceId) . '** for case **'
+            . (CaseService::getCaseById($caseId)['case_number'] ?? $caseId) . '**. '
+            . assistantAdminLink('pages/case-view.php?id=' . $caseId . '#invoice-payments', 'Open billing');
+    }
+
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftSendInvoice(string $message): array
+    {
+        if (!Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+            return ['content' => 'Your role cannot email invoices.', 'type' => 'text'];
+        }
+
+        $invoice = assistantFindInvoiceFromMessage($message);
+        if ($invoice === null) {
+            return [
+                'content' => 'Which invoice should I email? Example: _Send invoice INV-' . date('Y') . '-0001 to client_.',
+                'type' => 'text',
+            ];
+        }
+
+        $caseId = (int) ($invoice['case_id'] ?? 0);
+        $preview = [
+            'Invoice' => (string) ($invoice['invoice_number'] ?? ''),
+            'Client' => clientFullName($invoice),
+            'Email' => trim((string) ($invoice['email'] ?? '')) ?: '—',
+            'Total' => formatCurrency((float) ($invoice['total'] ?? 0)),
+        ];
+
+        return self::buildDraftResponse(
+            'send_invoice',
+            ['case_id' => $caseId, 'invoice_id' => (int) $invoice['id']],
+            $preview,
+            'Ready to email this invoice to the client. **Confirm** to send (requires SMTP).'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeSendInvoice(array $payload): string
+    {
+        $caseId = (int) ($payload['case_id'] ?? 0);
+        $invoiceId = (int) ($payload['invoice_id'] ?? 0);
+        CaseService::sendInvoiceToClient($caseId, $invoiceId);
+
+        return '**Invoice emailed** to the client successfully.';
+    }
+
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftAddCaseNote(string $message): array
+    {
+        $case = self::resolveCaseFromMessage($message);
+        if ($case === null) {
+            return [
+                'content' => 'Which case should I add a note to? Example: _Add note to case CASE-2026-0006: Client called back_.',
+                'type' => 'text',
+            ];
+        }
+
+        $note = assistantExtractNoteBody($message);
+        if ($note === '') {
+            return [
+                'content' => 'What should the note say? Example: _Add note to case CASE-2026-0006: Client will bring ID tomorrow_.',
+                'type' => 'text',
+            ];
+        }
+
+        $preview = [
+            'Case' => (string) ($case['case_number'] ?? ''),
+            'Note' => $note,
+            'Visibility' => 'Internal',
+        ];
+
+        return self::buildDraftResponse(
+            'add_case_note',
+            ['case_id' => (int) $case['id'], 'note' => $note],
+            $preview,
+            'Case note draft ready. **Confirm** to save it on the case.'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeAddCaseNote(array $payload, int $adminId): string
+    {
+        $caseId = (int) ($payload['case_id'] ?? 0);
+        $note = trim((string) ($payload['note'] ?? ''));
+        if ($caseId <= 0 || $note === '') {
+            throw new RuntimeException('Invalid note draft.');
+        }
+
+        CaseService::addNote($caseId, $adminId, $note, true);
+        $case = CaseService::getCaseById($caseId);
+
+        return '**Note added** to case **' . ($case['case_number'] ?? $caseId) . '**.';
+    }
+
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftDeleteCase(string $message): array
+    {
+        if (!Auth::canManage(RoleAccess::PERMISSION_CASES)) {
+            return ['content' => 'Your role cannot delete cases.', 'type' => 'text'];
+        }
+
+        $case = self::resolveCaseFromMessage($message);
+        if ($case === null) {
+            return [
+                'content' => 'Which case should I delete? Example: _Delete case CASE-2026-0006_.',
+                'type' => 'text',
+            ];
+        }
+
+        $preview = [
+            'Case' => (string) ($case['case_number'] ?? ''),
+            'Client' => clientFullName($case),
+            'Title' => (string) ($case['title'] ?? '—'),
+            'Warning' => 'Permanent — cannot be undone',
+        ];
+
+        return self::buildDraftResponse(
+            'delete_case',
+            ['case_id' => (int) $case['id']],
+            $preview,
+            '**Delete case** draft — this permanently removes the case and its files. Click **Confirm** only if you are sure.'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeDeleteCase(array $payload): string
+    {
+        $caseId = (int) ($payload['case_id'] ?? 0);
+        $case = CaseService::getCaseById($caseId);
+        if (!$case) {
+            throw new RuntimeException('Case not found.');
+        }
+
+        $number = (string) ($case['case_number'] ?? $caseId);
+        CaseService::deleteCase($caseId);
+
+        return '**Case deleted:** ' . $number . '.';
+    }
+
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftDeleteDocument(string $message): array
+    {
+        if (!Auth::can(RoleAccess::PERMISSION_CASES)) {
+            return ['content' => 'Your role cannot delete documents.', 'type' => 'text'];
+        }
+
+        $case = self::resolveCaseFromMessage($message);
+        if ($case === null) {
+            return [
+                'content' => 'Specify the case and file. Example: _Delete document invoice.pdf from case CASE-2026-0006_.',
+                'type' => 'text',
+            ];
+        }
+
+        $caseId = (int) $case['id'];
+        $docs = CaseService::getDocuments($caseId);
+        $needle = '';
+        if (preg_match('/\b(?:document|file)\s+["\']?([^"\']+?)["\']?(?:\s+from|\s+on|$)/i', $message, $matches)) {
+            $needle = trim($matches[1]);
+        }
+
+        $document = null;
+        if ($needle !== '') {
+            foreach ($docs as $doc) {
+                if (stripos((string) ($doc['original_name'] ?? ''), $needle) !== false) {
+                    $document = $doc;
+                    break;
+                }
+            }
+        } elseif (count($docs) === 1) {
+            $document = $docs[0];
+        }
+
+        if ($document === null) {
+            $names = array_map(static fn (array $d): string => (string) ($d['original_name'] ?? 'file'), array_slice($docs, 0, 8));
+
+            return [
+                'content' => 'Which document on **' . ($case['case_number'] ?? '') . '**? '
+                    . ($names !== [] ? 'Available: ' . implode(', ', $names) : 'No documents on this case.'),
+                'type' => 'text',
+            ];
+        }
+
+        $preview = [
+            'Case' => (string) ($case['case_number'] ?? ''),
+            'Document' => (string) ($document['original_name'] ?? 'File'),
+        ];
+
+        return self::buildDraftResponse(
+            'delete_document',
+            ['case_id' => $caseId, 'document_id' => (int) $document['id']],
+            $preview,
+            '**Delete document** draft. **Confirm** to remove this file from the case.'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeDeleteDocument(array $payload): string
+    {
+        $caseId = (int) ($payload['case_id'] ?? 0);
+        $documentId = (int) ($payload['document_id'] ?? 0);
+        CaseService::deleteDocument($documentId, $caseId);
+
+        return '**Document removed** from the case.';
+    }
+
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftDeletePayment(string $message): array
+    {
+        if (!Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+            return ['content' => 'Your role cannot delete payments.', 'type' => 'text'];
+        }
+
+        $payment = null;
+        if (preg_match('/\bPAY[-\s]?([A-Z0-9-]+)\b/i', $message, $matches)) {
+            $number = 'PAY-' . strtoupper(str_replace(' ', '-', trim($matches[1])));
+            $payment = Database::fetch('SELECT * FROM payments WHERE payment_number = ?', [$number]);
+        }
+
+        if ($payment === null && preg_match('/\bpayment\s+#?(\d+)\b/i', $message, $matches)) {
+            $payment = Database::fetch('SELECT * FROM payments WHERE id = ?', [(int) $matches[1]]);
+        }
+
+        if ($payment === null) {
+            return [
+                'content' => 'Which payment should I delete? Use the payment number (e.g. **PAY-2026-0001**) or payment ID.',
+                'type' => 'text',
+            ];
+        }
+
+        $preview = [
+            'Payment' => (string) ($payment['payment_number'] ?? $payment['id']),
+            'Amount' => formatCurrency((float) ($payment['amount'] ?? 0)),
+            'Warning' => 'Permanent',
+        ];
+
+        return self::buildDraftResponse(
+            'delete_payment',
+            ['payment_id' => (int) $payment['id']],
+            $preview,
+            '**Delete payment** draft. **Confirm** to remove this payment record.'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeDeletePayment(array $payload): string
+    {
+        CaseService::deletePayment((int) ($payload['payment_id'] ?? 0));
+
+        return '**Payment deleted.** Invoice balances have been updated.';
+    }
+
+    /** @return array{content: string, type: string, draft?: array<string, mixed>} */
+    private static function draftDeleteInvoice(string $message): array
+    {
+        if (!Auth::can(RoleAccess::PERMISSION_PAYMENTS)) {
+            return ['content' => 'Your role cannot delete invoices.', 'type' => 'text'];
+        }
+
+        $invoice = assistantFindInvoiceFromMessage($message);
+        if ($invoice === null) {
+            return [
+                'content' => 'Which invoice should I delete? Example: _Delete invoice INV-' . date('Y') . '-0001_.',
+                'type' => 'text',
+            ];
+        }
+
+        $preview = [
+            'Invoice' => (string) ($invoice['invoice_number'] ?? ''),
+            'Client' => clientFullName($invoice),
+            'Total' => formatCurrency((float) ($invoice['total'] ?? 0)),
+            'Warning' => 'Permanent',
+        ];
+
+        return self::buildDraftResponse(
+            'delete_invoice',
+            ['invoice_id' => (int) $invoice['id']],
+            $preview,
+            '**Delete invoice** draft. **Confirm** only if this invoice should be removed permanently.'
+        );
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executeDeleteInvoice(array $payload): string
+    {
+        $invoiceId = (int) ($payload['invoice_id'] ?? 0);
+        $invoice = Database::fetch('SELECT invoice_number FROM invoices WHERE id = ?', [$invoiceId]);
+        if (!$invoice) {
+            throw new RuntimeException('Invoice not found.');
+        }
+        $number = (string) ($invoice['invoice_number'] ?? $invoiceId);
+        CaseService::deleteInvoice($invoiceId);
+
+        return '**Invoice deleted:** ' . $number . '.';
+    }
+
     /** @return ?array<string, mixed> */
     private static function resolveCaseFromMessage(string $message): ?array
     {
+        $case = assistantFindCaseByReferenceFromMessage($message);
+        if ($case !== null) {
+            return $case;
+        }
+
         $ref = assistantExtractCaseReferenceFromMessage($message);
         if ($ref !== '') {
             return assistantFindCaseByReference($ref);

@@ -27,6 +27,11 @@ class AssistantBuiltin
             return AssistantSearch::handle($message)['content'];
         }
 
+        $caseInfo = AssistantCaseInfo::tryAnswer($message);
+        if ($caseInfo !== null) {
+            return (string) ($caseInfo['content'] ?? '');
+        }
+
         $dashboardTopic = AssistantRouter::matchDashboardTopic($message);
         if ($dashboardTopic !== null) {
             return AssistantDashboard::handle($dashboardTopic)['content'];
