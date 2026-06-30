@@ -838,6 +838,12 @@ function assistantNormalizeCasualText(string $message): string
     $lower = preg_replace('/\bu\b/', 'you', $lower) ?? $lower;
     $lower = preg_replace('/\bur\b/', 'your', $lower) ?? $lower;
     $lower = preg_replace('/\s+/u', ' ', $lower) ?? $lower;
+    $lower = trim($lower, " \t\n\r\0\x0B?.!");
 
-    return trim($lower, " \t\n\r\0\x0B?.!");
+    return AssistantMessageTolerance::forMatching($lower);
+}
+
+function assistantMatchText(string $message): string
+{
+    return assistantNormalizeCasualText($message);
 }

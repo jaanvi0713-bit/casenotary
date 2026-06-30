@@ -20,7 +20,7 @@ class AssistantRouter
     public static function route(string $message): array
     {
         $message = assistantNormalizeUserMessage($message);
-        $normalized = strtolower($message);
+        $normalized = assistantMatchText($message);
 
         if ($normalized === '') {
             return ['intent' => self::INTENT_GENERAL, 'topic' => 'empty', 'message' => $message];
@@ -145,7 +145,7 @@ class AssistantRouter
     {
         $message = assistantNormalizeUserMessage($message);
 
-        return self::matchActionTopic(strtolower($message));
+        return self::matchActionTopic(assistantMatchText($message));
     }
 
     public static function looksLikeCaseDocumentUpload(string $message): bool
@@ -246,7 +246,7 @@ class AssistantRouter
 
     public static function looksLikeSearch(string $message): bool
     {
-        $lower = strtolower(assistantNormalizeUserMessage($message));
+        $lower = assistantMatchText($message);
 
         return (bool) preg_match(
             '/\b(find|search|look up|lookup|show me|list|who is|where is)\b/',
@@ -259,7 +259,7 @@ class AssistantRouter
 
     public static function matchDashboardTopic(string $message): ?string
     {
-        return self::matchDashboardTopicRules(strtolower(assistantNormalizeUserMessage($message)));
+        return self::matchDashboardTopicRules(assistantMatchText($message));
     }
 
     private static function matchDashboardTopicRules(string $message): ?string

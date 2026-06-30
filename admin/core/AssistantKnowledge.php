@@ -993,7 +993,7 @@ class AssistantKnowledge
 
     {
 
-        $lower = strtolower(assistantNormalizeUserMessage($message));
+        $lower = assistantMatchText($message);
 
         if (self::looksLikeSystemQuery($message)) {
             return null;

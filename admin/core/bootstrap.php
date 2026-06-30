@@ -56,6 +56,7 @@ require_once __DIR__ . '/TenantService.php';
 require_once __DIR__ . '/CompanyService.php';
 
 require_once __DIR__ . '/AssistantHelpers.php';
+require_once __DIR__ . '/AssistantMessageTolerance.php';
 require_once __DIR__ . '/AssistantRouter.php';
 require_once __DIR__ . '/AssistantDashboard.php';
 require_once __DIR__ . '/AssistantActions.php';

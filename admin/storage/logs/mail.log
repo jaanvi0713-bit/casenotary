@@ -719,3 +719,67 @@ WHARF NOTARIESReply from WHARF NOTARIESDear Client,We have replied to your messa
 2026-06-23 03:34:24 | To: Louismac@gmail.com
 Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0079.ZAFP275.PROD.OUTLOOK.COM 2026-06-23T07:34:24.366Z 08DED0D55A0C9030]
 
+------------------------------------------------------------
+2026-06-30 06:01:20 | To: admin@admin.com
+Subject: Invoice generated
+Invoice generatedHi Admin User,Invoice generatedINV-2026-LSM9E — £ 2,844.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-30 06:01:28 | To: admin@admin.com
+Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0104.ZAFP275.PROD.OUTLOOK.COM 2026-06-30T10:01:28.067Z 08DED4DD84226D0D]
+
+------------------------------------------------------------
+2026-06-30 06:01:28 | To: fran@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Francis Barber,Invoice generatedINV-2026-LSM9E — £ 2,844.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-30 06:01:35 | To: fran@gmail.com
+Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0112.ZAFP275.PROD.OUTLOOK.COM 2026-06-30T10:01:35.099Z 08DED654E36A1A11]
+
+------------------------------------------------------------
+2026-06-30 06:01:35 | To: gary@example.com
+Subject: Invoice generated
+Invoice generatedHi Gary Coll,Invoice generatedINV-2026-LSM9E — £ 2,844.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-30 06:01:42 | To: gary@example.com
+Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0108.ZAFP275.PROD.OUTLOOK.COM 2026-06-30T10:01:41.966Z 08DED4D1A08187BC]
+
+------------------------------------------------------------
+2026-06-30 06:01:42 | To: max@gmail.com
+Subject: Invoice generated
+Invoice generatedHi Max Holly,Invoice generatedINV-2026-LSM9E — £ 2,844.00Open in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-30 06:01:48 | To: max@gmail.com
+Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0108.ZAFP275.PROD.OUTLOOK.COM 2026-06-30T10:01:47.854Z 08DED4D1A0818806]
+
+------------------------------------------------------------
+2026-06-30 06:02:12 | To: admin@admin.com
+Subject: Payment received
+Payment receivedHi Admin User,Payment received£ 2,844.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-30 06:02:19 | To: admin@admin.com
+Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0101.ZAFP275.PROD.OUTLOOK.COM 2026-06-30T10:02:18.769Z 08DED645E8180930]
+
+------------------------------------------------------------
+2026-06-30 06:02:19 | To: fran@gmail.com
+Subject: Payment received
+Payment receivedHi Francis Barber,Payment received£ 2,844.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-30 06:02:26 | To: fran@gmail.com
+Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0109.ZAFP275.PROD.OUTLOOK.COM 2026-06-30T10:02:25.801Z 08DED64A22BD9ECF]
+
+------------------------------------------------------------
+2026-06-30 06:02:26 | To: gary@example.com
+Subject: Payment received
+Payment receivedHi Gary Coll,Payment received£ 2,844.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-30 06:02:33 | To: gary@example.com
+Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0107.ZAFP275.PROD.OUTLOOK.COM 2026-06-30T10:02:32.665Z 08DED653FE733B05]
+
+------------------------------------------------------------
+2026-06-30 06:02:33 | To: max@gmail.com
+Subject: Payment received
+Payment receivedHi Max Holly,Payment received£ 2,844.00 for INV-2026-LSM9EOpen in portalYou can change notification preferences under Settings → Notification Preferences.
+------------------------------------------------------------
+2026-06-30 06:02:39 | To: max@gmail.com
+Subject: SMTP ERROR: SMTP error: 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. Visit https://aka.ms/smtp_auth_disabled for more information. [JN3P275CA0109.ZAFP275.PROD.OUTLOOK.COM 2026-06-30T10:02:38.509Z 08DED64A22BD9F14]
+
