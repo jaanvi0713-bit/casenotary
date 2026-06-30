@@ -6,6 +6,14 @@ $config = require __DIR__ . '/../config/config.php';
 
 date_default_timezone_set($config['timezone']);
 
+if (!empty($config['debug'])) {
+    ini_set('display_errors', '1');
+} else {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+}
+error_reporting(E_ALL);
+
 if (session_status() === PHP_SESSION_NONE) {
     session_name($config['session']['name']);
     session_set_cookie_params([

@@ -109,7 +109,14 @@
     var libraryToggleBtn = document.getElementById("assistantLibraryToggleBtn");
     var libraryCloseBtn = document.getElementById("assistantLibraryCloseBtn");
     var libraryBackdrop = document.getElementById("assistantLibraryBackdrop");
+    var libraryPagination = document.getElementById("assistantLibraryPagination");
+    var libraryPrevBtn = document.getElementById("assistantLibraryPrev");
+    var libraryNextBtn = document.getElementById("assistantLibraryNext");
+    var libraryPageLabel = document.getElementById("assistantLibraryPageLabel");
     var libraryCollapsedKey = "assistantLibraryCollapsed";
+    var libraryPerPage = 10;
+    var libraryPage = 0;
+    var libraryAllConversations = [];
 
 
 
@@ -1149,146 +1156,152 @@
 
 
 
-    function renderLibrary(conversations, activeId) {
-
-        if (!libraryList) {
-
-            return;
-
+    function findLibraryPageForId(id, conversations) {
+        if (!id || !conversations || !conversations.length) {
+            return 0;
         }
 
+        for (var i = 0; i < conversations.length; i++) {
+            if (conversations[i].id === id) {
+                return Math.floor(i / libraryPerPage);
+            }
+        }
 
+        return 0;
+    }
+
+    function updateLibraryPagination(totalPages) {
+        if (!libraryPagination) {
+            return;
+        }
+
+        if (totalPages <= 1) {
+            libraryPagination.classList.add("d-none");
+            libraryPagination.hidden = true;
+            return;
+        }
+
+        libraryPagination.classList.remove("d-none");
+        libraryPagination.hidden = false;
+
+        if (libraryPageLabel) {
+            libraryPageLabel.textContent = (libraryPage + 1) + " / " + totalPages;
+        }
+
+        if (libraryPrevBtn) {
+            libraryPrevBtn.disabled = libraryPage <= 0;
+        }
+
+        if (libraryNextBtn) {
+            libraryNextBtn.disabled = libraryPage >= totalPages - 1;
+        }
+    }
+
+    function appendLibraryItem(item) {
+        var row = document.createElement("div");
+
+        row.className = "assistant-library-item" + (activeConversationId === item.id ? " is-active" : "");
+        row.setAttribute("role", "listitem");
+        row.setAttribute("data-id", String(item.id));
+
+        var mainBtn = document.createElement("button");
+
+        mainBtn.type = "button";
+        mainBtn.className = "assistant-library-item__main";
+        mainBtn.setAttribute("data-action", "load");
+
+        var title = document.createElement("span");
+
+        title.className = "assistant-library-item__title";
+        title.textContent = item.title || "New chat";
+        mainBtn.appendChild(title);
+
+        var preview = document.createElement("span");
+
+        preview.className = "assistant-library-item__preview";
+        preview.textContent = item.preview || "";
+        mainBtn.appendChild(preview);
+
+        if (item.updated_at) {
+            var time = document.createElement("time");
+
+            time.className = "assistant-library-item__time";
+            time.setAttribute("datetime", item.updated_at);
+            time.textContent = formatLibraryTime(item.updated_at);
+            mainBtn.appendChild(time);
+        }
+
+        row.appendChild(mainBtn);
+
+        var actions = document.createElement("div");
+
+        actions.className = "assistant-library-item__actions";
+
+        var renameBtn = document.createElement("button");
+
+        renameBtn.type = "button";
+        renameBtn.className = "assistant-library-action";
+        renameBtn.setAttribute("data-action", "rename");
+        renameBtn.setAttribute("title", "Rename");
+        renameBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+        actions.appendChild(renameBtn);
+
+        var deleteBtn = document.createElement("button");
+
+        deleteBtn.type = "button";
+        deleteBtn.className = "assistant-library-action assistant-library-action--danger";
+        deleteBtn.setAttribute("data-action", "delete");
+        deleteBtn.setAttribute("title", "Delete");
+        deleteBtn.innerHTML = '<i class="bi bi-trash3"></i>';
+        actions.appendChild(deleteBtn);
+
+        row.appendChild(actions);
+        libraryList.appendChild(row);
+    }
+
+    function renderLibrary(conversations, activeId, preferredPage) {
+        if (!libraryList) {
+            return;
+        }
 
         activeConversationId = activeId || null;
+        libraryAllConversations = Array.isArray(conversations) ? conversations : [];
+
+        var totalPages = libraryAllConversations.length
+            ? Math.ceil(libraryAllConversations.length / libraryPerPage)
+            : 0;
+
+        if (typeof preferredPage === "number") {
+            libraryPage = Math.max(0, Math.min(preferredPage, Math.max(totalPages - 1, 0)));
+        } else if (activeConversationId) {
+            libraryPage = findLibraryPageForId(activeConversationId, libraryAllConversations);
+        } else if (libraryPage >= totalPages) {
+            libraryPage = Math.max(0, totalPages - 1);
+        }
 
         libraryList.innerHTML = "";
 
-
-
-        if (!conversations || !conversations.length) {
-
+        if (!libraryAllConversations.length) {
             var empty = document.createElement("p");
 
             empty.className = "assistant-library-empty text-muted small px-3 py-3 mb-0";
-
             empty.id = "assistantLibraryEmpty";
-
             empty.textContent = "No chats yet. Start a conversation to save it here.";
-
             libraryList.appendChild(empty);
+            updateLibraryPagination(0);
 
             return;
-
         }
 
-
-
-        conversations.forEach(function (item) {
-
-            var row = document.createElement("div");
-
-            row.className = "assistant-library-item" + (activeConversationId === item.id ? " is-active" : "");
-
-            row.setAttribute("role", "listitem");
-
-            row.setAttribute("data-id", String(item.id));
-
-
-
-            var mainBtn = document.createElement("button");
-
-            mainBtn.type = "button";
-
-            mainBtn.className = "assistant-library-item__main";
-
-            mainBtn.setAttribute("data-action", "load");
-
-
-
-            var title = document.createElement("span");
-
-            title.className = "assistant-library-item__title";
-
-            title.textContent = item.title || "New chat";
-
-            mainBtn.appendChild(title);
-
-
-
-            var preview = document.createElement("span");
-
-            preview.className = "assistant-library-item__preview";
-
-            preview.textContent = item.preview || "";
-
-            mainBtn.appendChild(preview);
-
-
-
-            if (item.updated_at) {
-
-                var time = document.createElement("time");
-
-                time.className = "assistant-library-item__time";
-
-                time.setAttribute("datetime", item.updated_at);
-
-                time.textContent = formatLibraryTime(item.updated_at);
-
-                mainBtn.appendChild(time);
-
-            }
-
-
-
-            row.appendChild(mainBtn);
-
-
-
-            var actions = document.createElement("div");
-
-            actions.className = "assistant-library-item__actions";
-
-
-
-            var renameBtn = document.createElement("button");
-
-            renameBtn.type = "button";
-
-            renameBtn.className = "assistant-library-action";
-
-            renameBtn.setAttribute("data-action", "rename");
-
-            renameBtn.setAttribute("title", "Rename");
-
-            renameBtn.innerHTML = '<i class="bi bi-pencil"></i>';
-
-            actions.appendChild(renameBtn);
-
-
-
-            var deleteBtn = document.createElement("button");
-
-            deleteBtn.type = "button";
-
-            deleteBtn.className = "assistant-library-action assistant-library-action--danger";
-
-            deleteBtn.setAttribute("data-action", "delete");
-
-            deleteBtn.setAttribute("title", "Delete");
-
-            deleteBtn.innerHTML = '<i class="bi bi-trash3"></i>';
-
-            actions.appendChild(deleteBtn);
-
-
-
-            row.appendChild(actions);
-
-            libraryList.appendChild(row);
-
-        });
-
+        var start = libraryPage * libraryPerPage;
+        var pageItems = libraryAllConversations.slice(start, start + libraryPerPage);
+
+        pageItems.forEach(appendLibraryItem);
+        updateLibraryPagination(totalPages);
+    }
+
+    function showLibraryPage(page) {
+        renderLibrary(libraryAllConversations, activeConversationId, page);
     }
 
 
@@ -2020,6 +2033,26 @@
 
 
 
+    if (libraryPrevBtn) {
+        libraryPrevBtn.addEventListener("click", function () {
+            if (libraryPage > 0) {
+                showLibraryPage(libraryPage - 1);
+            }
+        });
+    }
+
+    if (libraryNextBtn) {
+        libraryNextBtn.addEventListener("click", function () {
+            var totalPages = libraryAllConversations.length
+                ? Math.ceil(libraryAllConversations.length / libraryPerPage)
+                : 0;
+
+            if (libraryPage < totalPages - 1) {
+                showLibraryPage(libraryPage + 1);
+            }
+        });
+    }
+
     if (libraryList) {
 
         libraryList.addEventListener("click", function (event) {
@@ -2362,9 +2395,21 @@
     var activeItem = libraryList ? libraryList.querySelector(".assistant-library-item.is-active") : null;
 
     if (activeItem) {
-
         activeConversationId = parseInt(activeItem.getAttribute("data-id"), 10) || null;
+    }
 
+    var libraryDataEl = document.getElementById("assistantLibraryData");
+
+    if (libraryDataEl && libraryList) {
+        try {
+            var librarySeed = JSON.parse(libraryDataEl.textContent || "[]");
+
+            if (Array.isArray(librarySeed) && librarySeed.length) {
+                renderLibrary(librarySeed, activeConversationId);
+            }
+        } catch (librarySeedError) {
+            // Ignore malformed seed JSON.
+        }
     }
 
     var initialEnabled = form.getAttribute("data-enabled");

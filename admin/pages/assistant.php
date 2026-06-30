@@ -27,6 +27,9 @@ $promptsPerPage = 9;
 $promptPages = array_chunk($quickPrompts, $promptsPerPage);
 
 $library = AssistantService::library();
+$libraryPerPage = 10;
+$libraryPages = $library !== [] ? array_chunk($library, $libraryPerPage) : [];
+$libraryPageCount = count($libraryPages);
 
 $conversationId = AssistantService::conversationId();
 
@@ -65,7 +68,7 @@ require __DIR__ . '/../includes/header.php';
                             No chats yet. Start a conversation to save it here.
                         </p>
                     <?php else: ?>
-                        <?php foreach ($library as $item): ?>
+                        <?php foreach ($libraryPages[0] ?? [] as $item): ?>
                             <div class="assistant-library-item<?= $conversationId === (int) $item['id'] ? ' is-active' : '' ?>"
                                  role="listitem"
                                  data-id="<?= (int) $item['id'] ?>">
@@ -90,6 +93,30 @@ require __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+                <?php if ($libraryPageCount > 1): ?>
+                <div class="assistant-library-pagination" id="assistantLibraryPagination">
+                    <button type="button" class="assistant-library-page-btn" id="assistantLibraryPrev" disabled aria-label="Previous chats">
+                        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                    </button>
+                    <span class="assistant-library-page-label" id="assistantLibraryPageLabel" aria-live="polite">1 / <?= $libraryPageCount ?></span>
+                    <button type="button" class="assistant-library-page-btn" id="assistantLibraryNext"<?= $libraryPageCount <= 1 ? ' disabled' : '' ?> aria-label="Next chats">
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <?php else: ?>
+                <div class="assistant-library-pagination d-none" id="assistantLibraryPagination" hidden>
+                    <button type="button" class="assistant-library-page-btn" id="assistantLibraryPrev" disabled aria-label="Previous chats">
+                        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                    </button>
+                    <span class="assistant-library-page-label" id="assistantLibraryPageLabel" aria-live="polite">1 / 1</span>
+                    <button type="button" class="assistant-library-page-btn" id="assistantLibraryNext" disabled aria-label="Next chats">
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <?php endif; ?>
+                <?php if ($library !== []): ?>
+                <script type="application/json" id="assistantLibraryData"><?= json_encode($library, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </aside>

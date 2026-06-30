@@ -68,33 +68,48 @@ require __DIR__ . '/../includes/header.php';
                     <?php else: ?>
                         <?php foreach ($companies as $company): ?>
                             <?php
+                            $companyId = (int) $company['id'];
                             $displayName = trim((string) ($company['brand_name'] ?? ''));
                             if ($displayName === '') {
                                 $displayName = (string) ($company['name'] ?? '');
                             }
+                            $isActiveWorkspace = $companyId === $activeId;
+                            $canDelete = CompanyService::canDelete($companyId);
                             ?>
-                            <tr<?= (int) $company['id'] === $activeId ? ' class="table-active"' : '' ?>>
+                            <tr<?= $isActiveWorkspace ? ' class="company-row-current"' : '' ?>>
                                 <td>
                                     <strong><?= e($displayName) ?></strong>
-                                    <?php if ((int) $company['id'] === $activeId): ?>
-                                        <span class="badge bg-primary ms-2">Active</span>
+                                    <?php if ($isActiveWorkspace): ?>
+                                        <span class="badge bg-primary ms-2">Current</span>
                                     <?php endif; ?>
-                                    <div class="small text-muted"><?= e($company['slug']) ?></div>
                                 </td>
                                 <td><?= (int) ($company['client_count'] ?? 0) ?></td>
                                 <td><?= (int) ($company['case_count'] ?? 0) ?></td>
-                                <td><?= e(ucfirst((string) ($company['status'] ?? 'active'))) ?></td>
+                                <td><span class="text-success">Active</span></td>
                                 <td class="text-end">
-                                    <?php if ((int) $company['id'] !== $activeId): ?>
-                                        <form method="post" action="<?= url('actions/switch-company.php') ?>" class="d-inline">
-                                            <?= CSRF::field() ?>
-                                            <input type="hidden" name="company_id" value="<?= (int) $company['id'] ?>">
-                                            <input type="hidden" name="return" value="<?= e(currentAdminReturn()) ?>">
-                                            <button type="submit" class="btn btn-soft btn-sm">Switch</button>
-                                        </form>
-                                    <?php else: ?>
-                                        <a href="<?= url('pages/settings.php?tab=branding') ?>" class="btn btn-soft btn-sm">Settings</a>
-                                    <?php endif; ?>
+                                    <div class="company-actions d-inline-flex flex-wrap gap-1 justify-content-end">
+                                        <?php if (!$isActiveWorkspace): ?>
+                                            <form method="post" action="<?= url('actions/switch-company.php') ?>" class="d-inline">
+                                                <?= CSRF::field() ?>
+                                                <input type="hidden" name="company_id" value="<?= $companyId ?>">
+                                                <input type="hidden" name="return" value="<?= e(currentAdminReturn()) ?>">
+                                                <button type="submit" class="btn btn-soft btn-sm">Switch</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <a href="<?= url('pages/settings.php?tab=branding') ?>" class="btn btn-soft btn-sm">Settings</a>
+                                        <?php endif; ?>
+
+                                        <?php if ($canDelete): ?>
+                                            <button type="button"
+                                                    class="btn btn-soft-danger btn-sm company-delete-btn"
+                                                    title="Delete company and all related data"
+                                                    data-company-id="<?= $companyId ?>"
+                                                    data-company-name="<?= e($displayName) ?>"
+                                                    data-confirm-message="<?= e(CompanyService::deleteConfirmMessage($companyId, $displayName)) ?>">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -105,4 +120,61 @@ require __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<?php require __DIR__ . '/../includes/footer.php'; ?>
+<div class="modal fade" id="companyDeleteModal" tabindex="-1" aria-labelledby="companyDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content company-delete-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title text-danger" id="companyDeleteModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Delete company?
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <div class="company-delete-modal__alert mb-3" role="alert">
+                    <strong>Warning:</strong> This action is permanent and cannot be undone.
+                </div>
+                <p class="mb-2 company-delete-modal__message" id="companyDeleteModalMessage"></p>
+                <p class="text-muted small mb-0">All clients, cases, staff, documents, and settings for this workspace will be removed.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="<?= url('actions/company-action.php') ?>" id="companyDeleteForm">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="delete_company">
+                    <input type="hidden" name="company_id" id="companyDeleteId" value="">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i> Yes, delete company
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
+$pageScripts = <<<'HTML'
+<script>
+(function() {
+    var modalEl = document.getElementById("companyDeleteModal");
+    if (!modalEl || typeof bootstrap === "undefined") return;
+
+    var modal = new bootstrap.Modal(modalEl);
+    var messageEl = document.getElementById("companyDeleteModalMessage");
+    var idInput = document.getElementById("companyDeleteId");
+
+    document.querySelectorAll(".company-delete-btn").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+            if (messageEl) {
+                messageEl.textContent = btn.dataset.confirmMessage || "";
+            }
+            if (idInput) {
+                idInput.value = btn.dataset.companyId || "";
+            }
+            modal.show();
+        });
+    });
+})();
+</script>
+HTML;
+
+require __DIR__ . '/../includes/footer.php';

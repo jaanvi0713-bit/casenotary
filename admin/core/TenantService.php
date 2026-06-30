@@ -107,7 +107,6 @@ class TenantService
             'SELECT c.id, COALESCE(NULLIF(TRIM(cs.company_name), ""), c.name) AS name, c.slug
              FROM companies c
              LEFT JOIN company_settings cs ON cs.company_id = c.id
-             WHERE c.status = "active"
              ORDER BY name ASC'
         );
     }
@@ -137,7 +136,7 @@ class TenantService
             return false;
         }
 
-        return (bool) Database::fetch('SELECT id FROM companies WHERE id = ? AND status = "active"', [$companyId]);
+        return (bool) Database::fetch('SELECT id FROM companies WHERE id = ?', [$companyId]);
     }
 
     public static function defaultCompanyId(): int
@@ -172,7 +171,7 @@ class TenantService
         }
 
         $row = Database::fetch(
-            'SELECT slug FROM companies WHERE id = ? AND status = "active" LIMIT 1',
+            'SELECT slug FROM companies WHERE id = ? LIMIT 1',
             [$companyId]
         );
 
@@ -187,7 +186,7 @@ class TenantService
         }
 
         $row = Database::fetch(
-            'SELECT id FROM companies WHERE slug = ? AND status = "active" LIMIT 1',
+            'SELECT id FROM companies WHERE slug = ? LIMIT 1',
             [$slug]
         );
 

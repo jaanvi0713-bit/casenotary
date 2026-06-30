@@ -40,6 +40,12 @@ $preferencesReady = NotificationPreferenceService::columnExists();
 $preferencesAction = url('actions/notification-action.php');
 $logoUrl    = companyLogoUrl($settings);
 $faviconUrl = companyFaviconUrl($settings);
+$workspaceSlug = TenantService::isEnabled()
+    ? CompanyService::currentSlug(TenantService::id())
+    : '';
+$clientLoginPreview = $workspaceSlug !== ''
+    ? clientLoginUrl(TenantService::id())
+    : clientLoginUrl();
 
 if ($tab === 'branding') {
     $pageStyles = '<link href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" rel="stylesheet">';
@@ -372,6 +378,23 @@ require __DIR__ . '/../includes/header.php';
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
+                                <?php if (TenantService::isEnabled()): ?>
+                                <div class="col-md-8">
+                                    <label class="form-label">Workspace ID</label>
+                                    <input type="text"
+                                           name="company_slug"
+                                           class="form-control"
+                                           value="<?= e($workspaceSlug) ?>"
+                                           pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                                           title="Lowercase letters, numbers, and hyphens only">
+                                    <div class="form-text">
+                                        Used in client portal login links. Update this when you rename the company so links stay clear.
+                                        <?php if ($clientLoginPreview !== ''): ?>
+                                            <span class="d-block mt-1"><a href="<?= e($clientLoginPreview) ?>" target="_blank" rel="noopener"><?= e($clientLoginPreview) ?></a></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
                                 <div class="col-md-4">
                                     <label class="form-label">Primary Color</label>
                                     <input type="color" name="primary_color" class="form-control form-control-color w-100" value="<?= e($settings['primary_color']) ?>">
@@ -849,13 +872,57 @@ $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/c
     var cropper = null;
     var croppedFile = null;
     var pendingCropFile = false;
-    var aspectRatio = 1;
+    var isSquareCrop = true;
 
     function destroyCropper() {
         if (cropper) {
             cropper.destroy();
             cropper = null;
         }
+    }
+
+    function getExportCanvasOptions() {
+        if (!cropper) return null;
+        if (isSquareCrop) {
+            return { width: 512, height: 512, imageSmoothingQuality: "high" };
+        }
+        var crop = cropper.getData(true);
+        var w = Math.max(1, Math.round(crop.width));
+        var h = Math.max(1, Math.round(crop.height));
+        var maxEdge = 512;
+        if (Math.max(w, h) > maxEdge) {
+            var scale = maxEdge / Math.max(w, h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+        }
+        return { width: w, height: h, imageSmoothingQuality: "high" };
+    }
+
+    function getPreviewCanvasOptions() {
+        var exportOpts = getExportCanvasOptions();
+        if (!exportOpts) return null;
+        var w = exportOpts.width;
+        var h = exportOpts.height;
+        var max = 128;
+        if (Math.max(w, h) > max) {
+            var scale = max / Math.max(w, h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+        }
+        return { width: w, height: h, imageSmoothingQuality: "high" };
+    }
+
+    function maximizeSquareCrop() {
+        if (!cropper || !isSquareCrop) return;
+        var image = cropper.getImageData();
+        var size = Math.min(image.naturalWidth, image.naturalHeight);
+        if (!size) return;
+        cropper.setData({
+            x: Math.max(0, (image.naturalWidth - size) / 2),
+            y: Math.max(0, (image.naturalHeight - size) / 2),
+            width: size,
+            height: size
+        });
     }
 
     function setPreviewImage(container, dataUrl) {
@@ -870,10 +937,13 @@ $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/c
 
     function updateLivePreviews() {
         if (!cropper) return;
-        var square = cropper.getCroppedCanvas({ width: 128, height: 128, imageSmoothingQuality: "high" });
-        var auth = cropper.getCroppedCanvas({ width: 128, height: 128, imageSmoothingQuality: "high" });
-        if (square) setPreviewImage(liveSidebar, square.toDataURL("image/png"));
-        if (auth) setPreviewImage(liveAuth, auth.toDataURL("image/png"));
+        var opts = getPreviewCanvasOptions();
+        if (!opts) return;
+        var canvas = cropper.getCroppedCanvas(opts);
+        if (!canvas) return;
+        var dataUrl = canvas.toDataURL("image/png");
+        setPreviewImage(liveSidebar, dataUrl);
+        setPreviewImage(liveAuth, dataUrl);
     }
 
     function initCropper(src) {
@@ -881,15 +951,27 @@ $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/c
         cropImg.src = src;
         cropImg.onload = function() {
             cropper = new Cropper(cropImg, {
-                aspectRatio: aspectRatio || NaN,
+                aspectRatio: isSquareCrop ? 1 : NaN,
                 viewMode: 1,
-                dragMode: "move",
-                autoCropArea: 0.9,
+                dragMode: isSquareCrop ? "move" : "crop",
+                autoCropArea: 1,
                 responsive: true,
                 background: false,
-                crop: updateLivePreviews
+                movable: true,
+                zoomable: true,
+                scalable: false,
+                rotatable: false,
+                checkOrientation: true,
+                minCropBoxWidth: 24,
+                minCropBoxHeight: 24,
+                crop: updateLivePreviews,
+                ready: function() {
+                    if (isSquareCrop) {
+                        maximizeSquareCrop();
+                    }
+                    updateLivePreviews();
+                }
             });
-            updateLivePreviews();
         };
     }
 
@@ -933,9 +1015,13 @@ $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/c
             document.querySelectorAll("[data-logo-aspect]").forEach(function(b) { b.classList.remove("active"); });
             btn.classList.add("active");
             var val = parseFloat(btn.getAttribute("data-logo-aspect"));
-            aspectRatio = val > 0 ? val : NaN;
+            isSquareCrop = val > 0;
             if (cropper) {
-                cropper.setAspectRatio(aspectRatio);
+                cropper.setAspectRatio(isSquareCrop ? 1 : NaN);
+                cropper.setDragMode(isSquareCrop ? "move" : "crop");
+                if (isSquareCrop) {
+                    maximizeSquareCrop();
+                }
                 updateLivePreviews();
             }
         });
@@ -943,11 +1029,9 @@ $pageScripts = '<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/c
 
     applyBtn.addEventListener("click", function() {
         if (!cropper) return;
-        var canvas = cropper.getCroppedCanvas({
-            width: 512,
-            height: 512,
-            imageSmoothingQuality: "high"
-        });
+        var canvasOpts = getExportCanvasOptions();
+        if (!canvasOpts) return;
+        var canvas = cropper.getCroppedCanvas(canvasOpts);
         if (!canvas) return;
 
         canvas.toBlob(function(blob) {

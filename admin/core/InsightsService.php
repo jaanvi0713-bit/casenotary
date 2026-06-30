@@ -320,7 +320,7 @@ class InsightsService
 
         return [
             ['name' => 'Active (90d)', 'count' => $withRecentCase, 'color' => '#10b981', 'desc' => 'Clients with case activity in last 90 days'],
-            ['name' => 'New this month', 'count' => $newMonth, 'color' => '#3aafa9', 'desc' => 'Recently registered clients'],
+            ['name' => 'New this month', 'count' => $newMonth, 'color' => getCompanySettings()['primary_color'] ?? '#3aafa9', 'desc' => 'Recently registered clients'],
             ['name' => 'Dormant', 'count' => $dormant, 'color' => '#64748b', 'desc' => 'No recent case activity — re-engagement opportunity'],
         ];
     }

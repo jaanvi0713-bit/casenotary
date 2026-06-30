@@ -192,6 +192,17 @@
     border-top-color: var(--border-subtle);
 }
 
+[data-theme="dark"] .assistant-library-page-btn {
+    background: var(--surface-raised);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .assistant-library-pagination {
+    background: var(--surface);
+    border-top-color: var(--border-subtle);
+}
+
 [data-theme="dark"] .assistant-input-area {
     background: var(--surface) !important;
     border-top-color: var(--border-subtle);
@@ -310,6 +321,25 @@
 [data-theme="dark"] .table-hover tbody tr:hover {
     background: var(--gray-100) !important;
     color: var(--text-body);
+}
+
+[data-theme="dark"] .table tbody tr.company-row-current > td {
+    background-color: color-mix(in srgb, var(--primary) 22%, var(--surface-raised)) !important;
+    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+[data-theme="dark"] .table-hover tbody tr.company-row-current:hover > td {
+    background-color: color-mix(in srgb, var(--primary) 30%, var(--surface-raised)) !important;
+}
+
+[data-theme="dark"] .company-delete-modal__alert {
+    background-color: color-mix(in srgb, var(--primary) 20%, var(--surface-raised));
+    border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] .company-delete-modal__alert strong {
+    color: var(--primary-bright);
 }
 
 [data-theme="dark"] .notification-item.unread,
@@ -928,21 +958,25 @@
 
 /* Scrollbars (webkit) */
 [data-theme="dark"] ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-track {
-    background: var(--surface-sunken);
+    background: transparent;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-thumb {
-    background: var(--gray-300);
-    border-radius: 4px;
+    background: color-mix(in srgb, var(--primary) 70%, transparent);
+    border-radius: 999px;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-400);
+    background: var(--primary);
+}
+
+[data-theme="dark"] * {
+    scrollbar-color: var(--primary) transparent;
 }
 
 /* Case workspace — remaining semantic tones */

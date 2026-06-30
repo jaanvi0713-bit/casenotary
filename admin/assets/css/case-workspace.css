@@ -383,8 +383,6 @@
 .case-activity-scroll {
     max-height: 360px;
     overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
 }
 
 .case-note-item {

@@ -43,6 +43,20 @@ $pageScripts = '<script>
 document.addEventListener("DOMContentLoaded", function() {
     const primary = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#3aafa9";
     const secondary = getComputedStyle(document.documentElement).getPropertyValue("--secondary").trim() || "#00182c";
+    const primaryDark = getComputedStyle(document.documentElement).getPropertyValue("--primary-dark").trim() || primary;
+    function primaryRgb() {
+        var hex = (primary || "#3aafa9").replace("#", "");
+        if (hex.length === 3) {
+            hex = hex.split("").map(function(c) { return c + c; }).join("");
+        }
+        var n = parseInt(hex, 16);
+        if (isNaN(n)) return { r: 58, g: 175, b: 169 };
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+    function primaryRgba(alpha) {
+        var rgb = primaryRgb();
+        return "rgba(" + rgb.r + ", " + rgb.g + ", " + rgb.b + ", " + alpha + ")";
+    }
     const currencySymbol = ' . json_encode(currencySymbol()) . ';
     const formatMoney = function(v) {
         return currencySymbol + " " + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -77,7 +91,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!donutCtx || bizCaseDonutChart) return;
 
         var statusCounts = ' . json_encode(array_values($caseStatusBreakdown)) . ';
-        var statusColors = ["#6366f1", "#3aafa9", "#3b82f6", "#10b981", "#64748b"];
+        var statusColors = ["#6366f1", primary, "#3b82f6", "#10b981", "#64748b"];
         var statusLabels = ["Pending", "In Progress", "Waiting for Client", "Completed", "Closed"];
         var cardEl = donutCtx.closest(".biz-mini-chart-card");
         var donutBorder = cardEl ? getComputedStyle(cardEl).backgroundColor : "#fff";
@@ -219,7 +233,7 @@ document.addEventListener("DOMContentLoaded", function() {
             type: "bar",
             data: {
                 labels: ' . json_encode($cohortChartData['labels']) . ',
-                datasets: [{ label: "New clients", data: ' . json_encode($cohortChartData['data']) . ', backgroundColor: primary, hoverBackgroundColor: "#2d9a94", borderRadius: 6 }]
+                datasets: [{ label: "New clients", data: ' . json_encode($cohortChartData['data']) . ', backgroundColor: primary, hoverBackgroundColor: primaryDark, borderRadius: 6 }]
             },
             options: {
                 responsive: true,
@@ -247,8 +261,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var sparkCtx = document.getElementById("bizRevenueChart");
     if (sparkCtx && hasWeeklyChart) {
-        var chartPayColor = "#14b8a6";
-        var chartPayFill = "rgba(20, 184, 166, 0.18)";
+        var chartPayColor = primary;
+        var chartPayFill = primaryRgba(0.18);
         var chartInvColor = "#6366f1";
         var chartGrid = isDarkTheme ? "rgba(148, 163, 184, 0.3)" : "rgba(148, 163, 184, 0.35)";
         var chartTick = isDarkTheme ? "#ffffff" : "#64748b";
@@ -264,8 +278,8 @@ document.addEventListener("DOMContentLoaded", function() {
                         borderColor: chartPayColor,
                         backgroundColor: function(ctx) {
                             var g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 160);
-                            g.addColorStop(0, "rgba(20, 184, 166, 0.35)");
-                            g.addColorStop(1, "rgba(20, 184, 166, 0.02)");
+                            g.addColorStop(0, primaryRgba(0.35));
+                            g.addColorStop(1, primaryRgba(0.02));
                             return g;
                         },
                         borderWidth: 3,
@@ -431,7 +445,7 @@ document.addEventListener("DOMContentLoaded", function() {
             data: {
                 labels: displayLabels,
                 datasets: [
-                    { label: "Base", data: forecast.base || [], borderColor: "#3aafa9", backgroundColor: "rgba(58,175,169,0.12)", fill: true, tension: 0.35, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4 },
+                    { label: "Base", data: forecast.base || [], borderColor: primary, backgroundColor: primaryRgba(0.12), fill: true, tension: 0.35, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4 },
                     { label: "Best", data: forecast.best || [], borderColor: "#10b981", borderDash: [6, 4], tension: 0.35, borderWidth: 2, pointRadius: 0, fill: false },
                     { label: "Worst", data: forecast.worst || [], borderColor: "#f59e0b", borderDash: [4, 4], tension: 0.35, borderWidth: 2, pointRadius: 0, fill: false }
                 ]

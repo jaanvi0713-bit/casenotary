@@ -390,10 +390,17 @@ class SettingsService
         );
 
         if ($isBranding && TenantService::isEnabled()) {
-            CompanyService::syncDisplayName(
-                (int) ($settings['company_id'] ?? TenantService::id()),
-                (string) ($row['company_name'] ?? '')
-            );
+            $companyId = (int) ($settings['company_id'] ?? TenantService::id());
+            $displayName = (string) ($row['company_name'] ?? '');
+
+            CompanyService::syncDisplayName($companyId, $displayName);
+
+            $slugInput = trim((string) ($data['company_slug'] ?? ''));
+            if ($slugInput === '') {
+                $slugInput = $displayName;
+            }
+
+            CompanyService::updateSlug($companyId, $slugInput);
         }
 
         self::clearCache();

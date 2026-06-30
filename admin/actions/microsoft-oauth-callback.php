@@ -18,6 +18,11 @@ if ($code === '') {
     redirect('pages/settings.php?tab=email');
 }
 
+if (!class_exists('MicrosoftOAuthService')) {
+    flash('error', 'Microsoft 365 email connection is not configured on this server.');
+    redirect('pages/settings.php?tab=email');
+}
+
 try {
     MicrosoftOAuthService::handleCallback($code, $state);
     flash('success', 'Microsoft 365 email connected successfully.');

@@ -28,12 +28,23 @@ if ($relativeRoot === '' && $projectRoot) {
 
 $baseUrl = $scheme . '://' . $host . $relativeRoot;
 
+$hostName = strtolower((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+$isLocalHost = $hostName === 'localhost'
+    || $hostName === '127.0.0.1'
+    || str_ends_with($hostName, '.local')
+    || str_ends_with($hostName, '.test');
+
 return [
     'app_name'    => 'Case Notary Platform',
     'app_url'     => $baseUrl . '/admin',
     'client_url'  => $baseUrl . '/client',
     'timezone'    => 'America/New_York',
-    'debug'       => true,
+    'debug'       => filter_var(
+        getenv('APP_DEBUG') !== false && getenv('APP_DEBUG') !== ''
+            ? getenv('APP_DEBUG')
+            : ($isLocalHost ? 'true' : 'false'),
+        FILTER_VALIDATE_BOOLEAN
+    ),
 
     'currency' => [
         'code'   => 'GBP',

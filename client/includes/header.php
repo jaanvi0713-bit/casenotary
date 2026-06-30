@@ -28,6 +28,7 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
         :root {
             --primary: <?= e($company['primary_color']) ?>;
             --primary-light: color-mix(in srgb, var(--primary) 12%, transparent);
+            --primary-dark: color-mix(in srgb, var(--primary) 52%, black);
             --secondary: <?= e($company['secondary_color']) ?>;
             --dark-accent: <?= e($company['dark_accent']) ?>;
             --font-family: <?= companyFontCssStack($company) ?>;

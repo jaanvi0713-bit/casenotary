@@ -245,7 +245,7 @@ $cohorts = $hub['client_cohorts'] ?? ['labels' => [], 'data' => []];
 
     <p class="biz-section-label">Case pipeline funnel</p>
     <div class="biz-funnel">
-        <?php $funnelColors = ['#14b8a6', '#3b82f6', '#6366f1', '#f59e0b', '#10b981']; ?>
+        <?php $funnelColors = [getCompanySettings()['primary_color'] ?? '#3aafa9', '#3b82f6', '#6366f1', '#f59e0b', '#10b981']; ?>
         <?php foreach ($hub['case_funnel'] ?? [] as $i => $step): ?>
         <div class="biz-funnel-step">
             <div class="biz-funnel-bar" style="width: <?= max(8, (int) $step['pct']) ?>%; background: <?= e($funnelColors[$i % count($funnelColors)]) ?>"></div>
