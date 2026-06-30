@@ -379,7 +379,7 @@ require __DIR__ . '/../includes/header.php';
                                     </select>
                                 </div>
                                 <?php if (TenantService::isEnabled()): ?>
-                                <div class="col-md-8">
+                                <div class="col-12">
                                     <label class="form-label">Workspace ID</label>
                                     <input type="text"
                                            name="company_slug"
