@@ -84,13 +84,18 @@ if ($role === 'user'): ?>
 
             <?php $draft = $turn['draft']; ?>
 
-            <div class="assistant-draft-card" data-draft-id="<?= e((string) ($draft['id'] ?? '')) ?>">
+            <?php
+            $draftAction = (string) ($draft['action'] ?? '');
+            $hasEditable = AssistantDraftEdit::editableKeys($draftAction) !== [];
+            ?>
+
+            <div class="assistant-draft-card" data-draft-id="<?= e((string) ($draft['id'] ?? '')) ?>" data-draft-action="<?= e($draftAction) ?>">
 
                 <div class="assistant-draft-card__header">
 
                     <span class="assistant-draft-card__badge">Draft preview</span>
 
-                    <span class="assistant-draft-card__action"><?= e(str_replace('_', ' ', (string) ($draft['action'] ?? 'action'))) ?></span>
+                    <span class="assistant-draft-card__action"><?= e(str_replace('_', ' ', $draftAction ?: 'action')) ?></span>
 
                 </div>
 
@@ -98,11 +103,29 @@ if ($role === 'user'): ?>
 
                     <?php foreach (($draft['preview'] ?? []) as $label => $value): ?>
 
-                        <div class="assistant-draft-row">
+                        <?php $isEditable = AssistantDraftEdit::isEditableKey($draftAction, (string) $label); ?>
+
+                        <div class="assistant-draft-row<?= $isEditable ? ' assistant-draft-row--editable' : '' ?>">
 
                             <dt><?= e((string) $label) ?></dt>
 
-                            <dd><?= e((string) $value) ?></dd>
+                            <?php if ($isEditable && !Auth::isReadOnly()): ?>
+
+                                <?php if ((string) $label === 'Description'): ?>
+
+                                    <dd><textarea class="form-control form-control-sm assistant-draft-input" rows="2" data-preview-key="<?= e((string) $label) ?>"><?= e((string) $value) ?></textarea></dd>
+
+                                <?php else: ?>
+
+                                    <dd><input type="text" class="form-control form-control-sm assistant-draft-input" data-preview-key="<?= e((string) $label) ?>" value="<?= e((string) $value) ?>"></dd>
+
+                                <?php endif; ?>
+
+                            <?php else: ?>
+
+                                <dd><?= e((string) $value) ?></dd>
+
+                            <?php endif; ?>
 
                         </div>
 
@@ -110,11 +133,25 @@ if ($role === 'user'): ?>
 
                 </dl>
 
-                <button type="button" class="btn btn-primary btn-sm assistant-confirm-btn" data-draft-id="<?= e((string) ($draft['id'] ?? '')) ?>"<?= Auth::isReadOnly() ? ' disabled title="Read-only account"' : '' ?>>
+                <div class="assistant-draft-card__actions">
 
-                    Confirm
+                    <?php if ($hasEditable && !Auth::isReadOnly()): ?>
 
-                </button>
+                        <button type="button" class="btn btn-soft btn-sm assistant-draft-save-btn" data-draft-id="<?= e((string) ($draft['id'] ?? '')) ?>">
+
+                            Save changes
+
+                        </button>
+
+                    <?php endif; ?>
+
+                    <button type="button" class="btn btn-primary btn-sm assistant-confirm-btn" data-draft-id="<?= e((string) ($draft['id'] ?? '')) ?>"<?= Auth::isReadOnly() ? ' disabled title="Read-only account"' : '' ?>>
+
+                        Confirm
+
+                    </button>
+
+                </div>
 
             </div>
 

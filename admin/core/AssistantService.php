@@ -273,6 +273,29 @@ class AssistantService
             return $scheduleResult;
         }
 
+        if (AssistantClientCreate::isActive()) {
+            if (preg_match('/\b(cancel|stop|never mind|nevermind|abort)\b/i', strtolower($message))) {
+                AssistantClientCreate::clear();
+
+                return [
+                    'content' => 'New client setup cancelled. Say **create new client** or **create a case for [name]** when you are ready.',
+                    'type' => 'text',
+                ];
+            }
+
+            $wizardResult = AssistantClientCreate::handle($message);
+            $wizardResult['type'] = $wizardResult['type'] ?? 'onboarding';
+
+            return $wizardResult;
+        }
+
+        $draftEdit = AssistantDraftEdit::tryEditFromMessage($message);
+        if ($draftEdit !== null) {
+            $draftEdit['type'] = $draftEdit['type'] ?? 'text';
+
+            return $draftEdit;
+        }
+
         $sendReminderType = AssistantReminders::detectType($message);
         if ($sendReminderType !== null) {
             $reminderResult = AssistantReminders::handle($sendReminderType, $message);
@@ -458,6 +481,32 @@ class AssistantService
         AssistantActions::forgetDraft($draftId);
     }
 
+    /** @param array<string, mixed> $draft */
+    public static function replaceDraftInHistory(string $draftId, array $draft): void
+    {
+        $_SESSION['assistant_drafts'][$draftId] = $draft;
+
+        $history = $_SESSION[self::SESSION_KEY] ?? [];
+        if (!is_array($history)) {
+            return;
+        }
+
+        for ($i = count($history) - 1; $i >= 0; $i--) {
+            if (($history[$i]['role'] ?? '') !== 'assistant') {
+                continue;
+            }
+
+            if ((string) ($history[$i]['draft']['id'] ?? '') !== $draftId) {
+                continue;
+            }
+
+            $history[$i]['draft'] = $draft;
+            $_SESSION[self::SESSION_KEY] = array_values($history);
+            self::persistConversation();
+            break;
+        }
+    }
+
     /**
      * @param array{content: string, type?: string, draft?: array<string, mixed>, alerts?: list<array<string, string>>} $result
      * @param list<array{name?: string, kind?: string}> $attachments
@@ -632,6 +681,10 @@ class AssistantService
 
     public static function messageOverridesActiveWizards(string $message): bool
     {
+        if (AssistantClientCreate::isActive() || AssistantAppointmentSchedule::isActive()) {
+            return false;
+        }
+
         $message = assistantNormalizeUserMessage($message);
         if ($message === '') {
             return false;

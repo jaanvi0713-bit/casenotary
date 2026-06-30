@@ -259,6 +259,12 @@
     color: var(--text-body);
 }
 
+[data-theme="dark"] .assistant-draft-input {
+    background: var(--gray-800);
+    border-color: var(--border-subtle);
+    color: var(--text-body);
+}
+
 [data-theme="dark"] .biz-mini-chart-card,
 [data-theme="dark"] .biz-sparkline-card,
 [data-theme="dark"] .biz-chart-card {

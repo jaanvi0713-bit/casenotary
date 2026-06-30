@@ -3812,6 +3812,21 @@ body.page-assistant .assistant-layout {
     margin: 0;
 }
 
+.assistant-draft-row--editable dd {
+    min-width: 0;
+}
+
+.assistant-draft-input {
+    width: 100%;
+}
+
+.assistant-draft-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .assistant-alerts {
     margin-top: 0.75rem;
     display: grid;

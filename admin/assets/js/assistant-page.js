@@ -718,6 +718,40 @@
 
 
 
+    function isDraftFieldEditable(draft, key) {
+        if (!draft) {
+            return false;
+        }
+        if (Array.isArray(draft.editable) && draft.editable.length) {
+            return draft.editable.indexOf(key) !== -1;
+        }
+        return false;
+    }
+
+    function collectDraftFields(card) {
+        var fields = {};
+        card.querySelectorAll(".assistant-draft-input").forEach(function (input) {
+            var key = input.getAttribute("data-preview-key");
+            if (!key) {
+                return;
+            }
+            fields[key] = input.value.trim();
+        });
+        return fields;
+    }
+
+    function applyDraftPreviewToCard(card, draft) {
+        if (!card || !draft || !draft.preview) {
+            return;
+        }
+        Object.keys(draft.preview).forEach(function (key) {
+            var input = card.querySelector('.assistant-draft-input[data-preview-key="' + key.replace(/"/g, '\\"') + '"]');
+            if (input) {
+                input.value = draft.preview[key];
+            }
+        });
+    }
+
     function renderDraft(draft) {
 
         if (!draft || !draft.id) {
@@ -733,6 +767,7 @@
         card.className = "assistant-draft-card";
 
         card.setAttribute("data-draft-id", draft.id);
+        card.setAttribute("data-draft-action", draft.action || "");
 
 
 
@@ -752,13 +787,41 @@
 
         dl.className = "assistant-draft-card__fields";
 
+        var hasEditable = false;
+
         Object.keys(draft.preview || {}).forEach(function (key) {
 
             var row = document.createElement("div");
 
-            row.className = "assistant-draft-row";
+            var editable = isDraftFieldEditable(draft, key);
+            row.className = "assistant-draft-row" + (editable ? " assistant-draft-row--editable" : "");
 
-            row.innerHTML = "<dt>" + escapeHtml(key) + "</dt><dd>" + escapeHtml(draft.preview[key]) + "</dd>";
+            var dt = document.createElement("dt");
+            dt.textContent = key;
+            row.appendChild(dt);
+
+            var dd = document.createElement("dd");
+            if (editable && !readOnly) {
+                hasEditable = true;
+                if (key === "Description") {
+                    var textarea = document.createElement("textarea");
+                    textarea.className = "form-control form-control-sm assistant-draft-input";
+                    textarea.rows = 2;
+                    textarea.setAttribute("data-preview-key", key);
+                    textarea.value = draft.preview[key] || "";
+                    dd.appendChild(textarea);
+                } else {
+                    var input = document.createElement("input");
+                    input.type = "text";
+                    input.className = "form-control form-control-sm assistant-draft-input";
+                    input.setAttribute("data-preview-key", key);
+                    input.value = draft.preview[key] || "";
+                    dd.appendChild(input);
+                }
+            } else {
+                dd.textContent = draft.preview[key] || "";
+            }
+            row.appendChild(dd);
 
             dl.appendChild(row);
 
@@ -767,6 +830,18 @@
         card.appendChild(dl);
 
 
+
+        var actions = document.createElement("div");
+        actions.className = "assistant-draft-card__actions";
+
+        if (hasEditable && !readOnly) {
+            var saveBtn = document.createElement("button");
+            saveBtn.type = "button";
+            saveBtn.className = "btn btn-soft btn-sm assistant-draft-save-btn";
+            saveBtn.setAttribute("data-draft-id", draft.id);
+            saveBtn.textContent = "Save changes";
+            actions.appendChild(saveBtn);
+        }
 
         var confirmBtn = document.createElement("button");
 
@@ -782,7 +857,8 @@
             confirmBtn.title = "Read-only account";
         }
 
-        card.appendChild(confirmBtn);
+        actions.appendChild(confirmBtn);
+        card.appendChild(actions);
 
 
 
@@ -1712,6 +1788,45 @@
                         }
                     });
             }
+
+            return;
+        }
+
+        var saveBtn = event.target.closest(".assistant-draft-save-btn");
+        if (saveBtn && !busy) {
+            var saveDraftId = saveBtn.getAttribute("data-draft-id");
+            var saveCard = saveBtn.closest(".assistant-draft-card");
+            if (!saveDraftId || !saveCard || saveBtn.disabled) {
+                return;
+            }
+
+            var fields = collectDraftFields(saveCard);
+            if (!Object.keys(fields).length) {
+                return;
+            }
+
+            saveBtn.disabled = true;
+            setBusy(true);
+
+            postJson({ action: "update_draft", draft_id: saveDraftId, fields: fields })
+                .then(function (result) {
+                    if (!result.ok || !result.data.success) {
+                        throw new Error((result.data && result.data.message) || "Could not save draft.");
+                    }
+
+                    if (result.data.draft_update && saveCard) {
+                        applyDraftPreviewToCard(saveCard, result.data.draft_update);
+                    }
+
+                    handleChatResponse(result);
+                })
+                .catch(function (error) {
+                    window.alert(error.message || "Could not save draft.");
+                })
+                .finally(function () {
+                    saveBtn.disabled = false;
+                    setBusy(false);
+                });
 
             return;
         }

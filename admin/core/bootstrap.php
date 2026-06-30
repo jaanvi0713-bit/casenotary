@@ -60,6 +60,7 @@ require_once __DIR__ . '/AssistantMessageTolerance.php';
 require_once __DIR__ . '/AssistantRouter.php';
 require_once __DIR__ . '/AssistantDashboard.php';
 require_once __DIR__ . '/AssistantActions.php';
+require_once __DIR__ . '/AssistantDraftEdit.php';
 require_once __DIR__ . '/AssistantAppointmentSchedule.php';
 require_once __DIR__ . '/AssistantSearch.php';
 require_once __DIR__ . '/AssistantDocuments.php';

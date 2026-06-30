@@ -488,6 +488,60 @@ try {
 
 
 
+    if ($action === 'update_draft') {
+
+        $draftId = trim((string) ($input['draft_id'] ?? ''));
+
+        if ($draftId === '') {
+
+            throw new InvalidArgumentException('Draft id is required.');
+
+        }
+
+        $fields = $input['fields'] ?? null;
+
+        if (!is_array($fields) || $fields === []) {
+
+            throw new InvalidArgumentException('At least one field is required.');
+
+        }
+
+        $previewUpdates = [];
+
+        foreach ($fields as $label => $value) {
+
+            $previewUpdates[(string) $label] = (string) $value;
+
+        }
+
+        $draft = AssistantDraftEdit::update($draftId, $previewUpdates);
+
+        AssistantService::replaceDraftInHistory($draftId, $draft);
+
+
+
+        echo assistantJsonEncode(array_merge([
+
+            'success'      => true,
+
+            'reply'        => 'Draft updated. Review the changes and click **Confirm** when ready.',
+
+            'type'         => 'text',
+
+            'draft_update' => $draft,
+
+            'messages'     => AssistantService::history(),
+
+            'status'       => AssistantService::status(),
+
+        ], assistantLibraryPayload()));
+
+        exit;
+
+    }
+
+
+
     if ($action !== 'chat') {
 
         http_response_code(400);
@@ -542,6 +596,8 @@ try {
         'type'     => $result['type'] ?? 'text',
 
         'draft'    => $result['draft'] ?? null,
+
+        'draft_update' => $result['draft_update'] ?? null,
 
         'alerts'   => $result['alerts'] ?? [],
 

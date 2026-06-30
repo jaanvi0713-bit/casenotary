@@ -18,7 +18,7 @@ class ClientService
 
     public static function create(array $data, bool $createLogin = false): array
     {
-        $profile = self::validateClientProfile($data);
+        $profile = self::validatedProfile($data);
 
         if (self::emailExists($profile['email'])) {
             throw new RuntimeException('A client with this email already exists.');
@@ -255,6 +255,14 @@ class ClientService
     /**
      * @return array{first_name: string, last_name: string, email: string, phone: string, address: string, city: string, state: string, zip_code: string, country: string}
      */
+    public static function validatedProfile(array $data): array
+    {
+        return self::validateClientProfile($data);
+    }
+
+    /**
+     * @return array{first_name: string, last_name: string, email: string, phone: string, address: string, city: string, state: string, zip_code: string, country: string}
+     */
     private static function validateClientProfile(array $data): array
     {
         $firstName = trim($data['first_name'] ?? '');
@@ -290,6 +298,11 @@ class ClientService
             'zip_code'   => $zipCode,
             'country'    => $country,
         ];
+    }
+
+    public static function emailExistsPublic(string $email, ?int $excludeId = null): bool
+    {
+        return self::emailExists($email, $excludeId);
     }
 
     private static function emailExists(string $email, ?int $excludeId = null): bool

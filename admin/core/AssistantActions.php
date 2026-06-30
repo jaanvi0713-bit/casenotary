@@ -116,13 +116,6 @@ class AssistantActions
             }
         }
 
-        if ($title === '' && $serviceType !== '') {
-            $title = ucfirst($serviceType) . ' — ' . ($clientName !== '' ? $clientName : 'New matter');
-        }
-        if ($title === '') {
-            $title = 'New notary matter';
-        }
-
         $clientId = $clientName !== '' ? assistantResolveClientId($clientName) : null;
         if ($clientId === null) {
             $caseContext = [
@@ -140,6 +133,10 @@ class AssistantActions
                 'content' => assistantCreateCaseMissingClientMessage($clientName !== '' ? $clientName : null),
                 'type' => 'text',
             ];
+        }
+
+        if ($title === '' && $serviceType !== '') {
+            $title = ucfirst($serviceType) . ($clientName !== '' ? ' — ' . $clientName : '');
         }
 
         $client = ClientService::getById($clientId);
@@ -513,15 +510,6 @@ class AssistantActions
         $caseContext = [];
         if (preg_match('/\b(case|matter)\b/i', $message)) {
             $caseContext['create_case'] = true;
-            $extracted = self::extractActionFieldsHeuristic($message, [
-                'service_type' => 'document or deed type',
-                'description' => 'case details or notes',
-            ]);
-            $serviceType = trim((string) ($extracted['service_type'] ?? ''));
-            if ($serviceType !== '') {
-                $caseContext['service_type'] = $serviceType;
-                $caseContext['title'] = ucfirst($serviceType) . ($name !== '' ? ' — ' . $name : '');
-            }
         }
 
         return AssistantClientCreate::begin($caseContext, $name);
@@ -550,6 +538,7 @@ class AssistantActions
             'action' => $action,
             'payload' => $payload,
             'preview' => $preview,
+            'editable' => AssistantDraftEdit::editableKeys($action),
             'created_at' => time(),
         ];
 
@@ -676,10 +665,10 @@ class AssistantActions
         $client = ClientService::getById($clientId);
 
         $caseId = CaseService::createCase([
-            'title'        => (string) ($caseData['title'] ?? 'New notary matter'),
+            'title'        => trim((string) ($caseData['title'] ?? '')),
             'description'  => (string) ($caseData['description'] ?? ''),
             'client_id'    => $clientId,
-            'service_type' => (string) ($caseData['service_type'] ?? 'Notarization'),
+            'service_type' => trim((string) ($caseData['service_type'] ?? '')),
             'service_fee'  => (float) ($caseData['service_fee'] ?? 0),
         ], $adminId);
         $case = CaseService::getCaseById($caseId);
