@@ -27,8 +27,20 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
     <style>
         :root {
             --primary: <?= e($company['primary_color']) ?>;
-            --primary-light: color-mix(in srgb, var(--primary) 12%, transparent);
             --primary-dark: color-mix(in srgb, var(--primary) 52%, black);
+            --primary-deep: color-mix(in srgb, var(--primary) 28%, black);
+            --primary-bright: color-mix(in srgb, var(--primary) 86%, white);
+            --primary-pale: color-mix(in srgb, var(--primary) 46%, white);
+            --primary-light: color-mix(in srgb, var(--primary) 12%, transparent);
+            --primary-glow: color-mix(in srgb, var(--primary) 8%, transparent);
+            --primary-gradient-hero: linear-gradient(
+                135deg,
+                color-mix(in srgb, var(--primary) 28%, black) 0%,
+                color-mix(in srgb, var(--primary) 52%, black) 42%,
+                color-mix(in srgb, var(--primary) 86%, white) 78%,
+                color-mix(in srgb, var(--primary) 46%, white) 100%
+            );
+            --primary-gradient-accent: linear-gradient(90deg, color-mix(in srgb, var(--primary) 52%, black), var(--primary-bright));
             --secondary: <?= e($company['secondary_color']) ?>;
             --dark-accent: <?= e($company['dark_accent']) ?>;
             --font-family: <?= companyFontCssStack($company) ?>;
@@ -36,7 +48,10 @@ $headerCsrfName   = (require __DIR__ . '/../../admin/config/config.php')['securi
         body { font-family: var(--font-family); }
     </style>
 </head>
-<body<?= !empty($pageBodyClass) ? ' class="' . e($pageBodyClass) . '"' : '' ?>>
+<?php
+$clientBodyClass = trim('client-portal' . (!empty($pageBodyClass) ? ' ' . $pageBodyClass : ''));
+?>
+<body class="<?= e($clientBodyClass) ?>">
 <div class="app-wrapper">
     <?php require __DIR__ . '/sidebar.php'; ?>
 

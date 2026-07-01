@@ -2080,3 +2080,139 @@
 [data-theme="dark"] .backup-last-run strong {
     color: var(--text-body);
 }
+
+/* Client portal — dark mode polish */
+[data-theme="dark"] body.client-portal,
+[data-theme="dark"] body.client-portal .main-content,
+[data-theme="dark"] body.client-portal .page-content {
+    background: var(--layout-canvas) !important;
+    color: var(--text-body);
+}
+
+[data-theme="dark"] body.client-portal .sidebar {
+    background: linear-gradient(180deg, var(--secondary) 0%, color-mix(in srgb, var(--secondary) 88%, black) 100%);
+    border-right-color: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+[data-theme="dark"] body.client-portal .sidebar .nav-link.active {
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
+    color: var(--primary-bright);
+}
+
+[data-theme="dark"] body.client-portal .sidebar .nav-link:hover {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: #fff;
+}
+
+[data-theme="dark"] body.client-portal .topbar {
+    background: var(--surface);
+    border-bottom-color: var(--border-default);
+}
+
+[data-theme="dark"] body.client-portal .saas-card,
+[data-theme="dark"] body.client-portal .dash-chart-card,
+[data-theme="dark"] body.client-portal .metric-card {
+    background: var(--surface) !important;
+    border-color: var(--border-default);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+}
+
+[data-theme="dark"] body.client-portal .saas-card-header,
+[data-theme="dark"] body.client-portal .dash-chart-header {
+    border-bottom-color: var(--border-subtle);
+}
+
+[data-theme="dark"] body.client-portal .saas-card-title,
+[data-theme="dark"] body.client-portal .dash-chart-title,
+[data-theme="dark"] body.client-portal .table-primary,
+[data-theme="dark"] body.client-portal .cases-table-link .table-primary {
+    color: #fff;
+}
+
+[data-theme="dark"] body.client-portal .kpi-card::before {
+    opacity: 0.95;
+}
+
+[data-theme="dark"] body.client-portal .kpi-card--primary::before {
+    background: var(--primary-gradient-accent);
+}
+
+[data-theme="dark"] body.client-portal .kpi-card--primary .stat-card-icon {
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
+    color: var(--primary-bright);
+}
+
+[data-theme="dark"] body.client-portal .kpi-card--amber::before {
+    background: linear-gradient(90deg, #b45309, #f59e0b);
+}
+
+[data-theme="dark"] body.client-portal .kpi-card--indigo::before {
+    background: linear-gradient(90deg, #4338ca, #818cf8);
+}
+
+[data-theme="dark"] body.client-portal .kpi-card--blue::before {
+    background: linear-gradient(90deg, #1d4ed8, #38bdf8);
+}
+
+[data-theme="dark"] body.client-portal .stat-card-title,
+[data-theme="dark"] body.client-portal .stat-card-sub,
+[data-theme="dark"] body.client-portal .metric-label {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] body.client-portal .alert-light {
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-raised)) !important;
+    border-color: var(--border-subtle) !important;
+    color: var(--text-body);
+}
+
+[data-theme="dark"] body.client-portal .empty-state,
+[data-theme="dark"] body.client-portal .empty-state-panel {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] body.client-portal .empty-state i,
+[data-theme="dark"] body.client-portal .empty-state-panel i {
+    color: color-mix(in srgb, var(--primary) 55%, var(--text-muted));
+}
+
+[data-theme="dark"] body.client-portal .schedule-list,
+[data-theme="dark"] body.client-portal .schedule-item {
+    border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] body.client-portal .schedule-date {
+    background: color-mix(in srgb, var(--primary) 16%, var(--surface-raised));
+    color: var(--primary-bright);
+}
+
+[data-theme="dark"] body.client-portal .schedule-title {
+    color: #fff;
+}
+
+[data-theme="dark"] body.client-portal .schedule-meta,
+[data-theme="dark"] body.client-portal .table-secondary,
+[data-theme="dark"] body.client-portal .text-muted {
+    color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] body.client-portal .saas-table thead th {
+    background: color-mix(in srgb, var(--primary) 78%, black);
+    color: #fff;
+    border-color: transparent;
+}
+
+[data-theme="dark"] body.client-portal .saas-table tbody tr:hover {
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface-raised));
+}
+
+[data-theme="dark"] body.client-portal .form-control,
+[data-theme="dark"] body.client-portal .form-select {
+    background-color: var(--surface-sunken);
+    border-color: var(--border-default);
+    color: var(--text-body);
+}
+
+[data-theme="dark"] body.client-portal .border-top {
+    border-color: var(--border-subtle) !important;
+}
